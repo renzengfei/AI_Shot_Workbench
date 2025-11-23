@@ -29,23 +29,19 @@ function Shell({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         if (!project) return;
-        const desiredStep = project.currentStep ?? 1;
-        const desiredPath = stepToPath(desiredStep);
-        const pathStep = currentStepFromPath;
-
-        // Always trust store as source of truth; if当前路径与步骤不一致，则跳转到当前步骤
-        if (pathStep !== desiredStep) {
-            if (desiredPath && pathname !== desiredPath) {
-                router.replace(desiredPath);
-            } else {
-                goToStep(desiredStep as WorkflowStep);
-            }
+        // 如果当前 URL 对应的步骤存在，但与 store 不一致，则只同步 store，避免路由来回跳
+        if (currentStepFromPath && project.currentStep !== currentStepFromPath) {
+            goToStep(currentStepFromPath as WorkflowStep);
             return;
         }
 
-        // If route unknown/null, still fallback to desired step path
-        if (!pathStep && desiredPath && pathname !== desiredPath) {
-            router.replace(desiredPath);
+        // 路径未知时，回退到当前步骤对应的路径（默认 step1）
+        if (!currentStepFromPath) {
+            const desiredStep = project.currentStep ?? 1;
+            const desiredPath = stepToPath(desiredStep);
+            if (desiredPath && pathname !== desiredPath) {
+                router.replace(desiredPath);
+            }
         }
     }, [project, currentStepFromPath, goToStep, pathname, router]);
 
