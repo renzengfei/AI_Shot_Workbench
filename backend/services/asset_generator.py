@@ -45,6 +45,7 @@ class AssetGenerator:
         failed_videos: List[float] = []
 
         hidden_set = set(round(v, 3) for v in hidden_segments or [])
+        hidden_ranges: List[Dict[str, Any]] = []
 
         for idx in range(len(cut_points) - 1):
             start = cut_points[idx]
@@ -63,6 +64,11 @@ class AssetGenerator:
                 frame_status = "skipped_hidden"
                 video_name = None
                 video_status = "skipped_hidden"
+                hidden_ranges.append({
+                    "start": start,
+                    "end": end,
+                    "message": f"{start:.3f}s~{end:.3f}s 片段已被用户舍弃，无需分析"
+                })
             else:
                 try:
                     self._extract_frame(source, start, frame_path)
@@ -101,6 +107,7 @@ class AssetGenerator:
             "videos_dir": str(videos_dir) if include_video else None,
             "failed_frames": failed_frames,
             "failed_videos": failed_videos,
+            "hidden_segments": hidden_ranges,
         }
 
     def _extract_frame(self, source: Path, timecode: float, output: Path) -> None:

@@ -275,9 +275,15 @@ async def generate_assets(workspace_path: str, request: GenerateAssetsRequest):
             # 不阻塞主流程，继续生成
             pass
 
+        # Apply hidden segments: remove hidden start/end from cut list, and reconcile boundaries
+        hidden_set = set(round(v, 3) for v in request.hidden_segments or [])
+        filtered_cuts = [c for c in request.cuts if round(c, 3) not in hidden_set]
+        # ensure boundary cutpoints preserved
+        filtered_cuts = filtered_cuts if len(filtered_cuts) >= 2 else request.cuts
+
         result = asset_generator.generate_assets(
             video_path=video_path,
-            segments=request.cuts,
+            segments=filtered_cuts,
             workspace_path=workspace_path,
             include_video=request.include_video,
             hidden_segments=request.hidden_segments or [],
