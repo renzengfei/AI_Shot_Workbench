@@ -65,6 +65,7 @@ interface SegmentationResponse {
     duration?: number | null;
     session_id?: string | null;
     source_url?: string | null;
+    hidden_segments?: number[];
 }
 
 interface DeconstructionResponse {
@@ -170,6 +171,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
             ]);
 
             const cuts = Array.isArray(segData.cuts) ? segData.cuts : [];
+            const hiddenSegments = Array.isArray(segData.hidden_segments) ? segData.hidden_segments : [];
             // 优先用原始（带音频）视频，edit_video_url 只用于帧抓取
             const playbackUrl = segData.video_url || segData.edit_video_url || '';
             const fileName = segData.file_name || (playbackUrl ? playbackUrl.split('/').pop() : '') || '';
@@ -196,6 +198,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
                     videoUrl: playbackUrl,
                     fileName,
                     cutPoints: cuts,
+                    hiddenSegments,
                     durationSeconds: duration,
                     sessionId,
                 });
