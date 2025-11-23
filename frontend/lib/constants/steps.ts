@@ -4,8 +4,8 @@ export const STEP_ROUTES: Record<WorkflowStep, string> = {
     1: '/segmentation',
     2: '/deconstruction/ai',
     3: '/deconstruction/review',
-    4: '/script-rewrite',
-    5: '/script-rewrite', // merged tab placeholder for compatibility
+    4: '/deconstruction/review', // 剧本重构合并到原片审验
+    5: '/deconstruction/review',
     6: '/image-prompts',
     7: '/image-gen',
     8: '/video-gen',

@@ -8,8 +8,7 @@ import { STEP_ROUTES } from '@/lib/constants/steps';
 const steps = [
     { id: 1 as WorkflowStep, label: '原片切分' },
     { id: 2 as WorkflowStep, label: 'AI 原片拆解' },
-    { id: 3 as WorkflowStep, label: '原片拆解审验' },
-    { id: 4 as WorkflowStep, label: '剧本重构' },
+    { id: 3 as WorkflowStep, label: '剧本重构' },
     { id: 6 as WorkflowStep, label: '画面提示词' },
     { id: 7 as WorkflowStep, label: '画面生成' },
     { id: 8 as WorkflowStep, label: '视频生成' },
