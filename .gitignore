@@ -8,9 +8,8 @@ __pycache__/
 .DS_Store
 backend/uploads/
 backend/transcodes/
+# 忽略工作空间的子目录产物，保留第一层文件
 workspaces/*/assets/
 workspaces/*/export/
-workspaces/*/deconstruction.md
-workspaces/*/segmentation.json
-workspaces/*/project.json
+workspaces/*/*/
 frontend/.next
