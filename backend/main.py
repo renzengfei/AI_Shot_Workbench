@@ -72,6 +72,7 @@ class GenerateAssetsRequest(BaseModel):
     file_name: Optional[str] = None  # fallback to uploads/<file_name> if no session
     include_video: bool = True
     hidden_segments: Optional[List[float]] = []
+    hidden_segments: Optional[List[float]] = []
 
 class YouTubeRequest(BaseModel):
     url: str
