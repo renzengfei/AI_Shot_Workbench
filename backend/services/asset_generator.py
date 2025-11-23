@@ -44,7 +44,7 @@ class AssetGenerator:
         failed_frames: List[float] = []
         failed_videos: List[float] = []
 
-        hidden_set = set(round(v, 3) for v in hidden_segments or [])
+        hidden_list = [float(f"{v:.3f}") for v in (hidden_segments or [])]
         hidden_ranges: List[Dict[str, Any]] = []
 
         for idx in range(len(cut_points) - 1):
@@ -58,7 +58,7 @@ class AssetGenerator:
             frame_path = frames_dir / frame_name
             frame_status = "success"
 
-            hidden = round(start, 3) in hidden_set
+            hidden = any(abs(start - h) < 0.05 for h in hidden_list)
 
             if hidden:
                 frame_status = "skipped_hidden"
