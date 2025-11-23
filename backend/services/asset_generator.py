@@ -47,18 +47,26 @@ class AssetGenerator:
         hidden_list = [float(f"{v:.3f}") for v in (hidden_segments or [])]
         hidden_ranges: List[Dict[str, Any]] = []
 
+        # Build full segments with hidden flag so we can adjust adjacency
+        full_segments: List[Dict[str, Any]] = []
+
         for idx in range(len(cut_points) - 1):
             start = cut_points[idx]
             end = cut_points[idx + 1]
             if end - start <= self.FRAME_EPSILON:
                 continue
 
-            ordinal = idx + 1
-            frame_name = f"frame_{ordinal:03d}_{start:.3f}s.jpg"
-            frame_path = frames_dir / frame_name
-            frame_status = "success"
-
             hidden = any(abs(start - h) < 0.05 for h in hidden_list)
+            full_segments.append({"start": start, "end": end, "hidden": hidden})
+
+        ordinal = 1
+        for seg in full_segments:
+            start = seg["start"]
+            end = seg["end"]
+            hidden = seg["hidden"]
+            frame_status = "success"
+            video_name = f"clip_{ordinal:03d}_{start:.3f}s.mp4"
+            frame_name = f"frame_{ordinal:03d}_{start:.3f}s.jpg"
 
             if hidden:
                 frame_status = "skipped_hidden"
@@ -71,12 +79,11 @@ class AssetGenerator:
                 })
             else:
                 try:
-                    self._extract_frame(source, start, frame_path)
+                    self._extract_frame(source, start, frames_dir / frame_name)
                 except Exception:
                     frame_status = "failed"
                     failed_frames.append(start)
 
-                video_name = f"clip_{ordinal:03d}_{start:.3f}s.mp4"
                 video_status = "skipped"
                 if include_video:
                     video_path_out = videos_dir / video_name
@@ -98,8 +105,10 @@ class AssetGenerator:
                     "clip": video_name if include_video and not hidden else None,
                     "clip_status": video_status,
                     "hidden": hidden,
+                    "note": f"{start:.3f}s~{end:.3f}s 片段已被用户舍弃，无需分析" if hidden else None,
                 }
             )
+            ordinal += 1
 
         return {
             "report": report,
