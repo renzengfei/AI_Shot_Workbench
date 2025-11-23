@@ -7,6 +7,7 @@ import { PRODUCTION_STORYBOARD_PROMPT } from '@/data/productionStoryboardPrompt'
 import { useWorkflowStore } from '@/lib/stores/workflowStore';
 
 type Mode = 'initial' | 'revision' | 'final';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
 
 interface ModificationLog {
     title?: string;
@@ -72,9 +73,9 @@ export default function Step4_ScriptRewrite() {
                 return res.text();
             };
             const [decon, mod, opt] = await Promise.allSettled([
-                fetchText(`/workspaces/${encodeURIComponent(workspaceSlug)}/deconstruction.md`),
-                fetchText(`/workspaces/${encodeURIComponent(workspaceSlug)}/modification_log.json`),
-                fetchText(`/workspaces/${encodeURIComponent(workspaceSlug)}/optimized_storyboard.json`),
+                fetchText(`${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/deconstruction.md`),
+                fetchText(`${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/modification_log.json`),
+                fetchText(`${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/optimized_storyboard.json`),
             ]);
             if (decon.status === 'fulfilled') setDeconstructionText(decon.value);
             if (mod.status === 'fulfilled') {
