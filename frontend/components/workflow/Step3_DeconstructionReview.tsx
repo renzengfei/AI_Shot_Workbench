@@ -1,7 +1,6 @@
 'use client';
-/* eslint-disable react-hooks/set-state-in-effect */
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { useWorkflowStore } from '@/lib/stores/workflowStore';
 import { useWorkspace } from '@/components/WorkspaceContext';
 import { parseRound1, parseRound2, parseStoredDeconstruction } from '@/lib/services/deconstruction';
@@ -74,7 +73,13 @@ interface Round2Shot {
     end_time?: string;
     duration?: string | number;
     keyframe?: string;
-    initial_frame?: string;
+    initial_frame?: string | {
+        foreground?: string;
+        midground?: string;
+        background?: string;
+        lighting?: string;
+        color_palette?: string;
+    };
     visual_changes?: string;
     camera?: string;
     audio?: string;
@@ -120,6 +125,8 @@ interface ModificationLog {
         merged?: number;
         added?: number;
         replaced?: number;
+        duration_before?: string;
+        duration_after?: string;
         optimization_improvement_estimate?: string;
     };
 }
@@ -344,6 +351,34 @@ export default function Step3_DeconstructionReview() {
         })()
         : null;
     const deconstructionPath = currentWorkspace?.path ? `${currentWorkspace.path}/deconstruction.md` : '';
+    const modifiedShotMap = useMemo(() => {
+        const map = new Map<number, ModificationLog['modified_shots'][number]>();
+        if (mode !== 'revision') return map;
+        (modificationLog?.modified_shots || []).forEach((m) => {
+            if (typeof m.id === 'number') map.set(m.id, m);
+        });
+        // 兼容旧字段 changes/shot_id
+        (modificationLog?.changes || []).forEach((c) => {
+            if (typeof c.shot_id === 'number' && !map.has(c.shot_id)) {
+                map.set(c.shot_id, {
+                    id: c.shot_id,
+                    action: c.action,
+                    reason: c.reason,
+                });
+            }
+        });
+        return map;
+    }, [mode, modificationLog]);
+    const missingModifiedShots = useMemo(() => {
+        if (mode !== 'revision') return [];
+        const presentIds = new Set<number>();
+        if (round2Data && typeof round2Data !== 'string') {
+            (round2Data.shots || []).forEach((s) => {
+                if (typeof s.id === 'number') presentIds.add(s.id);
+            });
+        }
+        return (modificationLog?.modified_shots || []).filter((m) => typeof m.id === 'number' && !presentIds.has(m.id as number));
+    }, [mode, modificationLog, round2Data]);
 
     useEffect(() => {
         const fetchAssets = async () => {
@@ -460,6 +495,7 @@ export default function Step3_DeconstructionReview() {
     };
 
     const openAnnotation = (key: string, label: string) => {
+        void label;
         setEditingKey(key);
         setTimeout(() => textareaRef.current?.focus(), 0);
     };
@@ -508,9 +544,9 @@ export default function Step3_DeconstructionReview() {
                     批注
                 </button>
                 {isOpen && (
-            <div className="annotation-popover absolute z-[9999] -top-2 right-0 translate-y-[-100%] w-72 glass-card border border-[var(--glass-border)] shadow-2xl p-3 rounded-xl">
-                <div className="flex items-center justify-between mb-2 text-xs text-[var(--color-text-primary)]">
-                    <span className="font-semibold">{label}</span>
+                    <div className="annotation-popover absolute z-[9999] -top-2 right-0 translate-y-[-100%] w-72 glass-card border border-[var(--glass-border)] shadow-2xl p-3 rounded-xl">
+                        <div className="flex items-center justify-between mb-2 text-xs text-[var(--color-text-primary)]">
+                            <span className="font-semibold">{label}</span>
                             <div className="flex items-center gap-1">
                                 <button
                                     onClick={() => clearAnnotation(id)}
@@ -586,6 +622,27 @@ export default function Step3_DeconstructionReview() {
             setCopyStatus('error');
             setTimeout(() => setCopyStatus('idle'), 1500);
         }
+    };
+
+    const renderFieldWithRevision = (
+        originalNode: ReactNode,
+        change?: { before?: string; after?: string },
+    ) => {
+        if (!change || (!change.after && !change.before) || mode !== 'revision') return originalNode;
+        return (
+            <div className="space-y-2">
+                <div>{originalNode}</div>
+                {change.after && (
+                    <div className="border border-emerald-500/30 bg-emerald-500/5 rounded-lg p-3 text-sm text-[var(--color-text-primary)]">
+                        <div className="text-[10px] uppercase text-emerald-300 mb-1">修订后</div>
+                        <div className="whitespace-pre-wrap leading-relaxed">{change.after}</div>
+                    </div>
+                )}
+                {!change.after && change.before && (
+                    <div className="text-[10px] text-[var(--color-text-tertiary)]">修订日志未提供 after 内容</div>
+                )}
+            </div>
+        );
     };
 
     useEffect(() => {
@@ -871,38 +928,38 @@ export default function Step3_DeconstructionReview() {
                                 <div className="px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/20">
                                     <div className="text-[10px] uppercase tracking-wide">删除</div>
                                     <div className="font-semibold text-[var(--color-text-primary)]">
-                                {modificationLog.statistics.deleted ?? 0} 个镜头
-                            </div>
-                        </div>
-                        {typeof modificationLog.statistics.merged === 'number' && (
-                            <div className="px-3 py-2 rounded-lg bg-orange-500/10 border border-orange-500/20">
-                                <div className="text-[10px] uppercase tracking-wide">合并</div>
-                                <div className="font-semibold text-[var(--color-text-primary)]">
-                                    {modificationLog.statistics.merged}
+                                        {modificationLog.statistics.deleted ?? 0} 个镜头
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                        {typeof modificationLog.statistics.added === 'number' && (
-                            <div className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                                <div className="text-[10px] uppercase tracking-wide">新增</div>
-                                <div className="font-semibold text-[var(--color-text-primary)]">
-                                    {modificationLog.statistics.added}
-                                </div>
-                            </div>
-                        )}
-                        {typeof modificationLog.statistics.replaced === 'number' && (
-                            <div className="px-3 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
-                                <div className="text-[10px] uppercase tracking-wide">替换</div>
-                                <div className="font-semibold text-[var(--color-text-primary)]">
-                                    {modificationLog.statistics.replaced}
-                                </div>
-                            </div>
-                        )}
-                        {modificationLog.statistics.optimization_improvement_estimate && (
-                            <div className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 col-span-2">
-                                <div className="text-[10px] uppercase tracking-wide">提升</div>
-                                <div className="font-semibold text-[var(--color-text-primary)]">
-                                    {modificationLog.statistics.optimization_improvement_estimate}
+                                {typeof modificationLog.statistics.merged === 'number' && (
+                                    <div className="px-3 py-2 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                                        <div className="text-[10px] uppercase tracking-wide">合并</div>
+                                        <div className="font-semibold text-[var(--color-text-primary)]">
+                                            {modificationLog.statistics.merged}
+                                        </div>
+                                    </div>
+                                )}
+                                {typeof modificationLog.statistics.added === 'number' && (
+                                    <div className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                                        <div className="text-[10px] uppercase tracking-wide">新增</div>
+                                        <div className="font-semibold text-[var(--color-text-primary)]">
+                                            {modificationLog.statistics.added}
+                                        </div>
+                                    </div>
+                                )}
+                                {typeof modificationLog.statistics.replaced === 'number' && (
+                                    <div className="px-3 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+                                        <div className="text-[10px] uppercase tracking-wide">替换</div>
+                                        <div className="font-semibold text-[var(--color-text-primary)]">
+                                            {modificationLog.statistics.replaced}
+                                        </div>
+                                    </div>
+                                )}
+                                {modificationLog.statistics.optimization_improvement_estimate && (
+                                    <div className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 col-span-2">
+                                        <div className="text-[10px] uppercase tracking-wide">提升</div>
+                                        <div className="font-semibold text-[var(--color-text-primary)]">
+                                            {modificationLog.statistics.optimization_improvement_estimate}
                                         </div>
                                     </div>
                                 )}
@@ -1014,6 +1071,83 @@ export default function Step3_DeconstructionReview() {
                         </span>
                     )}
                 </div>
+
+                {/* Macro Optimization Analysis (Round 1 Log) */}
+                {mode === 'revision' && modificationLog && (
+                    <div className="glass-card p-5 border-l-4 border-l-emerald-500/50 bg-emerald-500/5 space-y-4">
+                        <div className="flex items-center gap-2 text-emerald-400">
+                            <Zap size={18} />
+                            <span className="font-bold text-base">宏观优化分析 (Macro Analysis)</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Left: Summary & Stats */}
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <div className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">优化摘要</div>
+                                    <p className="text-sm text-[var(--color-text-primary)] leading-relaxed bg-[var(--glass-bg-light)]/50 p-3 rounded-lg border border-[var(--glass-border)]">
+                                        {modificationLog.summary || '无摘要'}
+                                    </p>
+                                </div>
+
+                                {modificationLog.statistics && (
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <div className="p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-center">
+                                            <div className="text-[10px] text-emerald-400/70 uppercase">潜力提升</div>
+                                            <div className="text-sm font-bold text-emerald-400">{modificationLog.statistics.optimization_improvement_estimate || '-'}</div>
+                                        </div>
+                                        <div className="p-2 rounded bg-blue-500/10 border border-blue-500/20 text-center">
+                                            <div className="text-[10px] text-blue-400/70 uppercase">镜头压缩</div>
+                                            <div className="text-sm font-bold text-blue-400">
+                                                {modificationLog.statistics.total_shots_before} → {modificationLog.statistics.total_shots_after}
+                                            </div>
+                                        </div>
+                                        <div className="p-2 rounded bg-purple-500/10 border border-purple-500/20 text-center">
+                                            <div className="text-[10px] text-purple-400/70 uppercase">时长优化</div>
+                                            <div className="text-sm font-bold text-purple-400">
+                                                {modificationLog.statistics.duration_before || '?'} → {modificationLog.statistics.duration_after || '?'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Right: Knowledge Base & Assets */}
+                            <div className="space-y-4">
+                                {modificationLog.knowledge_base_applied && modificationLog.knowledge_base_applied.length > 0 && (
+                                    <div className="space-y-2">
+                                        <div className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">应用方法论</div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {modificationLog.knowledge_base_applied.map((k, i) => (
+                                                <span key={i} className="px-2 py-1 rounded text-[10px] bg-blue-500/5 text-blue-300 border border-blue-500/10">
+                                                    {k}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {modificationLog.modified_assets_list && modificationLog.modified_assets_list.length > 0 && (
+                                    <div className="space-y-2">
+                                        <div className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">关键元素替换</div>
+                                        <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1 custom-scrollbar">
+                                            {modificationLog.modified_assets_list.map((item, idx) => (
+                                                <div key={idx} className="text-xs p-2 rounded bg-[var(--glass-bg-light)]/50 border border-[var(--glass-border)] flex flex-col gap-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[var(--color-text-tertiary)] line-through">{item.original}</span>
+                                                        <ArrowRight size={10} className="text-[var(--color-text-secondary)]" />
+                                                        <span className="text-emerald-400 font-medium">{item.replacement}</span>
+                                                    </div>
+                                                    {item.reason && <div className="text-[10px] text-[var(--color-text-secondary)] italic">{item.reason}</div>}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
                     {/* Left Column: Narrative Flow (7/12) */}
@@ -1278,6 +1412,7 @@ export default function Step3_DeconstructionReview() {
                                 : null;
                         const mission = shot.mission || '';
                         const shotId = shot.id ?? idx + 1;
+                        const modShot = mode === 'revision' ? modifiedShotMap.get(shotId) : undefined;
                         const changeBadges =
                             mode === 'revision'
                                 ? (modificationLog?.modified_shots?.filter((c) => c.id === shotId) || modificationLog?.changes?.filter((c) => c.shot_id === shotId) || [])
@@ -1286,6 +1421,9 @@ export default function Step3_DeconstructionReview() {
                             mode === 'revision'
                                 ? modificationLog?.modified_assets_list?.filter((item) => item.affected_shots?.includes(shotId)) || []
                                 : [];
+                        const isDeleted = mode === 'revision' && (modShot?.action || '').toUpperCase() === 'DELETE';
+                        const getChange = (key: string) =>
+                            (modShot?.changes as Record<string, { before?: string; after?: string }> | undefined)?.[key];
 
                         return (
                             <div key={shot.id || idx} className="glass-card p-0 overflow-visible group hover:border-purple-500/30 transition-all duration-300 relative">
@@ -1295,19 +1433,82 @@ export default function Step3_DeconstructionReview() {
                                         <span className="text-sm text-[var(--color-text-tertiary)] font-mono">{shot.timestamp} - {shot.end_time}</span>
                                     </div>
                                     <div className="flex gap-2 flex-wrap justify-end">
+                                        {isDeleted && (
+                                            <span className="text-[10px] px-2 py-1 rounded-full bg-red-500/10 text-red-300 border border-red-500/20 uppercase">
+                                                已删除
+                                            </span>
+                                        )}
                                         {replacementBadges.map((rep, repIdx) => (
                                             <span key={`rep-${repIdx}`} className="text-[10px] px-2 py-1 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20">
                                                 替换: {rep.replacement}
                                             </span>
                                         ))}
-                                        {changeBadges.map((c, changeIdx) => (
-                                            <div key={`chg-${changeIdx}`} className="flex items-center gap-2 text-[10px] px-2 py-1 rounded-full bg-red-500/10 text-red-300 border border-red-500/20 uppercase">
-                                                <span>{c.action || 'CHANGE'}</span>
-                                                {('id' in c && c.id) ? <span>#{c.id}</span> : null}
+                                    </div>
+                                </div>
+
+                                {isDeleted && modShot?.backup && (
+                                    <div className="px-6 pt-4">
+                                        <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/5 text-xs text-[var(--color-text-secondary)]">
+                                            <div className="text-red-300 font-semibold mb-1">修订说明</div>
+                                            <div className="text-[var(--color-text-secondary)]">该镜头在修订中被删除，原始备份：</div>
+                                            <pre className="mt-1 text-[11px] whitespace-pre-wrap bg-[var(--glass-bg-light)]/50 p-2 rounded border border-[var(--glass-border)]">
+                                                {JSON.stringify(modShot.backup, null, 2)}
+                                            </pre>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* In-Card Optimization Details */}
+                                {mode === 'revision' && changeBadges.length > 0 && (
+                                    <div className="px-6 pt-4 pb-0">
+                                        {changeBadges.map((change, cIdx) => (
+                                            <div key={`detail-${cIdx}`} className="p-4 rounded-lg bg-purple-500/5 border border-purple-500/20 space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <Zap size={14} className="text-purple-400" />
+                                                        <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">优化详情</span>
+                                                    </div>
+                                                    {'knowledge_reference' in change && change.knowledge_reference && (
+                                                        <span className="text-[10px] text-[var(--color-text-tertiary)] flex items-center gap-1 bg-[var(--glass-bg-light)] px-2 py-1 rounded border border-[var(--glass-border)]">
+                                                            <BookOpen size={10} />
+                                                            {change.knowledge_reference}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {'reason' in change && change.reason && (
+                                                    <div className="text-sm text-[var(--color-text-primary)] leading-relaxed pl-2 border-l-2 border-purple-500/30">
+                                                        {change.reason}
+                                                    </div>
+                                                )}
+
+                                                {'changes' in change && change.changes && Object.keys(change.changes).length > 0 && (
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                                                        {Object.entries(change.changes).map(([field, diff]) => (
+                                                            <div key={field} className="text-xs bg-[var(--glass-bg-light)]/50 p-2 rounded border border-[var(--glass-border)]">
+                                                                <div className="font-semibold text-[var(--color-text-secondary)] mb-1 capitalize">{field.replace('_', ' ')}</div>
+                                                                <div className="space-y-1">
+                                                                    {diff.before && (
+                                                                        <div className="flex gap-2 opacity-60">
+                                                                            <span className="text-red-400 shrink-0">-</span>
+                                                                            <span className="line-through truncate" title={diff.before}>{diff.before}</span>
+                                                                        </div>
+                                                                    )}
+                                                                    {diff.after && (
+                                                                        <div className="flex gap-2">
+                                                                            <span className="text-emerald-400 shrink-0">+</span>
+                                                                            <span className="text-[var(--color-text-primary)]" title={diff.after}>{diff.after}</span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
-                                </div>
+                                )}
 
                                 <div className="p-6 flex flex-col 2xl:flex-row gap-8">
                                     {/* Media Section - Larger Side by Side */}
@@ -1340,19 +1541,22 @@ export default function Step3_DeconstructionReview() {
                                                 <span>使命</span>
                                                 {renderAnnotationControl(`shot-${shot.id ?? idx}-mission`, `Shot #${shot.id ?? idx + 1} 使命`)}
                                             </div>
-                                            <input
-                                                value={mission}
-                                                onChange={(e) =>
-                                                    mutateRound2((draft) => {
-                                                        const list = draft.shots ? [...draft.shots] : [];
-                                                        list[idx] = { ...(list[idx] || {}), mission: e.target.value };
-                                                        draft.shots = list;
-                                                    })
-                                                }
-                                                readOnly={!canEdit}
-                                                className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-xl px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20"
-                                                placeholder="如：吸睛 - 提示强烈反差或异常"
-                                            />
+                                            {renderFieldWithRevision(
+                                                <input
+                                                    value={mission}
+                                                    onChange={(e) =>
+                                                        mutateRound2((draft) => {
+                                                            const list = draft.shots ? [...draft.shots] : [];
+                                                            list[idx] = { ...(list[idx] || {}), mission: e.target.value };
+                                                            draft.shots = list;
+                                                        })
+                                                    }
+                                                    readOnly={!canEdit}
+                                                    className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-xl px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20"
+                                                    placeholder="如：吸睛 - 提示强烈反差或异常"
+                                                />,
+                                                getChange('mission')
+                                            )}
                                         </div>
                                         <div className="space-y-2">
                                             <div className="flex items-center gap-2 text-xs text-[var(--color-text-tertiary)] uppercase tracking-wider font-bold">
@@ -1360,18 +1564,21 @@ export default function Step3_DeconstructionReview() {
                                                 {renderAnnotationControl(`shot-${shot.id ?? idx}-initial_frame`, `Shot #${shot.id ?? idx + 1} 首帧描述`)}
                                             </div>
                                             {typeof shot.initial_frame === 'string' || shot.initial_frame === undefined ? (
-                                                <textarea
-                                                    value={typeof shot.initial_frame === 'string' ? shot.initial_frame : ''}
-                                                    onChange={(e) =>
-                                                        mutateRound2((draft) => {
-                                                            const list = draft.shots ? [...draft.shots] : [];
-                                                            list[idx] = { ...(list[idx] || {}), initial_frame: e.target.value };
-                                                            draft.shots = list;
-                                                        })
-                                                    }
-                                                    readOnly={!canEdit}
-                                                    className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-xl p-4 text-base text-[var(--color-text-primary)] min-h-[120px] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 leading-relaxed"
-                                                />
+                                                renderFieldWithRevision(
+                                                    <textarea
+                                                        value={typeof shot.initial_frame === 'string' ? shot.initial_frame : ''}
+                                                        onChange={(e) =>
+                                                            mutateRound2((draft) => {
+                                                                const list = draft.shots ? [...draft.shots] : [];
+                                                                list[idx] = { ...(list[idx] || {}), initial_frame: e.target.value };
+                                                                draft.shots = list;
+                                                            })
+                                                        }
+                                                        readOnly={!canEdit}
+                                                        className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-xl p-4 text-base text-[var(--color-text-primary)] min-h-[120px] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 leading-relaxed"
+                                                    />,
+                                                    getChange('initial_frame')
+                                                )
                                             ) : (
                                                 <div className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-xl p-4 text-sm text-[var(--color-text-primary)] space-y-2">
                                                     {shot.initial_frame.foreground && (
@@ -1425,18 +1632,21 @@ export default function Step3_DeconstructionReview() {
                                                 <span>画面变化</span>
                                                 {renderAnnotationControl(`shot-${shot.id ?? idx}-visual_changes`, `Shot #${shot.id ?? idx + 1} 画面变化`)}
                                             </div>
-                                            <textarea
-                                                value={shot.visual_changes || ''}
-                                                onChange={(e) =>
-                                                    mutateRound2((draft) => {
-                                                        const list = draft.shots ? [...draft.shots] : [];
-                                                        list[idx] = { ...(list[idx] || {}), visual_changes: e.target.value };
-                                                        draft.shots = list;
-                                                    })
-                                                }
-                                                readOnly={!canEdit}
-                                                className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-xl p-4 text-base text-[var(--color-text-primary)] min-h-[120px] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 leading-relaxed"
-                                            />
+                                            {renderFieldWithRevision(
+                                                <textarea
+                                                    value={shot.visual_changes || ''}
+                                                    onChange={(e) =>
+                                                        mutateRound2((draft) => {
+                                                            const list = draft.shots ? [...draft.shots] : [];
+                                                            list[idx] = { ...(list[idx] || {}), visual_changes: e.target.value };
+                                                            draft.shots = list;
+                                                        })
+                                                    }
+                                                    readOnly={!canEdit}
+                                                    className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-xl p-4 text-base text-[var(--color-text-primary)] min-h-[120px] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 leading-relaxed"
+                                                />,
+                                                getChange('visual_changes')
+                                            )}
                                         </div>
                                         <div className="pt-5 border-t border-[var(--glass-border)] grid grid-cols-1 sm:grid-cols-2 gap-5">
                                             <div className="space-y-1.5">
@@ -1444,76 +1654,88 @@ export default function Step3_DeconstructionReview() {
                                                     <span className="flex items-center gap-1.5"><Film size={14} /> 镜头</span>
                                                     {renderAnnotationControl(`shot-${shot.id ?? idx}-camera`, `Shot #${shot.id ?? idx + 1} 镜头`)}
                                                 </div>
-                                                <textarea
-                                                    value={shot.camera || ''}
-                                                    onChange={(e) =>
-                                                        mutateRound2((draft) => {
-                                                            const list = draft.shots ? [...draft.shots] : [];
-                                                            list[idx] = { ...(list[idx] || {}), camera: e.target.value };
-                                                            draft.shots = list;
-                                                        })
-                                                    }
-                                                    readOnly={!canEdit}
-                                                    className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 min-h-[60px] resize-y"
-                                                    title={shot.camera}
-                                                />
+                                                {renderFieldWithRevision(
+                                                    <textarea
+                                                        value={shot.camera || ''}
+                                                        onChange={(e) =>
+                                                            mutateRound2((draft) => {
+                                                                const list = draft.shots ? [...draft.shots] : [];
+                                                                list[idx] = { ...(list[idx] || {}), camera: e.target.value };
+                                                                draft.shots = list;
+                                                            })
+                                                        }
+                                                        readOnly={!canEdit}
+                                                        className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 min-h-[60px] resize-y"
+                                                        title={shot.camera}
+                                                    />,
+                                                    getChange('camera')
+                                                )}
                                             </div>
                                             <div className="space-y-1.5">
                                                 <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-tertiary)] font-medium">
                                                     <span className="flex items-center gap-1.5"><Music size={14} /> 音频</span>
                                                     {renderAnnotationControl(`shot-${shot.id ?? idx}-audio`, `Shot #${shot.id ?? idx + 1} 音频`)}
                                                 </div>
-                                                <textarea
-                                                    value={shot.audio || ''}
-                                                    onChange={(e) =>
-                                                        mutateRound2((draft) => {
-                                                            const list = draft.shots ? [...draft.shots] : [];
-                                                            list[idx] = { ...(list[idx] || {}), audio: e.target.value };
-                                                            draft.shots = list;
-                                                        })
-                                                    }
-                                                    readOnly={!canEdit}
-                                                    className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 min-h-[60px] resize-y"
-                                                    title={shot.audio}
-                                                />
+                                                {renderFieldWithRevision(
+                                                    <textarea
+                                                        value={shot.audio || ''}
+                                                        onChange={(e) =>
+                                                            mutateRound2((draft) => {
+                                                                const list = draft.shots ? [...draft.shots] : [];
+                                                                list[idx] = { ...(list[idx] || {}), audio: e.target.value };
+                                                                draft.shots = list;
+                                                            })
+                                                        }
+                                                        readOnly={!canEdit}
+                                                        className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 min-h-[60px] resize-y"
+                                                        title={shot.audio}
+                                                    />,
+                                                    getChange('audio')
+                                                )}
                                             </div>
                                             <div className="space-y-1.5">
                                                 <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-tertiary)] font-medium">
                                                     <span>节奏/情绪</span>
                                                     {renderAnnotationControl(`shot-${shot.id ?? idx}-emotion`, `Shot #${shot.id ?? idx + 1} 节奏/情绪`)}
                                                 </div>
-                                                <input
-                                                    value={shot.emotion || ''}
-                                                    onChange={(e) =>
-                                                        mutateRound2((draft) => {
-                                                            const list = draft.shots ? [...draft.shots] : [];
-                                                            list[idx] = { ...(list[idx] || {}), emotion: e.target.value };
-                                                            draft.shots = list;
-                                                        })
-                                                    }
-                                                    readOnly={!canEdit}
-                                                    className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20"
-                                                    title={shot.emotion}
-                                                />
+                                                {renderFieldWithRevision(
+                                                    <input
+                                                        value={shot.emotion || ''}
+                                                        onChange={(e) =>
+                                                            mutateRound2((draft) => {
+                                                                const list = draft.shots ? [...draft.shots] : [];
+                                                                list[idx] = { ...(list[idx] || {}), emotion: e.target.value };
+                                                                draft.shots = list;
+                                                            })
+                                                        }
+                                                        readOnly={!canEdit}
+                                                        className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20"
+                                                        title={shot.emotion}
+                                                    />,
+                                                    getChange('emotion')
+                                                )}
                                             </div>
                                             <div className="space-y-1.5">
                                                 <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-tertiary)] font-medium">
                                                     <span>Beat</span>
                                                     {renderAnnotationControl(`shot-${shot.id ?? idx}-beat`, `Shot #${shot.id ?? idx + 1} Beat`)}
                                                 </div>
-                                                <input
-                                                    value={shot.beat || ''}
-                                                    onChange={(e) =>
-                                                        mutateRound2((draft) => {
-                                                            const list = draft.shots ? [...draft.shots] : [];
-                                                            list[idx] = { ...(list[idx] || {}), beat: e.target.value };
-                                                            draft.shots = list;
-                                                        })
-                                                    }
-                                                    readOnly={!canEdit}
-                                                    className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20"
-                                                    title={shot.beat}
-                                                />
+                                                {renderFieldWithRevision(
+                                                    <input
+                                                        value={shot.beat || ''}
+                                                        onChange={(e) =>
+                                                            mutateRound2((draft) => {
+                                                                const list = draft.shots ? [...draft.shots] : [];
+                                                                list[idx] = { ...(list[idx] || {}), beat: e.target.value };
+                                                                draft.shots = list;
+                                                            })
+                                                        }
+                                                        readOnly={!canEdit}
+                                                        className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20"
+                                                        title={shot.beat}
+                                                    />,
+                                                    getChange('beat')
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -1529,6 +1751,32 @@ export default function Step3_DeconstructionReview() {
                             <pre className="text-sm text-amber-200/70 whitespace-pre-wrap font-mono overflow-x-auto">
                                 {round2Data}
                             </pre>
+                        </div>
+                    )}
+                    {mode === 'revision' && missingModifiedShots.length > 0 && (
+                        <div className="glass-card p-5 border border-purple-500/20 bg-[var(--glass-bg-light)]/80 space-y-3">
+                            <div className="text-sm font-semibold text-[var(--color-text-primary)]">修订日志中的其他镜头</div>
+                            <div className="grid gap-3 md:grid-cols-2">
+                                {missingModifiedShots.map((m, idx) => (
+                                    <div key={`missing-${m.id}-${idx}`} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--color-bg-secondary)]/50 space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <div className="text-sm font-semibold text-[var(--color-text-primary)]">Shot #{m.id}</div>
+                                            <span className="text-[10px] px-2 py-1 rounded-full border border-purple-500/30 text-purple-300 bg-purple-500/10 uppercase">
+                                                {m.action || 'CHANGE'}
+                                            </span>
+                                        </div>
+                                        {m.reason && <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed">{m.reason}</div>}
+                                        {m.changes && Object.keys(m.changes).length > 0 && (
+                                            <div className="text-[10px] text-[var(--color-text-tertiary)]">变更字段: {Object.keys(m.changes).join(', ')}</div>
+                                        )}
+                                        {m.backup && (
+                                            <pre className="text-[11px] whitespace-pre-wrap bg-[var(--glass-bg-light)]/60 p-2 rounded border border-[var(--glass-border)]">
+                                                {JSON.stringify(m.backup, null, 2)}
+                                            </pre>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>
