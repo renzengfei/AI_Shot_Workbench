@@ -34,6 +34,7 @@ export interface SaveSegmentationPayload {
     session_id?: string | null;
     edit_video_url?: string | null;
     source_url?: string | null;
+    hidden_segments?: number[];
 }
 
 export interface GenerateAssetsPayload {
@@ -42,6 +43,7 @@ export interface GenerateAssetsPayload {
     session_id?: string | null;
     file_name?: string | null;
     include_video?: boolean;
+    hidden_segments?: number[];
 }
 
 const LAST_WORKSPACE_KEY = 'ai-shot-last-workspace';

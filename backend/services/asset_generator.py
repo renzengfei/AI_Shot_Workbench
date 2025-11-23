@@ -20,6 +20,7 @@ class AssetGenerator:
         segments: List[float],
         workspace_path: str,
         include_video: bool = True,
+        hidden_segments: List[float] | None = None,
     ) -> Dict[str, Any]:
         """
         segments: sorted cut points (seconds). Creates frames/clip per visible segment.
@@ -43,6 +44,8 @@ class AssetGenerator:
         failed_frames: List[float] = []
         failed_videos: List[float] = []
 
+        hidden_set = set(round(v, 3) for v in hidden_segments or [])
+
         for idx in range(len(cut_points) - 1):
             start = cut_points[idx]
             end = cut_points[idx + 1]
@@ -54,22 +57,29 @@ class AssetGenerator:
             frame_path = frames_dir / frame_name
             frame_status = "success"
 
-            try:
-                self._extract_frame(source, start, frame_path)
-            except Exception:
-                frame_status = "failed"
-                failed_frames.append(start)
+            hidden = round(start, 3) in hidden_set
 
-            video_name = f"clip_{ordinal:03d}_{start:.3f}s.mp4"
-            video_status = "skipped"
-            if include_video:
-                video_path_out = videos_dir / video_name
+            if hidden:
+                frame_status = "skipped_hidden"
+                video_name = None
+                video_status = "skipped_hidden"
+            else:
                 try:
-                    self._extract_clip(source, start, end, video_path_out)
-                    video_status = "success"
+                    self._extract_frame(source, start, frame_path)
                 except Exception:
-                    video_status = "failed"
-                    failed_videos.append(start)
+                    frame_status = "failed"
+                    failed_frames.append(start)
+
+                video_name = f"clip_{ordinal:03d}_{start:.3f}s.mp4"
+                video_status = "skipped"
+                if include_video:
+                    video_path_out = videos_dir / video_name
+                    try:
+                        self._extract_clip(source, start, end, video_path_out)
+                        video_status = "success"
+                    except Exception:
+                        video_status = "failed"
+                        failed_videos.append(start)
 
             report.append(
                 {
@@ -77,10 +87,11 @@ class AssetGenerator:
                     "start": start,
                     "end": end,
                     "duration": end - start,
-                    "frame": frame_name,
+                    "frame": frame_name if not hidden else None,
                     "frame_status": frame_status,
-                    "clip": video_name if include_video else None,
+                    "clip": video_name if include_video and not hidden else None,
                     "clip_status": video_status,
+                    "hidden": hidden,
                 }
             )
 

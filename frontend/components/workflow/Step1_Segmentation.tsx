@@ -20,7 +20,7 @@ export default function Step1_Segmentation() {
     const [youtubeUrl, setYoutubeUrl] = useState('');
     const [isConfirming, setIsConfirming] = useState(false);
 
-    const { videoUrl, cutPoints, loadVideo, setPlayhead, setPlaying } = useTimelineStore();
+    const { videoUrl, cutPoints, hiddenSegments, loadVideo, setPlayhead, setPlaying } = useTimelineStore();
     const { project, createProject, updateCuts, setProject } = useWorkflowStore();
     const { nextStep } = useStepNavigator();
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -168,6 +168,7 @@ export default function Step1_Segmentation() {
                 session_id: sessionId,
                 edit_video_url: videoUrl, // videoUrl 已是可播放地址（优先 edit 视频）
                 source_url: project?.sourceUrl ?? (project?.videoUrl ?? null),
+                hidden_segments: hiddenSegments,
             });
 
             // Move to next step immediately
@@ -175,12 +176,17 @@ export default function Step1_Segmentation() {
 
             // Fire-and-forget asset generation
             if (currentWorkspace && durationSeconds && videoFileName) {
+                const hiddenSet = new Set(hiddenSegments.map((v) => v.toFixed(3)));
+                const visibleCuts = cutPoints.filter((c) => !hiddenSet.has(c.toFixed(3)));
+                // Ensure at least start/end kept
+                const finalCuts = visibleCuts.length >= 2 ? visibleCuts : cutPoints;
                 const payload: GenerateAssetsPayload = {
-                    cuts: cutPoints,
+                    cuts: finalCuts,
                     duration: durationSeconds,
                     session_id: sessionId ?? undefined,
                     file_name: videoFileName ?? undefined,
                     include_video: true,
+                    hidden_segments: hiddenSegments,
                 };
                 generateAssets(payload).catch((err) => {
                     console.error('生成资产失败', err);

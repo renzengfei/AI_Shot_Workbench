@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useWorkflowStore } from '@/lib/stores/workflowStore';
-import { FileText, ArrowRight, Copy, Check, Sparkles, Youtube, MessageSquare, Type, Eye, X, Clipboard } from 'lucide-react';
+import { FileText, ArrowRight, Copy, Check, Sparkles, Youtube, MessageSquare, Type, Eye, X, Clipboard, AlertCircle } from 'lucide-react';
 import { useWorkspace } from '@/components/WorkspaceContext';
 import { DECONSTRUCTION_PROMPT } from '@/data/deconstructionPrompt';
 import { parseRound1, parseRound2, parseStoredDeconstruction } from '@/lib/services/deconstruction';
@@ -16,6 +16,9 @@ export default function Step2_Deconstruction() {
     const { nextStep } = useStepNavigator();
     const [round1Text, setRound1Text] = useState('');
     const [round2Text, setRound2Text] = useState('');
+    const [assetsReady, setAssetsReady] = useState(false);
+    const [assetsChecking, setAssetsChecking] = useState(false);
+    const [assetsError, setAssetsError] = useState<string | null>(null);
     const [isCopyingPrompt, setIsCopyingPrompt] = useState(false);
     const [isCopyingUrl, setIsCopyingUrl] = useState(false);
     const [isCopyingContent, setIsCopyingContent] = useState(false);
@@ -123,9 +126,37 @@ export default function Step2_Deconstruction() {
         return currentWorkspace.path.split('/').pop() || currentWorkspace.path;
     }, [currentWorkspace?.path]);
 
+    useEffect(() => {
+        if (!workspaceSlug) return;
+        const checkAssets = async () => {
+            setAssetsChecking(true);
+            setAssetsError(null);
+            try {
+                const res = await fetch(`${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/assets/report.json`);
+                if (res.ok) {
+                    setAssetsReady(true);
+                } else {
+                    setAssetsReady(false);
+                    setAssetsError('分镜资产未生成，请在原片切分确认切分后再试');
+                }
+            } catch (err) {
+                console.error(err);
+                setAssetsReady(false);
+                setAssetsError('检查分镜资产时出现错误');
+            } finally {
+                setAssetsChecking(false);
+            }
+        };
+        checkAssets();
+    }, [workspaceSlug]);
+
     const copySegmentationJson = async () => {
         if (!workspaceSlug) {
             alert('请先打开或创建工作空间');
+            return;
+        }
+        if (!assetsReady) {
+            alert('分镜资产尚未生成，请在原片切分点击确认切分后再试');
             return;
         }
         try {
@@ -167,7 +198,15 @@ export default function Step2_Deconstruction() {
                     </h2>
                     <p className="text-xs text-[var(--color-text-secondary)]">
                         使用 Gemini 获取 AI 拆解结果，将 JSON 输出粘贴到下方自动保存。
+                        {!assetsReady && (
+                            <span className="ml-2 text-amber-400">分镜资产生成中，请稍候…</span>
+                        )}
                     </p>
+                    {assetsError && (
+                        <div className="text-xs text-amber-500 bg-amber-500/10 border border-amber-500/20 rounded px-2 py-1 inline-flex items-center gap-1">
+                            <AlertCircle size={12} /> {assetsError}
+                        </div>
+                    )}
                 </div>
                 <button
                     onClick={nextStep}
@@ -269,14 +308,20 @@ export default function Step2_Deconstruction() {
                         <div className="bg-[var(--color-bg-secondary)]/50 rounded-lg p-4 text-xs text-[var(--color-text-secondary)] border border-[var(--glass-border)] backdrop-blur-sm space-y-3">
                             <button
                                 onClick={copySegmentationJson}
-                                disabled={isCopyingSegmentation}
+                                disabled={isCopyingSegmentation || assetsChecking || !assetsReady}
                                 className={`w-full text-xs py-2.5 flex items-center justify-center gap-2 rounded-lg border transition-all duration-200 disabled:opacity-60 ${isCopyingSegmentation
                                     ? 'bg-green-500/10 text-green-600 border-green-500/20'
-                                    : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border-transparent hover:bg-amber-500/10 hover:text-amber-600 hover:border-amber-500/20'
+                                    : assetsReady
+                                        ? 'bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border-transparent hover:bg-amber-500/10 hover:text-amber-600 hover:border-amber-500/20'
+                                        : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-tertiary)] border-transparent cursor-not-allowed'
                                     }`}
                             >
                                 {isCopyingSegmentation ? <Check size={14} /> : <Copy size={14} />}
-                                {isCopyingSegmentation ? '已复制分镜 JSON' : '复制分镜 JSON'}
+                                {assetsChecking
+                                    ? '检查中...'
+                                    : assetsReady
+                                        ? isCopyingSegmentation ? '已复制分镜 JSON' : '复制分镜 JSON'
+                                        : '等待分镜资产生成'}
                             </button>
                             <div className="text-[11px] leading-relaxed opacity-80">
                                 首帧图：请在工作空间的首帧图文件夹中选择对应图片一起上传（无需显示路径）。

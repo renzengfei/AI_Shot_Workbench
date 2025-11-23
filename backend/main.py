@@ -71,6 +71,7 @@ class GenerateAssetsRequest(BaseModel):
     session_id: Optional[str] = None
     file_name: Optional[str] = None  # fallback to uploads/<file_name> if no session
     include_video: bool = True
+    hidden_segments: Optional[List[float]] = []
 
 class YouTubeRequest(BaseModel):
     url: str
@@ -279,6 +280,7 @@ async def generate_assets(workspace_path: str, request: GenerateAssetsRequest):
             segments=request.cuts,
             workspace_path=workspace_path,
             include_video=request.include_video,
+            hidden_segments=request.hidden_segments or [],
         )
 
         # Persist report
