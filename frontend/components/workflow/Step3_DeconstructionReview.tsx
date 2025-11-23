@@ -941,17 +941,65 @@ export default function Step3_DeconstructionReview() {
                                                 <span>首帧描述</span>
                                                 {renderAnnotationControl(`shot-${shot.id ?? idx}-initial_frame`, `Shot #${shot.id ?? idx + 1} 首帧描述`)}
                                             </div>
-                                            <textarea
-                                                value={shot.initial_frame || ''}
-                                                onChange={(e) =>
-                                                    mutateRound2((draft) => {
-                                                        const list = draft.shots ? [...draft.shots] : [];
-                                                        list[idx] = { ...(list[idx] || {}), initial_frame: e.target.value };
-                                                        draft.shots = list;
-                                                    })
-                                                }
-                                                className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-xl p-4 text-base text-[var(--color-text-primary)] min-h-[120px] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 leading-relaxed"
-                                            />
+                                            {typeof shot.initial_frame === 'string' || shot.initial_frame === undefined ? (
+                                                <textarea
+                                                    value={typeof shot.initial_frame === 'string' ? shot.initial_frame : ''}
+                                                    onChange={(e) =>
+                                                        mutateRound2((draft) => {
+                                                            const list = draft.shots ? [...draft.shots] : [];
+                                                            list[idx] = { ...(list[idx] || {}), initial_frame: e.target.value };
+                                                            draft.shots = list;
+                                                        })
+                                                    }
+                                                    className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-xl p-4 text-base text-[var(--color-text-primary)] min-h-[120px] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 leading-relaxed"
+                                                />
+                                            ) : (
+                                                <div className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-xl p-4 text-sm text-[var(--color-text-primary)] space-y-2">
+                                                    {shot.initial_frame.foreground && (
+                                                        <div>
+                                                            <div className="text-xs text-[var(--color-text-tertiary)] mb-1">前景</div>
+                                                            <pre className="text-xs whitespace-pre-wrap text-[var(--color-text-primary)] bg-[var(--glass-bg-light)]/60 p-2 rounded border border-[var(--glass-border)]">
+                                                                {JSON.stringify(shot.initial_frame.foreground, null, 2)}
+                                                            </pre>
+                                                        </div>
+                                                    )}
+                                                    {shot.initial_frame.midground && (
+                                                        <div>
+                                                            <div className="text-xs text-[var(--color-text-tertiary)] mb-1">中景</div>
+                                                            <pre className="text-xs whitespace-pre-wrap text-[var(--color-text-primary)] bg-[var(--glass-bg-light)]/60 p-2 rounded border border-[var(--glass-border)]">
+                                                                {JSON.stringify(shot.initial_frame.midground, null, 2)}
+                                                            </pre>
+                                                        </div>
+                                                    )}
+                                                    {shot.initial_frame.background && (
+                                                        <div>
+                                                            <div className="text-xs text-[var(--color-text-tertiary)] mb-1">背景</div>
+                                                            <pre className="text-xs whitespace-pre-wrap text-[var(--color-text-primary)] bg-[var(--glass-bg-light)]/60 p-2 rounded border border-[var(--glass-border)]">
+                                                                {JSON.stringify(shot.initial_frame.background, null, 2)}
+                                                            </pre>
+                                                        </div>
+                                                    )}
+                                                    {shot.initial_frame.lighting && (
+                                                        <div className="text-xs text-[var(--color-text-secondary)]">
+                                                            <span className="font-semibold text-[var(--color-text-tertiary)] mr-1">光线:</span>
+                                                            {String(shot.initial_frame.lighting)}
+                                                        </div>
+                                                    )}
+                                                    {shot.initial_frame.color_palette && (
+                                                        <div className="text-xs text-[var(--color-text-secondary)]">
+                                                            <span className="font-semibold text-[var(--color-text-tertiary)] mr-1">色板:</span>
+                                                            {String(shot.initial_frame.color_palette)}
+                                                        </div>
+                                                    )}
+                                                    {!shot.initial_frame.foreground &&
+                                                        !shot.initial_frame.midground &&
+                                                        !shot.initial_frame.background &&
+                                                        !shot.initial_frame.lighting &&
+                                                        !shot.initial_frame.color_palette && (
+                                                            <div className="text-xs text-[var(--color-text-tertiary)]">无结构化首帧描述</div>
+                                                        )}
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="space-y-2">
                                             <div className="flex items-center gap-2 text-xs text-[var(--color-text-tertiary)] uppercase tracking-wider font-bold">

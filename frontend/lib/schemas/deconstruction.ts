@@ -46,7 +46,18 @@ export const Round2ShotSchema = z
         end_time: z.string().optional(),
         duration: z.union([z.string(), z.number()]).optional(),
         keyframe: z.string().optional(),
-        initial_frame: z.string().optional(),
+        initial_frame: z
+            .union([
+                z.string(),
+                z.object({
+                    foreground: z.any().optional(),
+                    midground: z.any().optional(),
+                    background: z.any().optional(),
+                    lighting: z.any().optional(),
+                    color_palette: z.any().optional(),
+                }).passthrough(),
+            ])
+            .optional(),
         visual_changes: z.string().optional(),
         camera: z.string().optional(),
         audio: z.string().optional(),
