@@ -1,0 +1,412 @@
+/* Apple Design System - AI Shot Workbench */
+
+/* ============================================
+   Apple Design Principles:
+   1. Clarity - 清晰的视觉层次
+   2. Deference - 内容优先
+   3. Depth - 微妙的层次感
+   ============================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Apple Color Palette - Light Mode */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f5f5f7;
+  --color-bg-tertiary: #e8e8ed;
+
+  /* Liquid Glass - Semi-transparent backgrounds */
+  --glass-bg-light: rgba(255, 255, 255, 0.7);
+  --glass-bg-medium: rgba(255, 255, 255, 0.5);
+  --glass-bg-dark: rgba(255, 255, 255, 0.3);
+
+  /* Liquid Glass - Borders */
+  --glass-border: rgba(255, 255, 255, 0.18);
+  --glass-border-strong: rgba(255, 255, 255, 0.3);
+
+  /* Liquid Glass - Shadows */
+  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+  --glass-shadow-strong: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+
+  /* Apple Gray Scale */
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f5f5f5;
+  --color-gray-200: #e5e5e5;
+  --color-gray-300: #d4d4d4;
+  --color-gray-400: #a3a3a3;
+  --color-gray-500: #737373;
+  --color-gray-600: #525252;
+  --color-gray-700: #404040;
+  --color-gray-800: #262626;
+  --color-gray-900: #171717;
+
+  /* Apple Blue (Primary) with Glass variants */
+  --color-blue-50: #eff6ff;
+  --color-blue-100: #dbeafe;
+  --color-blue-500: #0071e3;
+  --color-blue-600: #0077ed;
+  --color-blue-700: #005bb5;
+  --color-blue-glass: rgba(0, 113, 227, 0.1);
+
+  /* System Colors */
+  --color-success: #34c759;
+  --color-warning: #ff9500;
+  --color-error: #ff3b30;
+  --color-info: #5ac8fa;
+
+  /* Text Colors */
+  --color-text-primary: #1d1d1f;
+  --color-text-secondary: #6e6e73;
+  --color-text-tertiary: #86868b;
+
+  /* Shadows - Apple's subtle depth */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+
+  /* Border Radius - Apple's rounded corners */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+
+  /* Spacing - Apple's generous whitespace */
+  --spacing-xs: 8px;
+  --spacing-sm: 12px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+}
+
+/* Dark Mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg-primary: #000000;
+    --color-bg-secondary: #1c1c1e;
+    --color-bg-tertiary: #2c2c2e;
+
+    --color-text-primary: #f5f5f7;
+    --color-text-secondary: #a1a1a6;
+    --color-text-tertiary: #6e6e73;
+
+    /* Liquid Glass - Dark Mode */
+    --glass-bg-light: rgba(28, 28, 30, 0.7);
+    --glass-bg-medium: rgba(28, 28, 30, 0.5);
+    --glass-bg-dark: rgba(28, 28, 30, 0.3);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-border-strong: rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* ============================================
+   Liquid Glass Components
+   ============================================ */
+
+/* Glass Card - Main style */
+.glass-card {
+  background: var(--glass-bg-light);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-shadow);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  background: var(--glass-bg-medium);
+  border-color: var(--glass-border-strong);
+  box-shadow: var(--glass-shadow-strong);
+  transform: translateY(-2px);
+}
+
+/* Glass Card - Strong variant */
+.glass-card-strong {
+  background: var(--glass-bg-medium);
+  backdrop-filter: saturate(180%) blur(30px);
+  -webkit-backdrop-filter: saturate(180%) blur(30px);
+  border: 1px solid var(--glass-border-strong);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-shadow-strong);
+}
+
+/* Glass Button */
+.glass-button {
+  background: var(--glass-bg-light);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 12px 24px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-button:hover {
+  background: var(--glass-bg-medium);
+  border-color: var(--glass-border-strong);
+  transform: translateY(-1px);
+}
+
+/* Liquid Gradient Background */
+.liquid-gradient {
+  background: linear-gradient(135deg,
+      rgba(0, 113, 227, 0.1) 0%,
+      rgba(52, 199, 89, 0.1) 50%,
+      rgba(90, 200, 250, 0.1) 100%);
+  background-size: 200% 200%;
+  animation: liquid-flow 15s ease infinite;
+}
+
+@keyframes liquid-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Liquid Shimmer Effect */
+.liquid-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.liquid-shimmer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent);
+  animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+
+  100% {
+    left: 100%;
+  }
+}
+
+/* Typography - SF Pro inspired with Inter */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+/* Apple-style Headings */
+.apple-title-large {
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.003em;
+}
+
+.apple-title {
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.125;
+  letter-spacing: -0.003em;
+}
+
+.apple-headline {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.17;
+  letter-spacing: -0.002em;
+}
+
+.apple-body {
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.47;
+  letter-spacing: -0.022em;
+}
+
+.apple-caption {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.38;
+  letter-spacing: -0.008em;
+  color: var(--color-text-secondary);
+}
+
+/* Apple-style Buttons */
+.apple-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.17;
+  border-radius: var(--radius-lg);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+.apple-button-primary {
+  background: var(--color-blue-500);
+  color: white;
+}
+
+.apple-button-primary:hover {
+  background: var(--color-blue-600);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.apple-button-primary:active {
+  transform: translateY(0);
+}
+
+.apple-button-secondary {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.apple-button-secondary:hover {
+  background: var(--color-bg-tertiary);
+}
+
+/* Apple-style Cards with Glass Effect */
+.apple-card {
+  background: var(--glass-bg-light);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-lg);
+  box-shadow: var(--glass-shadow);
+  border: 1px solid var(--glass-border);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.apple-card:hover {
+  box-shadow: var(--glass-shadow-strong);
+  transform: translateY(-2px);
+  border-color: var(--glass-border-strong);
+}
+
+/* Apple-style Input */
+.apple-input {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 17px;
+  line-height: 1.47;
+  background: var(--color-bg-secondary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  transition: all 0.2s;
+  outline: none;
+}
+
+.apple-input:focus {
+  background: var(--color-bg-primary);
+  border-color: var(--color-blue-500);
+  box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.1);
+}
+
+/* Apple-style Divider */
+.apple-divider {
+  height: 1px;
+  background: var(--color-gray-200);
+  border: none;
+  margin: var(--spacing-lg) 0;
+}
+
+/* Apple-style Badge */
+.apple-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 12px;
+  background: var(--color-gray-100);
+  color: var(--color-text-secondary);
+}
+
+/* Apple-style Animations */
+@keyframes apple-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.apple-animate-in {
+  animation: apple-fade-in 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Apple-style Blur Effect */
+.apple-blur {
+  backdrop-filter: saturate(180%) blur(20px);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+@media (prefers-color-scheme: dark) {
+  .apple-blur {
+    background: rgba(28, 28, 30, 0.72);
+  }
+}
+
+/* Utility Classes */
+.apple-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-lg);
+}
+
+.apple-section {
+  padding: var(--spacing-3xl) 0;
+}
+
+.apple-grid {
+  display: grid;
+  gap: var(--spacing-lg);
+}
+
+/* Scrollbar - Apple style */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-gray-300);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray-400);
+}

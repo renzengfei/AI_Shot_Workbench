@@ -1,0 +1,16 @@
+node_modules
+.next
+.turbo
+__pycache__/
+*.pyc
+.env
+.env.local
+.DS_Store
+backend/uploads/
+backend/transcodes/
+workspaces/*/assets/
+workspaces/*/export/
+workspaces/*/deconstruction.md
+workspaces/*/segmentation.json
+workspaces/*/project.json
+frontend/.next

@@ -1,0 +1,8 @@
+fastapi>=0.100.0
+uvicorn
+python-multipart
+pydantic>=2.0.0
+scenedetect[opencv]
+ffmpeg-python
+yt-dlp
+opencv-python-headless
