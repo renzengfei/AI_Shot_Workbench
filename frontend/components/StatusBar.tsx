@@ -1,7 +1,7 @@
 'use client';
 
 import { useTimelineStore } from '@/lib/stores/timelineStore';
-import { formatSeconds, formatDuration } from '@/lib/utils/formatTime';
+import { formatDuration } from '@/lib/utils/formatTime';
 import { Film, Scissors, Clock } from 'lucide-react';
 
 export default function StatusBar() {

@@ -16,7 +16,6 @@ export default function VideoPlayer({ videoUrl, onTimeUpdate }: VideoPlayerProps
     const {
         isPlaying,
         playheadSeconds,
-        playbackRateIndex,
         setPlaying,
         setPlayhead,
         setDuration,
@@ -146,7 +145,7 @@ export default function VideoPlayer({ videoUrl, onTimeUpdate }: VideoPlayerProps
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isPlaying, setPlayhead, setPlaying, FRAME_STEP_SECONDS, sessionId, requestFrameTriplet]);
+    }, [isPlaying, setPlayhead, setPlaying, FRAME_STEP_SECONDS, sessionId, requestFrameTriplet, durationSeconds]);
 
     return (
         <div className="w-full max-w-[34rem] mx-auto md:mx-0 aspect-[9/16] rounded-2xl overflow-hidden bg-gradient-to-b from-black/70 via-black/60 to-black/80 shadow-2xl ring-1 ring-white/10">

@@ -205,7 +205,7 @@ export function useFramePreview(): {
                 }
             }
         },
-        [cacheRef, inflightRef, previewFrameUrl, previewFramePrevUrl, previewFrameNextUrl, setFramePreview, durationSeconds, sessionId, fetchFrameBlob, previewFrameTime]
+        [cacheRef, inflightRef, previewFrameUrl, previewFramePrevUrl, previewFrameNextUrl, setFramePreview, durationSeconds, sessionId, fetchFrameBlob]
     );
 
     const clearFrame = useCallback(
@@ -225,7 +225,7 @@ export function useFramePreview(): {
                 nextTime: null,
             });
         },
-        [setFramePreview, previewFrameTime]
+        [previewFrameTime, setFramePreview]
     );
 
     return {

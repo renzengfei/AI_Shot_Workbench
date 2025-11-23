@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @next/next/no-img-element */
 
 import { ArrowRight, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useState } from 'react';

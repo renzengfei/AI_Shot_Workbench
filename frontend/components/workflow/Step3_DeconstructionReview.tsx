@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { useWorkflowStore } from '@/lib/stores/workflowStore';

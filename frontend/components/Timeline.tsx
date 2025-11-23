@@ -26,7 +26,7 @@ export default function Timeline({ onSeek }: TimelineProps) {
         setSelectedCutPoint,
         sessionId,
     } = useTimelineStore();
-    const { requestFrameTriplet, clearFrame } = useFramePreview();
+    const { requestFrameTriplet } = useFramePreview();
 
     const resolvedDuration = useMemo(() => {
         if (durationSeconds && durationSeconds > 0) {

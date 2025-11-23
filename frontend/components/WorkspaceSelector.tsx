@@ -6,7 +6,6 @@ import { useWorkspace } from './WorkspaceContext';
 
 export default function WorkspaceSelector() {
     const { workspaces, createWorkspace, openWorkspace } = useWorkspace();
-    const [isCreating, setIsCreating] = useState(false);
     const [newWorkspaceName, setNewWorkspaceName] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
@@ -18,6 +17,7 @@ export default function WorkspaceSelector() {
         try {
             await createWorkspace(newWorkspaceName);
         } catch (error) {
+            console.error('Failed to create workspace', error);
             alert('Failed to create workspace');
         } finally {
             setIsLoading(false);
