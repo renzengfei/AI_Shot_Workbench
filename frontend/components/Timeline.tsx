@@ -4,6 +4,7 @@ import { useMemo, useRef } from 'react';
 import { useTimelineStore } from '@/lib/stores/timelineStore';
 import { useFramePreview } from '@/lib/hooks/useFramePreview';
 import '@/app/timeline.css';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface TimelineProps {
     onSeek: (seconds: number) => void;
@@ -109,56 +110,83 @@ export default function Timeline({ onSeek }: TimelineProps) {
     };
 
     return (
-        <div className="timeline" aria-label="时间轴">
-            <div
-                ref={trackRef}
-                className="timeline__bar"
-                role="button"
-                tabIndex={0}
-                onClick={handleTrackClick}
-                style={{ position: 'relative' }}
-            >
-                {/* Segment backgrounds */}
-                {(() => {
-                    if (!resolvedDuration || cutPoints.length < 2) return null;
-                    const hidden = new Set(hiddenSegments.map((t) => t.toFixed(3)));
-                    const segments: Array<{ leftPct: number; widthPct: number; hidden: boolean }> = [];
-                    for (let i = 0; i < cutPoints.length - 1; i += 1) {
-                        const start = cutPoints[i];
-                        const end = cutPoints[i + 1];
-                        const leftPct = (start / resolvedDuration) * 100;
-                        const widthPct = ((end - start) / resolvedDuration) * 100;
-                        const isHidden = hidden.has(start.toFixed(3));
-                        segments.push({ leftPct, widthPct, hidden: isHidden });
-                    }
-                    return segments.map((seg, idx) => (
-                        <div
-                            key={`seg-${idx}`}
-                            className={`timeline__segment${seg.hidden ? ' hidden' : ''}`}
-                            style={{ left: `${seg.leftPct}%`, width: `${seg.widthPct}%` }}
-                        />
-                    ));
-                })()}
+        <TooltipProvider>
+            <div className="timeline" aria-label="时间轴">
+                <div
+                    ref={trackRef}
+                    className="timeline__bar"
+                    role="button"
+                    tabIndex={0}
+                    onClick={handleTrackClick}
+                    style={{ position: 'relative' }}
+                >
+                    {/* Segment backgrounds */}
+                    {(() => {
+                        if (!resolvedDuration || cutPoints.length < 2) return null;
+                        const hidden = new Set(hiddenSegments.map((t) => t.toFixed(3)));
+                        const segments: Array<{ leftPct: number; widthPct: number; hidden: boolean }> = [];
+                        for (let i = 0; i < cutPoints.length - 1; i += 1) {
+                            const start = cutPoints[i];
+                            const end = cutPoints[i + 1];
+                            const leftPct = (start / resolvedDuration) * 100;
+                            const widthPct = ((end - start) / resolvedDuration) * 100;
+                            const isHidden = hidden.has(start.toFixed(3));
+                            segments.push({ leftPct, widthPct, hidden: isHidden });
+                        }
+                        return segments.map((seg, idx) => (
+                            <div
+                                key={`seg-${idx}`}
+                                className={`timeline__segment${seg.hidden ? ' hidden' : ''}`}
+                                style={{ left: `${seg.leftPct}%`, width: `${seg.widthPct}%` }}
+                            />
+                        ));
+                    })()}
 
-                <div className="timeline__progress" style={{ width: playheadLeft }} />
-                <div className="timeline__playhead" style={{ left: playheadLeft }}>
-                    <span />
+                    <div className="timeline__progress" style={{ width: playheadLeft }} />
+                    <div className="timeline__playhead" style={{ left: playheadLeft }}>
+                        <span />
+                    </div>
+
+                    {markers.map(({ time, kind }, idx) => {
+                        const isSelected = selectedCutPoint != null && Math.abs(selectedCutPoint - time) < 1e-3;
+                        const start = time;
+                        const end = idx < cutPoints.length - 1 ? cutPoints[idx + 1] : null;
+                        const hidden = hiddenSegments.some((t) => Math.abs(t - time) < 1e-3);
+                        return (
+                            <Tooltip key={time}>
+                                <TooltipTrigger asChild>
+                                    <button
+                                        type="button"
+                                        className={`timeline__marker${isSelected ? ' selected' : ''}`}
+                                        style={{ left: `${(time / resolvedDuration) * 100}%` }}
+                                        onClick={(event) => handleMarkerClick(event, time)}
+                                        data-marker-kind={kind}
+                                        data-marker-time={time.toFixed(3)}
+                                    >
+                                        {kind === 'manual' ? "'" : '^'}
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" align="center">
+                                    <div className="text-xs space-y-1">
+                                        <div className="font-semibold">切点 {time.toFixed(3)}s</div>
+                                        {end !== null && (
+                                            <div className="text-[11px] text-[var(--color-text-tertiary)]">
+                                                片段：{start.toFixed(3)}s ~ {end.toFixed(3)}s
+                                            </div>
+                                        )}
+                                        <div className="flex items-center gap-2 text-[11px]">
+                                            <span className="text-[var(--color-text-tertiary)]">状态:</span>
+                                            <span className={hidden ? 'text-amber-500' : 'text-green-500'}>
+                                                {hidden ? '已隐藏' : '可见'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </TooltipContent>
+                            </Tooltip>
+                        );
+                    })}
                 </div>
-
-                {markers.map(({ time, kind }) => (
-                    <button
-                        key={time}
-                        type="button"
-                        className={`timeline__marker${selectedCutPoint != null && Math.abs(selectedCutPoint - time) < 1e-3 ? ' selected' : ''}`}
-                        style={{ left: `${(time / resolvedDuration) * 100}%` }}
-                        onClick={(event) => handleMarkerClick(event, time)}
-                        data-marker-kind={kind}
-                        data-marker-time={time.toFixed(3)}
-                    >
-                        {kind === 'manual' ? "'" : '^'}
-                    </button>
-                ))}
             </div>
-        </div>
+        </TooltipProvider>
     );
 }
