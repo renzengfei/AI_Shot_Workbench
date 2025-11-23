@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useWorkflowStore } from '@/lib/stores/workflowStore';
@@ -24,12 +25,12 @@ import {
     Volume2,
     VolumeX,
     ArrowRight,
-    MessageSquare,
     Copy as CopyIcon,
     Trash2
 } from 'lucide-react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+type ReviewMode = 'review' | 'revision' | 'final';
 
 interface AssetItem {
     ordinal: number;
@@ -89,6 +90,49 @@ interface Round2Data {
 }
 
 type AnnotationMap = Record<string, string>;
+interface ModificationLog {
+    summary?: string;
+    knowledge_base_applied?: string[];
+    modified_assets_list?: {
+        original?: string;
+        replacement?: string;
+        reason?: string;
+        affected_shots?: number[];
+        element_type?: string;
+    }[];
+    modified_shots?: {
+        id?: number;
+        action?: string;
+        reason?: string;
+        knowledge_reference?: string;
+        changes?: Record<string, { before?: string; after?: string }>;
+        backup?: Record<string, unknown>;
+    }[];
+    changes?: {
+        shot_id?: number;
+        action?: string;
+        reason?: string;
+    }[]; // 兼容旧字段
+    statistics?: {
+        total_shots_before?: number;
+        total_shots_after?: number;
+        deleted?: number;
+        merged?: number;
+        added?: number;
+        replaced?: number;
+        optimization_improvement_estimate?: string;
+    };
+}
+
+interface OptimizedStoryboardPayload {
+    round1?: Round1Data | string | null;
+    round2?: Round2Data | string | null;
+    metadata?: Record<string, unknown>;
+    deconstruction?: {
+        skeleton?: Round1Data | Record<string, unknown> | null;
+        shots?: Round2Shot[];
+    };
+}
 
 const VideoPlayer = ({ src, volume, muted }: { src: string; volume: number; muted: boolean }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -245,8 +289,9 @@ const VideoPlayer = ({ src, volume, muted }: { src: string; volume: number; mute
 
 export default function Step3_DeconstructionReview() {
     const { project, updateDeconstruction } = useWorkflowStore();
-    const { saveDeconstruction, saveShots, currentWorkspace } = useWorkspace();
+    const { saveDeconstruction, currentWorkspace } = useWorkspace();
     const { nextStep } = useStepNavigator();
+    const [mode, setMode] = useState<ReviewMode>('review');
     const [assets, setAssets] = useState<AssetItem[]>([]);
     const [round1Data, setRound1Data] = useState<Round1Data | string | null>(null);
     const [round2Data, setRound2Data] = useState<Round2Data | string | null>(null);
@@ -258,13 +303,30 @@ export default function Step3_DeconstructionReview() {
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [annotations, setAnnotations] = useState<AnnotationMap>({});
     const [editingKey, setEditingKey] = useState<string | null>(null);
-    const [editingLabel, setEditingLabel] = useState<string>('');
-    const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'empty'>('idle');
+    const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'empty' | 'error'>('idle');
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+    const [promptRaw, setPromptRaw] = useState('');
+    const [promptCopyStatus, setPromptCopyStatus] = useState<'idle' | 'loading' | 'copied' | 'error'>('idle');
+    const [modificationLog, setModificationLog] = useState<ModificationLog | null>(null);
+    const [modLogError, setModLogError] = useState<string | null>(null);
+    const [optimizedStoryboard, setOptimizedStoryboard] = useState<OptimizedStoryboardPayload | null>(null);
+    const [optimizedError, setOptimizedError] = useState<string | null>(null);
 
     // Global Volume State
     const [globalVolume, setGlobalVolume] = useState(1);
     const [isGlobalMuted, setIsGlobalMuted] = useState(false);
+    const canEdit = mode === 'review';
+    const allowAnnotations = mode === 'review';
+    const modeOptions: { key: ReviewMode; label: string; helper: string }[] = [
+        { key: 'review', label: '原片审验', helper: '可编辑 + 批注' },
+        { key: 'revision', label: '原片修订', helper: '对照修改记录，纯展示' },
+        { key: 'final', label: '全新剧本', helper: '终版剧本纯展示' },
+    ];
+    const modeSubtitleMap: Record<ReviewMode, string> = {
+        review: '确认原片拆解，并可编辑/批注',
+        revision: '对照修改记录查看修订版，只读',
+        final: '查看终版剧本，只读',
+    };
 
     const toggleGlobalMute = () => setIsGlobalMuted(!isGlobalMuted);
     const handleGlobalVolumeChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -273,13 +335,15 @@ export default function Step3_DeconstructionReview() {
         setIsGlobalMuted(vol === 0);
     };
 
-    const workspaceSlug = useMemo(() => {
-        if (!currentWorkspace?.path) return null;
-        const marker = '/workspaces/';
-        const idx = currentWorkspace.path.lastIndexOf(marker);
-        if (idx >= 0) return currentWorkspace.path.substring(idx + marker.length);
-        return currentWorkspace.path.split('/').pop() || currentWorkspace.path;
-    }, [currentWorkspace?.path]);
+    const workspaceSlug = currentWorkspace?.path
+        ? (() => {
+            const marker = '/workspaces/';
+            const idx = currentWorkspace.path.lastIndexOf(marker);
+            if (idx >= 0) return currentWorkspace.path.substring(idx + marker.length);
+            return currentWorkspace.path.split('/').pop() || currentWorkspace.path;
+        })()
+        : null;
+    const deconstructionPath = currentWorkspace?.path ? `${currentWorkspace.path}/deconstruction.md` : '';
 
     useEffect(() => {
         const fetchAssets = async () => {
@@ -294,6 +358,66 @@ export default function Step3_DeconstructionReview() {
             }
         };
         fetchAssets();
+    }, [workspaceSlug]);
+
+    useEffect(() => {
+        const loadPrompt = async () => {
+            setPromptCopyStatus('loading');
+            try {
+                const resp = await fetch('/api/production-prompt');
+                if (!resp.ok) throw new Error(`status ${resp.status}`);
+                const text = await resp.text();
+                setPromptRaw(text);
+                setPromptCopyStatus('idle');
+            } catch (err) {
+                console.error('加载 productionStoryboardPrompt 失败', err);
+                setPromptCopyStatus('error');
+            }
+        };
+        loadPrompt();
+    }, []);
+
+    useEffect(() => {
+        if (!workspaceSlug) return;
+        const loadModLog = async () => {
+            setModificationLog(null);
+            setModLogError(null);
+            try {
+                const resp = await fetch(`${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/modification_log.json`);
+                if (!resp.ok) {
+                    setModLogError(`未找到 modification_log.json（${resp.status}）`);
+                    return;
+                }
+                const data = await resp.json();
+                setModificationLog(data as ModificationLog);
+            } catch (err) {
+                console.error('加载 modification_log 失败', err);
+                setModLogError('加载 modification_log.json 失败');
+            }
+        };
+
+        const loadOptimized = async () => {
+            setOptimizedStoryboard(null);
+            setOptimizedError(null);
+            try {
+                const resp = await fetch(`${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/optimized_storyboard.json`);
+                if (!resp.ok) {
+                    setOptimizedError(`未找到 optimized_storyboard.json（${resp.status}）`);
+                    return;
+                }
+                const data = await resp.json();
+                setOptimizedStoryboard({
+                    round1: (data as OptimizedStoryboardPayload).round1 ?? null,
+                    round2: (data as OptimizedStoryboardPayload).round2 ?? null,
+                });
+            } catch (err) {
+                console.error('加载 optimized_storyboard 失败', err);
+                setOptimizedError('加载 optimized_storyboard.json 失败');
+            }
+        };
+
+        loadModLog();
+        loadOptimized();
     }, [workspaceSlug]);
 
     // Load/save annotations per workspace
@@ -337,8 +461,28 @@ export default function Step3_DeconstructionReview() {
 
     const openAnnotation = (key: string, label: string) => {
         setEditingKey(key);
-        setEditingLabel(label);
         setTimeout(() => textareaRef.current?.focus(), 0);
+    };
+
+    const handleCopyPrompt = async () => {
+        if (!promptRaw || !deconstructionPath) {
+            setPromptCopyStatus('error');
+            setTimeout(() => setPromptCopyStatus('idle'), 1500);
+            return;
+        }
+        const filled = promptRaw.replace(
+            /\*\*文件路径\*\*:\s*【请在此处填入完整的文件路径】/g,
+            `**文件路径**: ${deconstructionPath}`
+        );
+        try {
+            await navigator.clipboard.writeText(filled);
+            setPromptCopyStatus('copied');
+            setTimeout(() => setPromptCopyStatus('idle'), 1500);
+        } catch (err) {
+            console.error('复制提示词失败', err);
+            setPromptCopyStatus('error');
+            setTimeout(() => setPromptCopyStatus('idle'), 1500);
+        }
     };
 
     useEffect(() => {
@@ -352,6 +496,7 @@ export default function Step3_DeconstructionReview() {
     }, []);
 
     const renderAnnotationControl = (id: string, label: string) => {
+        if (!allowAnnotations) return null;
         const value = annotations[id] || '';
         const isOpen = editingKey === id;
         return (
@@ -438,12 +583,51 @@ export default function Step3_DeconstructionReview() {
             setCopyStatus('copied');
             setTimeout(() => setCopyStatus('idle'), 1500);
         } catch {
-            setCopyStatus('error' as any);
+            setCopyStatus('error');
             setTimeout(() => setCopyStatus('idle'), 1500);
         }
     };
 
     useEffect(() => {
+        if (mode === 'final') {
+            if (optimizedStoryboard) {
+                const mapOptimized = (data: OptimizedStoryboardPayload) => {
+                    if (data.round1 || data.round2) {
+                        return {
+                            r1: data.round1 ?? null,
+                            r2: data.round2 ?? null,
+                        };
+                    }
+                    if (data.deconstruction) {
+                        const skeleton = data.deconstruction.skeleton ?? null;
+                        const shots = data.deconstruction.shots ?? null;
+                        return {
+                            r1: skeleton ? (skeleton as Round1Data) : null,
+                            r2: shots ? ({ shots } as Round2Data) : null,
+                        };
+                    }
+                    return { r1: null, r2: null };
+                };
+
+                const mapped = mapOptimized(optimizedStoryboard);
+                setRound1Data(mapped.r1 as Round1Data);
+                setRound2Data(mapped.r2 as Round2Data);
+                setRound1Error(optimizedError);
+                setRound2Error(optimizedError);
+                setRound1Text(mapped.r1 ? (typeof mapped.r1 === 'string' ? mapped.r1 : JSON.stringify(mapped.r1, null, 2)) : '');
+                setRound2Text(mapped.r2 ? (typeof mapped.r2 === 'string' ? mapped.r2 : JSON.stringify(mapped.r2, null, 2)) : '');
+            } else {
+                setRound1Data(null);
+                setRound2Data(null);
+                setRound1Error(optimizedError || '未找到 optimized_storyboard.json');
+                setRound2Error(optimizedError || '未找到 optimized_storyboard.json');
+                setRound1Text('');
+                setRound2Text('');
+            }
+            setSavingState('idle');
+            return;
+        }
+
         if (!project?.deconstructionText) {
             setRound1Data(null);
             setRound2Data(null);
@@ -451,26 +635,24 @@ export default function Step3_DeconstructionReview() {
             setRound2Error(null);
             setRound1Text('');
             setRound2Text('');
+            setSavingState(mode === 'review' ? 'idle' : 'idle');
             return;
         }
+
         const result = parseStoredDeconstruction(project.deconstructionText);
         setRound1Data(result.round1 as Round1Data);
         setRound2Data(result.round2 as Round2Data);
         setRound1Error(result.errorsRound1.length ? result.errorsRound1.join('；') : null);
         setRound2Error(result.errorsRound2.length ? result.errorsRound2.join('；') : null);
-        if (result.round1) {
-            setRound1Text(typeof result.round1 === 'string' ? result.round1 : JSON.stringify(result.round1, null, 2));
-        } else {
-            setRound1Text('');
+        setRound1Text(result.round1 ? (typeof result.round1 === 'string' ? result.round1 : JSON.stringify(result.round1, null, 2)) : '');
+        setRound2Text(result.round2 ? (typeof result.round2 === 'string' ? result.round2 : JSON.stringify(result.round2, null, 2)) : '');
+        if (mode !== 'review') {
+            setSavingState('idle');
         }
-        if (result.round2) {
-            setRound2Text(typeof result.round2 === 'string' ? result.round2 : JSON.stringify(result.round2, null, 2));
-        } else {
-            setRound2Text('');
-        }
-    }, [project?.deconstructionText]);
+    }, [mode, optimizedStoryboard, optimizedError, project?.deconstructionText]);
 
     const scheduleSave = (nextRound1: string, nextRound2: string) => {
+        if (!canEdit) return;
         if (saveTimeoutRef.current) {
             clearTimeout(saveTimeoutRef.current);
         }
@@ -511,8 +693,14 @@ export default function Step3_DeconstructionReview() {
         };
     }, []);
 
+    useEffect(() => {
+        if (!canEdit) {
+            setSavingState('idle');
+        }
+    }, [canEdit]);
+
     const mutateRound1 = (updater: (draft: Round1Data) => void) => {
-        if (!round1Data || typeof round1Data === 'string') return;
+        if (!canEdit || !round1Data || typeof round1Data === 'string') return;
         const draft: Round1Data = {
             round1_skeleton: { ...round1Data.round1_skeleton },
             round1_hook: { ...round1Data.round1_hook },
@@ -525,7 +713,7 @@ export default function Step3_DeconstructionReview() {
     };
 
     const mutateRound2 = (updater: (draft: Round2Data) => void) => {
-        if (!round2Data || typeof round2Data === 'string') return;
+        if (!canEdit || !round2Data || typeof round2Data === 'string') return;
         const draft: Round2Data = {
             characters: round2Data.characters ? { ...round2Data.characters } : undefined,
             shots: round2Data.shots ? round2Data.shots.map((s) => ({ ...s })) : undefined,
@@ -556,13 +744,30 @@ export default function Step3_DeconstructionReview() {
             {/* Header */}
             <div className="glass-card p-4 flex items-center justify-between border-b-4 border-b-blue-500/20">
                 <div className="flex items-center gap-6">
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                         <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
-                            AI 原文拆解审核
+                            剧本重构
                         </h2>
                         <p className="text-xs text-[var(--color-text-secondary)]">
-                            确认 AI 拆解的逻辑骨架与分镜细节，对齐首帧与对应片段。
+                            {modeSubtitleMap[mode]}
                         </p>
+                        <div className="flex items-center gap-1 bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-full p-1 w-fit">
+                            {modeOptions.map((opt) => (
+                                <button
+                                    key={opt.key}
+                                    onClick={() => setMode(opt.key)}
+                                    className={`px-3 py-1 rounded-full text-xs transition ${mode === opt.key
+                                        ? 'bg-blue-500 text-white shadow-sm'
+                                        : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                                        }`}
+                                >
+                                    <div className="flex flex-col leading-tight items-center">
+                                        <span className="font-semibold">{opt.label}</span>
+                                        <span className="text-[10px] opacity-70">{opt.helper}</span>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     {/* Global Volume Control */}
@@ -584,21 +789,55 @@ export default function Step3_DeconstructionReview() {
                 </div>
 
                 <div className="text-xs flex items-center gap-2">
-                    <span className="text-[var(--color-text-tertiary)]">自动保存</span>
-                    {savingState === 'saving' && <span className="px-2 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 animate-pulse">保存中…</span>}
-                    {savingState === 'saved' && <span className="px-2 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">已保存</span>}
-                    {savingState === 'error' && <span className="px-2 py-1 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">保存失败</span>}
-                    {savingState === 'idle' && <span className="px-2 py-1 rounded-full bg-white/5 text-[var(--color-text-tertiary)] border border-[var(--glass-border)]">待编辑</span>}
+                    {canEdit ? (
+                        <>
+                            <span className="text-[var(--color-text-tertiary)]">自动保存</span>
+                            {savingState === 'saving' && <span className="px-2 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 animate-pulse">保存中…</span>}
+                            {savingState === 'saved' && <span className="px-2 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">已保存</span>}
+                            {savingState === 'error' && <span className="px-2 py-1 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">保存失败</span>}
+                            {savingState === 'idle' && <span className="px-2 py-1 rounded-full bg-white/5 text-[var(--color-text-tertiary)] border border-[var(--glass-border)]">待编辑</span>}
+                        </>
+                    ) : (
+                        <span className="px-2 py-1 rounded-full bg-[var(--color-bg-secondary)]/60 text-[var(--color-text-secondary)] border border-[var(--glass-border)]">
+                            当前模式为只读
+                        </span>
+                    )}
 
-                    <div className="w-px h-4 bg-[var(--glass-border)] mx-2" />
+                    {mode === 'review' && (
+                        <>
+                            <div className="w-px h-4 bg-[var(--glass-border)] mx-2" />
+                            <button
+                                onClick={handleCopyPrompt}
+                                disabled={promptCopyStatus === 'loading' || !deconstructionPath || promptCopyStatus === 'error'}
+                                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg border text-[var(--color-text-secondary)] transition-colors ${promptCopyStatus === 'copied'
+                                    ? 'border-green-500/50 text-green-400'
+                                    : 'border-[var(--glass-border)] hover:text-[var(--color-text-primary)] hover:border-blue-500/30'
+                                    } ${!deconstructionPath ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                title={deconstructionPath ? `自动填入: ${deconstructionPath}` : '未选择工作空间'}
+                            >
+                                <CopyIcon size={14} />
+                                {promptCopyStatus === 'loading'
+                                    ? '加载提示词...'
+                                    : promptCopyStatus === 'copied'
+                                        ? '已复制提示词'
+                                        : '复制剧本优化提示词'}
+                            </button>
+                        </>
+                    )}
 
-                    <button
-                        onClick={copyAllAnnotations}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-blue-500/30 transition-colors"
-                    >
-                        <CopyIcon size={14} />
-                        {copyStatus === 'copied' ? '已复制批注' : copyStatus === 'empty' ? '无批注可复制' : '复制批注'}
-                    </button>
+                    {allowAnnotations && (
+                        <>
+                            <div className="w-px h-4 bg-[var(--glass-border)] mx-2" />
+
+                            <button
+                                onClick={copyAllAnnotations}
+                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-blue-500/30 transition-colors"
+                            >
+                                <CopyIcon size={14} />
+                                {copyStatus === 'copied' ? '已复制批注' : copyStatus === 'empty' ? '无批注可复制' : '复制批注'}
+                            </button>
+                        </>
+                    )}
 
                     <div className="w-px h-4 bg-[var(--glass-border)] mx-2" />
 
@@ -611,6 +850,156 @@ export default function Step3_DeconstructionReview() {
                     </button>
                 </div>
             </div>
+
+            {mode === 'revision' && (
+                <div className="glass-card p-5 border border-blue-500/20 bg-[var(--glass-bg-light)] space-y-4">
+                    <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-2">
+                            <div className="text-sm font-semibold text-[var(--color-text-primary)]">修订摘要</div>
+                            <p className="text-sm text-[var(--color-text-secondary)]">
+                                {modificationLog?.summary || modLogError || '未找到 modification_log.json'}
+                            </p>
+                        </div>
+                        {modificationLog?.statistics && (
+                            <div className="grid grid-cols-2 gap-2 text-xs text-[var(--color-text-secondary)]">
+                                <div className="px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                                    <div className="text-[10px] uppercase tracking-wide">镜头数</div>
+                                    <div className="font-semibold text-[var(--color-text-primary)]">
+                                        {modificationLog.statistics.total_shots_before} → {modificationLog.statistics.total_shots_after}
+                                    </div>
+                                </div>
+                                <div className="px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                                    <div className="text-[10px] uppercase tracking-wide">删除</div>
+                                    <div className="font-semibold text-[var(--color-text-primary)]">
+                                {modificationLog.statistics.deleted ?? 0} 个镜头
+                            </div>
+                        </div>
+                        {typeof modificationLog.statistics.merged === 'number' && (
+                            <div className="px-3 py-2 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                                <div className="text-[10px] uppercase tracking-wide">合并</div>
+                                <div className="font-semibold text-[var(--color-text-primary)]">
+                                    {modificationLog.statistics.merged}
+                                </div>
+                            </div>
+                        )}
+                        {typeof modificationLog.statistics.added === 'number' && (
+                            <div className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                                <div className="text-[10px] uppercase tracking-wide">新增</div>
+                                <div className="font-semibold text-[var(--color-text-primary)]">
+                                    {modificationLog.statistics.added}
+                                </div>
+                            </div>
+                        )}
+                        {typeof modificationLog.statistics.replaced === 'number' && (
+                            <div className="px-3 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+                                <div className="text-[10px] uppercase tracking-wide">替换</div>
+                                <div className="font-semibold text-[var(--color-text-primary)]">
+                                    {modificationLog.statistics.replaced}
+                                </div>
+                            </div>
+                        )}
+                        {modificationLog.statistics.optimization_improvement_estimate && (
+                            <div className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 col-span-2">
+                                <div className="text-[10px] uppercase tracking-wide">提升</div>
+                                <div className="font-semibold text-[var(--color-text-primary)]">
+                                    {modificationLog.statistics.optimization_improvement_estimate}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {modificationLog?.knowledge_base_applied && modificationLog.knowledge_base_applied.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                            {modificationLog.knowledge_base_applied.map((k) => (
+                                <span key={k} className="px-2 py-1 rounded-full text-[10px] bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                                    {k}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+
+                    {modificationLog?.modified_assets_list && modificationLog.modified_assets_list.length > 0 && (
+                        <div className="space-y-2">
+                            <div className="text-xs font-semibold text-[var(--color-text-primary)]">元素替换</div>
+                            <div className="grid gap-3 md:grid-cols-2">
+                                {modificationLog.modified_assets_list.map((item, idx) => (
+                                    <div key={`${item.original}-${idx}`} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--color-bg-secondary)]/40 space-y-1">
+                                        <div className="text-sm text-[var(--color-text-primary)]">
+                                            {item.original} → <span className="text-blue-400">{item.replacement}</span>
+                                        </div>
+                                        {item.element_type && <div className="text-[10px] text-amber-300 uppercase">{item.element_type}</div>}
+                                        {item.reason && <div className="text-xs text-[var(--color-text-secondary)]">{item.reason}</div>}
+                                        {item.affected_shots && item.affected_shots.length > 0 && (
+                                            <div className="text-[10px] text-[var(--color-text-tertiary)]">影响镜头: {item.affected_shots.join(', ')}</div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {modificationLog?.changes && modificationLog.changes.length > 0 && (
+                        <div className="space-y-2">
+                            <div className="text-xs font-semibold text-[var(--color-text-primary)]">镜头操作</div>
+                            <div className="grid gap-2 md:grid-cols-2">
+                                {modificationLog.changes.map((c, idx) => (
+                                    <div key={`${c.shot_id}-${idx}`} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--color-bg-secondary)]/40 flex items-start justify-between gap-3">
+                                        <div className="space-y-1">
+                                            <div className="text-sm text-[var(--color-text-primary)]">Shot #{c.shot_id}</div>
+                                            {c.reason && <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed">{c.reason}</div>}
+                                        </div>
+                                        <span className="px-2 py-1 text-[10px] rounded-full border border-red-500/30 text-red-300 bg-red-500/10 uppercase">{c.action}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {modificationLog?.modified_shots && modificationLog.modified_shots.length > 0 && (
+                        <div className="space-y-3">
+                            <div className="text-xs font-semibold text-[var(--color-text-primary)]">镜头变更详情</div>
+                            <div className="grid gap-3">
+                                {modificationLog.modified_shots.map((m, idx) => (
+                                    <div key={`${m.id}-${idx}`} className="p-4 rounded-lg border border-[var(--glass-border)] bg-[var(--color-bg-secondary)]/40 space-y-2">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div>
+                                                <div className="text-sm text-[var(--color-text-primary)] font-semibold">Shot #{m.id}</div>
+                                                {m.reason && <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed mt-1">{m.reason}</div>}
+                                                {m.knowledge_reference && (
+                                                    <div className="text-[10px] text-blue-300 mt-1">依据: {m.knowledge_reference}</div>
+                                                )}
+                                            </div>
+                                            <span className="px-2 py-1 text-[10px] rounded-full border border-purple-500/30 text-purple-300 bg-purple-500/10 uppercase">
+                                                {m.action || 'CHANGE'}
+                                            </span>
+                                        </div>
+                                        {m.changes && Object.keys(m.changes).length > 0 && (
+                                            <div className="grid gap-2 md:grid-cols-2">
+                                                {Object.entries(m.changes).map(([field, diff]) => (
+                                                    <div key={field} className="p-2 rounded border border-[var(--glass-border)] bg-[var(--glass-bg-light)]/50 text-xs space-y-1">
+                                                        <div className="font-semibold text-[var(--color-text-primary)]">{field}</div>
+                                                        {diff.before && (
+                                                            <div className="text-[var(--color-text-tertiary)]">前: <span className="text-[var(--color-text-secondary)]">{diff.before}</span></div>
+                                                        )}
+                                                        {diff.after && (
+                                                            <div className="text-[var(--color-text-tertiary)]">后: <span className="text-[var(--color-text-primary)]">{diff.after}</span></div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {m.backup && (
+                                            <div className="text-[10px] text-[var(--color-text-tertiary)]">备份: {JSON.stringify(m.backup)}</div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Round 1 Section - Bento Grid Layout */}
             <div className="space-y-4">
@@ -646,6 +1035,7 @@ export default function Step3_DeconstructionReview() {
                                             draft.round1_skeleton = { ...(draft.round1_skeleton || {}), story_summary: e.target.value };
                                         })
                                     }
+                                    readOnly={!canEdit}
                                     className="w-full bg-[var(--color-bg-secondary)]/40 border border-[var(--glass-border)] rounded-xl p-4 text-base text-[var(--color-text-primary)] min-h-[140px] focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition leading-relaxed resize-y placeholder:text-[var(--color-text-tertiary)]"
                                     placeholder="输入故事概要..."
                                 />
@@ -666,6 +1056,7 @@ export default function Step3_DeconstructionReview() {
                                         draft.round1_skeleton = { ...(draft.round1_skeleton || {}), logic_chain: e.target.value };
                                     })
                                 }
+                                readOnly={!canEdit}
                                 className="w-full bg-[var(--glass-bg-light)] border border-[var(--glass-border)] rounded-lg p-3 text-sm text-[var(--color-text-primary)] min-h-[80px] focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition resize-y italic"
                                 placeholder="输入逻辑链..."
                             />
@@ -699,6 +1090,7 @@ export default function Step3_DeconstructionReview() {
                                                     draft.round1_skeleton = { ...(draft.round1_skeleton || {}), skeleton_nodes: list };
                                                 })
                                             }
+                                            readOnly={!canEdit}
                                             className="w-full bg-[var(--color-bg-secondary)]/40 border border-[var(--glass-border)] rounded-lg p-3 text-sm text-[var(--color-text-primary)] min-h-[60px] focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 transition resize-y"
                                         />
                                     </div>
@@ -726,6 +1118,7 @@ export default function Step3_DeconstructionReview() {
                                                 draft.round1_hook = { ...(draft.round1_hook || {}), visual_hook: e.target.value };
                                             })
                                         }
+                                        readOnly={!canEdit}
                                         className="w-full bg-[var(--color-bg-secondary)]/40 border border-[var(--glass-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-pink-500/40 focus:ring-1 focus:ring-pink-500/20"
                                     />
                                 </div>
@@ -738,6 +1131,7 @@ export default function Step3_DeconstructionReview() {
                                                 draft.round1_hook = { ...(draft.round1_hook || {}), audio_hook: e.target.value };
                                             })
                                         }
+                                        readOnly={!canEdit}
                                         className="w-full bg-[var(--color-bg-secondary)]/40 border border-[var(--glass-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-pink-500/40 focus:ring-1 focus:ring-pink-500/20"
                                     />
                                 </div>
@@ -750,6 +1144,7 @@ export default function Step3_DeconstructionReview() {
                                                 draft.round1_hook = { ...(draft.round1_hook || {}), retention_strategy: e.target.value };
                                             })
                                         }
+                                        readOnly={!canEdit}
                                         className="w-full bg-[var(--color-bg-secondary)]/40 border border-[var(--glass-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-pink-500/40 focus:ring-1 focus:ring-pink-500/20 min-h-[60px] resize-y"
                                     />
                                 </div>
@@ -776,6 +1171,7 @@ export default function Step3_DeconstructionReview() {
                                                         draft.round1_skeleton = { ...(draft.round1_skeleton || {}), viral_elements_found: list };
                                                     })
                                                 }
+                                                readOnly={!canEdit}
                                                 className="w-1/3 text-xs font-bold text-amber-400 bg-transparent border-b border-amber-500/20 focus:border-amber-400 focus:outline-none px-1 py-0.5"
                                                 placeholder="类别"
                                             />
@@ -788,6 +1184,7 @@ export default function Step3_DeconstructionReview() {
                                                         draft.round1_skeleton = { ...(draft.round1_skeleton || {}), viral_elements_found: list };
                                                     })
                                                 }
+                                                readOnly={!canEdit}
                                                 className="w-2/3 text-sm font-bold text-[var(--color-text-primary)] bg-transparent border-b border-[var(--glass-border)] focus:border-amber-400 focus:outline-none px-1 py-0.5"
                                                 placeholder="元素"
                                             />
@@ -801,6 +1198,7 @@ export default function Step3_DeconstructionReview() {
                                                     draft.round1_skeleton = { ...(draft.round1_skeleton || {}), viral_elements_found: list };
                                                 })
                                             }
+                                            readOnly={!canEdit}
                                             className="w-full text-xs text-[var(--color-text-secondary)] bg-[var(--color-bg-secondary)]/40 rounded p-2 border border-transparent focus:border-amber-500/20 focus:outline-none resize-none min-h-[50px]"
                                             placeholder="详细描述..."
                                         />
@@ -855,6 +1253,7 @@ export default function Step3_DeconstructionReview() {
                                                     draft.characters[name] = e.target.value;
                                                 })
                                             }
+                                            readOnly={!canEdit}
                                             className="w-full bg-[var(--color-bg-secondary)]/40 border border-[var(--glass-border)] rounded-lg p-3 text-sm text-[var(--color-text-secondary)] min-h-[80px] focus:outline-none focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/20 focus:bg-[var(--color-bg-secondary)]/80 transition-all leading-relaxed placeholder:text-[var(--color-text-tertiary)]"
                                             placeholder="输入角色描述..."
                                         />
@@ -878,17 +1277,35 @@ export default function Step3_DeconstructionReview() {
                                 ? `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/assets/videos/${clipFromAssets}`
                                 : null;
                         const mission = shot.mission || '';
-                        const missionType = mission.split(/[—:-]/)[0]?.trim() || '';
+                        const shotId = shot.id ?? idx + 1;
+                        const changeBadges =
+                            mode === 'revision'
+                                ? (modificationLog?.modified_shots?.filter((c) => c.id === shotId) || modificationLog?.changes?.filter((c) => c.shot_id === shotId) || [])
+                                : [];
+                        const replacementBadges =
+                            mode === 'revision'
+                                ? modificationLog?.modified_assets_list?.filter((item) => item.affected_shots?.includes(shotId)) || []
+                                : [];
 
                         return (
                             <div key={shot.id || idx} className="glass-card p-0 overflow-visible group hover:border-purple-500/30 transition-all duration-300 relative">
                                 <div className="p-4 border-b border-[var(--glass-border)] bg-[var(--glass-bg-light)] flex items-center justify-between">
                                     <div className="flex items-center gap-3">
-                                        <span className="text-sm font-bold text-purple-400 bg-purple-500/10 px-3 py-1 rounded-md">Shot #{shot.id ?? idx + 1}</span>
+                                        <span className="text-sm font-bold text-purple-400 bg-purple-500/10 px-3 py-1 rounded-md">Shot #{shotId}</span>
                                         <span className="text-sm text-[var(--color-text-tertiary)] font-mono">{shot.timestamp} - {shot.end_time}</span>
                                     </div>
-                                    <div className="flex gap-2">
-                                        {/* Removed Beat and Emotion tags as requested */}
+                                    <div className="flex gap-2 flex-wrap justify-end">
+                                        {replacementBadges.map((rep, repIdx) => (
+                                            <span key={`rep-${repIdx}`} className="text-[10px] px-2 py-1 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                                                替换: {rep.replacement}
+                                            </span>
+                                        ))}
+                                        {changeBadges.map((c, changeIdx) => (
+                                            <div key={`chg-${changeIdx}`} className="flex items-center gap-2 text-[10px] px-2 py-1 rounded-full bg-red-500/10 text-red-300 border border-red-500/20 uppercase">
+                                                <span>{c.action || 'CHANGE'}</span>
+                                                {('id' in c && c.id) ? <span>#{c.id}</span> : null}
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
 
@@ -932,6 +1349,7 @@ export default function Step3_DeconstructionReview() {
                                                         draft.shots = list;
                                                     })
                                                 }
+                                                readOnly={!canEdit}
                                                 className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-xl px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20"
                                                 placeholder="如：吸睛 - 提示强烈反差或异常"
                                             />
@@ -951,6 +1369,7 @@ export default function Step3_DeconstructionReview() {
                                                             draft.shots = list;
                                                         })
                                                     }
+                                                    readOnly={!canEdit}
                                                     className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-xl p-4 text-base text-[var(--color-text-primary)] min-h-[120px] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 leading-relaxed"
                                                 />
                                             ) : (
@@ -1015,6 +1434,7 @@ export default function Step3_DeconstructionReview() {
                                                         draft.shots = list;
                                                     })
                                                 }
+                                                readOnly={!canEdit}
                                                 className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-xl p-4 text-base text-[var(--color-text-primary)] min-h-[120px] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 leading-relaxed"
                                             />
                                         </div>
@@ -1033,6 +1453,7 @@ export default function Step3_DeconstructionReview() {
                                                             draft.shots = list;
                                                         })
                                                     }
+                                                    readOnly={!canEdit}
                                                     className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 min-h-[60px] resize-y"
                                                     title={shot.camera}
                                                 />
@@ -1051,6 +1472,7 @@ export default function Step3_DeconstructionReview() {
                                                             draft.shots = list;
                                                         })
                                                     }
+                                                    readOnly={!canEdit}
                                                     className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 min-h-[60px] resize-y"
                                                     title={shot.audio}
                                                 />
@@ -1069,6 +1491,7 @@ export default function Step3_DeconstructionReview() {
                                                             draft.shots = list;
                                                         })
                                                     }
+                                                    readOnly={!canEdit}
                                                     className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20"
                                                     title={shot.emotion}
                                                 />
@@ -1087,6 +1510,7 @@ export default function Step3_DeconstructionReview() {
                                                             draft.shots = list;
                                                         })
                                                     }
+                                                    readOnly={!canEdit}
                                                     className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20"
                                                     title={shot.beat}
                                                 />
