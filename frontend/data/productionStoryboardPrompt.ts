@@ -151,6 +151,23 @@ const CONFIG = {
 - **注意**: 此阶段仅做基础替换,爆款元素叠加在PHASE 2进行
 - **替换时必须维护逻辑自洽**
 
+#### ⚠️ 因果链保护清单 (Causal Chain Protection)
+
+在执行 DELETE 或 MERGE 前，必须验证：
+
+**删除前检查**：
+- [ ] 该镜头是否承载"信息获取"功能？（如发现道具、看到异象）
+- [ ] 删除后，下一个镜头的动机是否依然成立？
+- [ ] 是否有角色突然"知道"了本不该知道的信息？
+
+**合并时保留**：
+- 如果原片有 A → 发现 B → 决定用 B 的逻辑
+- 合并后必须保留"发现"的瞬间（如眼神扫到、突然注意到）
+
+**示例**：
+- ❌ 错误：直接"冲向躺椅抢泳圈"（跳过了"看到泳圈"）
+- ✅ 正确："扫视沙滩 → 眼神锁定躺椅泳圈 → 冲过去拿走"
+
 **时长控制强制** (依据 \`宏观指导原则.md\`):
 - 每个镜头 \`duration\` ≤ 2.5s
 - 单薄内容 ≤ 1.5s  
@@ -210,6 +227,32 @@ function addViralElement(shot, element) {
 **红线检查** (依据 \`红线检查清单.md\`):
 - 确保未使用未成年人、血腥、暴力等红线元素
 - 如有风险元素,替换为低风险等效元素
+
+---
+
+### 🛡️ 视觉合理性强制检查 (Visual Plausibility Gate)
+
+在添加任何元素前，必须通过以下checklist：
+
+#### 物理合理性
+- [ ] 该元素是否违反基本物理？（如：小杯子倒映远方物体）
+- [ ] 该元素的尺寸/距离是否符合透视关系？
+- [ ] 光影/倒影是否符合光学原理？
+
+#### 画面完整性
+- [ ] \`initial_frame\` 中是否已包含该元素？
+- [ ] 如果元素在画面外，是否在 \`background.environment\` 中标注？
+- [ ] \`visual_changes\` 是否只描述 \`initial_frame\` 中已存在的对象？
+
+**强制规则**：
+- ❌ 禁止：杯中倒映远方物体（违反光学）
+- ❌ 禁止：描述画面外的人群/物体（未在initial_frame定义）
+- ❌ 禁止：角色突然"知道"画面外信息（违反因果）
+- ✅ 允许：在 \`initial_frame\` 中先定义，再在 \`visual_changes\` 中让其动作
+
+**修正示例**：
+- 错误："主角侧目看向人群"（人群未在initial_frame中）
+- 正确：在 \`initial_frame.background.environment\` 中加入"远处模糊人群背影"，然后才能描述"主角看向远处人群"
 
 ---
 
@@ -569,6 +612,84 @@ function verifyLogicChain() {
 }
 \`\`\`
 
+---
+
+### Layer 3.5: 描述一致性验证 (Description Consistency Check)
+
+**目标**: 确保 \`visual_changes\` 和 \`initial_frame\` 完全对应，防止描述画面外实体。
+
+**执行伪代码**：
+\`\`\`javascript
+for (const shot of shots) {
+  const errors = [];
+  
+  // 1. 提取 initial_frame 中的所有实体
+  const entitiesInFrame = new Set();
+  
+  // 从 foreground 提取
+  shot.initial_frame.foreground.characters?.forEach(char => {
+    entitiesInFrame.add(char.tag);
+  });
+  shot.initial_frame.foreground.objects?.forEach(obj => {
+    entitiesInFrame.add(obj);
+  });
+  
+  // 从 midground 提取
+  if (shot.initial_frame.midground) {
+    shot.initial_frame.midground.characters?.forEach(char => {
+      if (typeof char === 'string') {
+        entitiesInFrame.add(char);
+      } else {
+        entitiesInFrame.add(char.tag);
+      }
+    });
+    shot.initial_frame.midground.objects?.forEach(obj => {
+      entitiesInFrame.add(obj);
+    });
+  }
+  
+  // 从 background 提取
+  if (shot.initial_frame.background?.environment) {
+    // background.environment 是描述性文字，需要提取关键词
+    const bgKeywords = extractKeywords(shot.initial_frame.background.environment);
+    bgKeywords.forEach(kw => entitiesInFrame.add(kw));
+  }
+  
+  // 2. 检查 visual_changes 中提到的实体
+  const mentionedEntities = extractMentionedEntities(shot.visual_changes);
+  
+  for (const entity of mentionedEntities) {
+    if (!entitiesInFrame.has(entity)) {
+      errors.push(\`镜头\${shot.id}: "\${entity}" 在 visual_changes 中被描述，但未在 initial_frame 中定义\`);
+    }
+  }
+  
+  // 3. 特殊检查：泳圈位置（如果是身体变形镜头）
+  if (shot.visual_changes.includes("脖子") || shot.visual_changes.includes("长")) {
+    // 检查是否提到了泳圈
+    if (!shot.visual_changes.includes("泳圈") && shot.id >= 7) {
+      warnings.push(\`镜头\${shot.id}: 脖子变长/拉长的镜头应明确提及"泳圈"的存在\`);
+    }
+  }
+  
+  // 4. 群演检查：如果 midground 有多名角色，visual_changes 也应提及
+  if (shot.initial_frame.midground?.characters?.length > 0) {
+    const hasGroupMention = shot.visual_changes.includes("路人") || 
+                           shot.visual_changes.includes("人群") ||
+                           shot.visual_changes.includes("后方");
+    if (!hasGroupMention) {
+      warnings.push(\`镜头\${shot.id}: midground 有群众演员，但 visual_changes 未描述他们的反应\`);
+    }
+  }
+  
+  if (errors.length > 0) {
+    return { pass: false, errors, warnings };
+  }
+}
+\`\`\`
+
+**如果验证失败**: 返回 PHASE 2 或 PHASE 4 重新修正描述。
+
 **自校验输出**:
 
 \`\`\`
@@ -650,7 +771,7 @@ function verifyLogicChain() {
 **执行指令**:
 
 1. **构造输出路径**:
-   - 输出路径 = 输入目录 + `/optimized_storyboard.json`
+   - 输出路径 = 输入目录 + `/ optimized_storyboard.json`
 
 2. **判断是否需要分批**:
    - 统计优化后的镜头总数

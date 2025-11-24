@@ -490,6 +490,25 @@ export default function Step3_DeconstructionReview() {
         loadOptimized();
     }, [loadModLog, loadOptimized]);
 
+    const optimizedMapped = useMemo(() => {
+        if (!optimizedStoryboard) return { r1: null as Round1Data | null, r2: null as Round2Data | null };
+        if (optimizedStoryboard.round1 || optimizedStoryboard.round2) {
+            return { r1: optimizedStoryboard.round1 as Round1Data, r2: optimizedStoryboard.round2 as Round2Data };
+        }
+        if (optimizedStoryboard.deconstruction) {
+            const skeleton = optimizedStoryboard.deconstruction.skeleton ?? null;
+            const shots = optimizedStoryboard.deconstruction.shots ?? null;
+            const r1 = skeleton
+                ? (Array.isArray((skeleton as Round1Data)?.round1_skeleton?.skeleton_nodes) || (skeleton as Round1Data)?.round1_hook
+                    ? (skeleton as Round1Data)
+                    : ({ round1_skeleton: skeleton } as Round1Data))
+                : null;
+            const r2 = shots ? ({ shots } as Round2Data) : null;
+            return { r1, r2 };
+        }
+        return { r1: null, r2: null };
+    }, [optimizedStoryboard]);
+
     // Load/save annotations per workspace
     useEffect(() => {
         if (!workspaceSlug) return;
@@ -688,38 +707,57 @@ export default function Step3_DeconstructionReview() {
         return 'text-blue-300';
     };
 
+    const shotDiffMap = useMemo(() => {
+        const map = new Map<number, Record<string, { before?: string; after?: string }>>();
+        if (mode !== 'revision') return map;
+        if (!round2Data || typeof round2Data === 'string' || !optimizedMapped.r2 || typeof optimizedMapped.r2 === 'string') return map;
+        const originalShots = round2Data.shots || [];
+        const optimizedShots = optimizedMapped.r2.shots || [];
+        const findOptimized = (shot: Round2Shot, fallbackIdx: number) => {
+            const id = shot.id ?? fallbackIdx + 1;
+            return (
+                optimizedShots.find((s) => s.original_id === id) ||
+                optimizedShots.find((s) => (s.original_id || s.id) === id) ||
+                optimizedShots[fallbackIdx] ||
+                null
+            );
+        };
+        const fields: Array<keyof Round2Shot> = ['mission', 'initial_frame', 'visual_changes', 'camera', 'audio', 'emotion', 'beat'];
+        originalShots.forEach((shot, idx) => {
+            const opt = findOptimized(shot, idx);
+            if (!opt) return;
+            const diff: Record<string, { before?: string; after?: string }> = {};
+            fields.forEach((field) => {
+                const beforeVal = shot[field];
+                const afterVal = opt[field];
+                const beforeStr = typeof beforeVal === 'string' ? beforeVal : beforeVal ? JSON.stringify(beforeVal) : '';
+                const afterStr = typeof afterVal === 'string' ? afterVal : afterVal ? JSON.stringify(afterVal) : '';
+                if (afterStr && afterStr !== beforeStr) {
+                    diff[field] = { before: beforeStr, after: afterStr };
+                }
+            });
+            if (Object.keys(diff).length > 0) {
+                map.set(shot.id ?? idx + 1, diff);
+            }
+        });
+        return map;
+    }, [mode, round2Data, optimizedMapped]);
+
+    const getChange = (key: string, shotId: number, modShot?: { changes?: Record<string, { before?: string; after?: string }> }) => {
+        const modChange = modShot?.changes ? (modShot.changes as Record<string, { before?: string; after?: string }>)[key] : undefined;
+        if (modChange) return modChange;
+        return shotDiffMap.get(shotId)?.[key];
+    };
+
     useEffect(() => {
         if (mode === 'final') {
-            if (optimizedStoryboard) {
-                const mapOptimized = (data: OptimizedStoryboardPayload) => {
-                    if (data.round1 || data.round2) {
-                        return {
-                            r1: data.round1 ?? null,
-                            r2: data.round2 ?? null,
-                        };
-                    }
-                    if (data.deconstruction) {
-                        const skeleton = data.deconstruction.skeleton ?? null;
-                        const shots = data.deconstruction.shots ?? null;
-                        return {
-                            r1: skeleton
-                                ? (Array.isArray((skeleton as Round1Data)?.round1_skeleton?.skeleton_nodes) || (skeleton as Round1Data)?.round1_hook
-                                    ? (skeleton as Round1Data)
-                                    : ({ round1_skeleton: skeleton } as Round1Data))
-                                : null,
-                            r2: shots ? ({ shots } as Round2Data) : null,
-                        };
-                    }
-                    return { r1: null, r2: null };
-                };
-
-                const mapped = mapOptimized(optimizedStoryboard);
-                setRound1Data(mapped.r1 as Round1Data);
-                setRound2Data(mapped.r2 as Round2Data);
+            if (optimizedMapped.r1 || optimizedMapped.r2) {
+                setRound1Data(optimizedMapped.r1 as Round1Data);
+                setRound2Data(optimizedMapped.r2 as Round2Data);
                 setRound1Error(optimizedError);
                 setRound2Error(optimizedError);
-                setRound1Text(mapped.r1 ? (typeof mapped.r1 === 'string' ? mapped.r1 : JSON.stringify(mapped.r1, null, 2)) : '');
-                setRound2Text(mapped.r2 ? (typeof mapped.r2 === 'string' ? mapped.r2 : JSON.stringify(mapped.r2, null, 2)) : '');
+                setRound1Text(optimizedMapped.r1 ? (typeof optimizedMapped.r1 === 'string' ? optimizedMapped.r1 : JSON.stringify(optimizedMapped.r1, null, 2)) : '');
+                setRound2Text(optimizedMapped.r2 ? (typeof optimizedMapped.r2 === 'string' ? optimizedMapped.r2 : JSON.stringify(optimizedMapped.r2, null, 2)) : '');
             } else {
                 setRound1Data(null);
                 setRound2Data(null);
@@ -753,11 +791,12 @@ export default function Step3_DeconstructionReview() {
         if (mode !== 'review') {
             setSavingState('idle');
         }
-    }, [mode, optimizedStoryboard, optimizedError, project?.deconstructionText]);
+    }, [mode, optimizedMapped.r1, optimizedMapped.r2, optimizedError, project?.deconstructionText]);
 
     useEffect(() => {
         if (mode === 'revision') {
             loadModLog();
+            loadOptimized();
         } else if (mode === 'final') {
             loadOptimized();
         }
@@ -1575,8 +1614,6 @@ export default function Step3_DeconstructionReview() {
                                 ? modificationLog?.modified_assets_list?.filter((item) => item.affected_shots?.includes(shotId)) || []
                                 : [];
                         const isDeleted = mode === 'revision' && (modShot?.action || '').toUpperCase() === 'DELETE';
-                        const getChange = (key: string) =>
-                            (modShot?.changes as Record<string, { before?: string; after?: string }> | undefined)?.[key];
                         const detailList =
                             mode === 'revision'
                                 ? changeBadges
@@ -1714,26 +1751,26 @@ export default function Step3_DeconstructionReview() {
                                     </div>
 
                                     <div className="flex-1 space-y-5 min-w-0 relative">
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2 text-xs text-[var(--color-text-tertiary)] uppercase tracking-wider font-bold">
-                                                <span>使命</span>
-                                                {renderAnnotationControl(`shot-${shot.id ?? idx}-mission`, `Shot #${shot.id ?? idx + 1} 使命`)}
-                                            </div>
-                                            {renderFieldWithRevision(
-                                                <input
-                                                    value={mission}
-                                                    onChange={(e) =>
-                                                        mutateRound2((draft) => {
-                                                            const list = draft.shots ? [...draft.shots] : [];
-                                                            list[idx] = { ...(list[idx] || {}), mission: e.target.value };
-                                                            draft.shots = list;
-                                                        })
-                                                    }
-                                                    readOnly={!canEdit}
-                                                    className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-xl px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20"
-                                                    placeholder="如：吸睛 - 提示强烈反差或异常"
-                                                />,
-                                                getChange('mission')
+                                       <div className="space-y-2">
+                                           <div className="flex items-center gap-2 text-xs text-[var(--color-text-tertiary)] uppercase tracking-wider font-bold">
+                                               <span>使命</span>
+                                               {renderAnnotationControl(`shot-${shot.id ?? idx}-mission`, `Shot #${shot.id ?? idx + 1} 使命`)}
+                                           </div>
+                                           {renderFieldWithRevision(
+                                               <input
+                                                   value={mission}
+                                                   onChange={(e) =>
+                                                       mutateRound2((draft) => {
+                                                           const list = draft.shots ? [...draft.shots] : [];
+                                                           list[idx] = { ...(list[idx] || {}), mission: e.target.value };
+                                                           draft.shots = list;
+                                                       })
+                                                   }
+                                                   readOnly={!canEdit}
+                                                   className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-xl px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20"
+                                                   placeholder="如：吸睛 - 提示强烈反差或异常"
+                                               />,
+                                                getChange('mission', shotId, modShot)
                                             )}
                                         </div>
                                         <div className="space-y-2">
@@ -1752,10 +1789,10 @@ export default function Step3_DeconstructionReview() {
                                                                 draft.shots = list;
                                                             })
                                                         }
-                                                        readOnly={!canEdit}
-                                                        className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-xl p-4 text-base text-[var(--color-text-primary)] min-h-[120px] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 leading-relaxed"
-                                                    />,
-                                                    getChange('initial_frame')
+                                                    readOnly={!canEdit}
+                                                    className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-xl p-4 text-base text-[var(--color-text-primary)] min-h-[120px] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 leading-relaxed"
+                                                />,
+                                                    getChange('initial_frame', shotId, modShot)
                                                 )
                                             ) : (
                                                 <div className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-xl p-4 text-sm text-[var(--color-text-primary)] space-y-2">
@@ -1823,7 +1860,7 @@ export default function Step3_DeconstructionReview() {
                                                     readOnly={!canEdit}
                                                     className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-xl p-4 text-base text-[var(--color-text-primary)] min-h-[120px] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 leading-relaxed"
                                                 />,
-                                                getChange('visual_changes')
+                                                getChange('visual_changes', shotId, modShot)
                                             )}
                                         </div>
                                         <div className="pt-5 border-t border-[var(--glass-border)] grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -1833,20 +1870,20 @@ export default function Step3_DeconstructionReview() {
                                                     {renderAnnotationControl(`shot-${shot.id ?? idx}-camera`, `Shot #${shot.id ?? idx + 1} 镜头`)}
                                                 </div>
                                                 {renderFieldWithRevision(
-                                                    <textarea
-                                                        value={shot.camera || ''}
-                                                        onChange={(e) =>
-                                                            mutateRound2((draft) => {
-                                                                const list = draft.shots ? [...draft.shots] : [];
+                                                <textarea
+                                                    value={shot.camera || ''}
+                                                    onChange={(e) =>
+                                                        mutateRound2((draft) => {
+                                                            const list = draft.shots ? [...draft.shots] : [];
                                                                 list[idx] = { ...(list[idx] || {}), camera: e.target.value };
                                                                 draft.shots = list;
                                                             })
                                                         }
-                                                        readOnly={!canEdit}
-                                                        className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 min-h-[60px] resize-y"
-                                                        title={shot.camera}
-                                                    />,
-                                                    getChange('camera')
+                                                    readOnly={!canEdit}
+                                                    className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 min-h-[60px] resize-y"
+                                                    title={shot.camera}
+                                                />,
+                                                    getChange('camera', shotId, modShot)
                                                 )}
                                             </div>
                                             <div className="space-y-1.5">
@@ -1855,20 +1892,20 @@ export default function Step3_DeconstructionReview() {
                                                     {renderAnnotationControl(`shot-${shot.id ?? idx}-audio`, `Shot #${shot.id ?? idx + 1} 音频`)}
                                                 </div>
                                                 {renderFieldWithRevision(
-                                                    <textarea
-                                                        value={shot.audio || ''}
-                                                        onChange={(e) =>
-                                                            mutateRound2((draft) => {
-                                                                const list = draft.shots ? [...draft.shots] : [];
+                                                <textarea
+                                                    value={shot.audio || ''}
+                                                    onChange={(e) =>
+                                                        mutateRound2((draft) => {
+                                                            const list = draft.shots ? [...draft.shots] : [];
                                                                 list[idx] = { ...(list[idx] || {}), audio: e.target.value };
                                                                 draft.shots = list;
                                                             })
                                                         }
-                                                        readOnly={!canEdit}
-                                                        className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 min-h-[60px] resize-y"
-                                                        title={shot.audio}
-                                                    />,
-                                                    getChange('audio')
+                                                    readOnly={!canEdit}
+                                                    className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 min-h-[60px] resize-y"
+                                                    title={shot.audio}
+                                                />,
+                                                    getChange('audio', shotId, modShot)
                                                 )}
                                             </div>
                                             <div className="space-y-1.5">
@@ -1877,20 +1914,20 @@ export default function Step3_DeconstructionReview() {
                                                     {renderAnnotationControl(`shot-${shot.id ?? idx}-emotion`, `Shot #${shot.id ?? idx + 1} 节奏/情绪`)}
                                                 </div>
                                                 {renderFieldWithRevision(
-                                                    <input
-                                                        value={shot.emotion || ''}
-                                                        onChange={(e) =>
-                                                            mutateRound2((draft) => {
-                                                                const list = draft.shots ? [...draft.shots] : [];
+                                                <input
+                                                    value={shot.emotion || ''}
+                                                    onChange={(e) =>
+                                                        mutateRound2((draft) => {
+                                                            const list = draft.shots ? [...draft.shots] : [];
                                                                 list[idx] = { ...(list[idx] || {}), emotion: e.target.value };
                                                                 draft.shots = list;
                                                             })
                                                         }
-                                                        readOnly={!canEdit}
-                                                        className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20"
-                                                        title={shot.emotion}
-                                                    />,
-                                                    getChange('emotion')
+                                                    readOnly={!canEdit}
+                                                    className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20"
+                                                    title={shot.emotion}
+                                                />,
+                                                    getChange('emotion', shotId, modShot)
                                                 )}
                                             </div>
                                             <div className="space-y-1.5">
@@ -1899,20 +1936,20 @@ export default function Step3_DeconstructionReview() {
                                                     {renderAnnotationControl(`shot-${shot.id ?? idx}-beat`, `Shot #${shot.id ?? idx + 1} Beat`)}
                                                 </div>
                                                 {renderFieldWithRevision(
-                                                    <input
-                                                        value={shot.beat || ''}
-                                                        onChange={(e) =>
-                                                            mutateRound2((draft) => {
-                                                                const list = draft.shots ? [...draft.shots] : [];
+                                                <input
+                                                    value={shot.beat || ''}
+                                                    onChange={(e) =>
+                                                        mutateRound2((draft) => {
+                                                            const list = draft.shots ? [...draft.shots] : [];
                                                                 list[idx] = { ...(list[idx] || {}), beat: e.target.value };
                                                                 draft.shots = list;
                                                             })
                                                         }
-                                                        readOnly={!canEdit}
-                                                        className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20"
-                                                        title={shot.beat}
-                                                    />,
-                                                    getChange('beat')
+                                                    readOnly={!canEdit}
+                                                    className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20"
+                                                    title={shot.beat}
+                                                />,
+                                                    getChange('beat', shotId, modShot)
                                                 )}
                                             </div>
                                         </div>
