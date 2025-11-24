@@ -109,6 +109,14 @@ interface OptimizedStoryboardPayload {
         skeleton?: Round1Data | Record<string, unknown> | null;
         shots?: Round2Shot[];
         deleted_shots?: DeletedShot[];
+        modified_assets?: {
+            type?: string;
+            original?: string;
+            replacement?: string;
+            reason?: string;
+            affected_shots?: number[];
+            element_type?: string;
+        }[];
     };
     optimization_analysis?: {
         summary?: string;
@@ -300,6 +308,16 @@ export default function Step3_DeconstructionReview() {
     const [optimizedMetadata, setOptimizedMetadata] = useState<Record<string, unknown> | null>(null);
     const [optimizedAnalysis, setOptimizedAnalysis] = useState<{ summary?: string; knowledge_base_applied?: string[] } | null>(null);
     const [deletedShots, setDeletedShots] = useState<DeletedShot[]>([]);
+    const [modifiedAssets, setModifiedAssets] = useState<
+        Array<{
+            type?: string;
+            original?: string;
+            replacement?: string;
+            reason?: string;
+            affected_shots?: number[];
+            element_type?: string;
+        }>
+    >([]);
 
     // Global Volume State
     const [globalVolume, setGlobalVolume] = useState(1);
@@ -375,6 +393,7 @@ export default function Step3_DeconstructionReview() {
         setOptimizedMetadata(null);
         setOptimizedAnalysis(null);
         setDeletedShots([]);
+        setModifiedAssets([]);
         try {
             const resp = await fetch(`${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/optimized_storyboard.json`, { cache: 'no-store' });
             if (!resp.ok) {
@@ -386,6 +405,7 @@ export default function Step3_DeconstructionReview() {
             if (data.metadata) setOptimizedMetadata(data.metadata as Record<string, unknown>);
             if (data.optimization_analysis) setOptimizedAnalysis(data.optimization_analysis as { summary?: string; knowledge_base_applied?: string[] });
             if (data.deconstruction?.deleted_shots) setDeletedShots(data.deconstruction.deleted_shots as DeletedShot[]);
+            if (data.deconstruction?.modified_assets) setModifiedAssets(data.deconstruction.modified_assets);
             setOptimizedStoryboard({
                 round1: (data as OptimizedStoryboardPayload).round1 ?? null,
                 round2: (data as OptimizedStoryboardPayload).round2 ?? null,
@@ -979,6 +999,28 @@ export default function Step3_DeconstructionReview() {
                             </div>
                         </div>
                     )}
+                    {Array.isArray(modifiedAssets) && modifiedAssets.length > 0 && (
+                        <div className="space-y-2">
+                            <div className="text-xs font-semibold text-[var(--color-text-primary)]">元素替换</div>
+                            <div className="grid gap-2 md:grid-cols-2">
+                                {modifiedAssets.map((m, idx) => (
+                                    <div key={`${m.original ?? idx}-${idx}`} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--glass-bg-light)]/70 text-xs space-y-1">
+                                        <div className="flex items-center gap-2 text-[var(--color-text-primary)]">
+                                            <span className="line-through text-[var(--color-text-tertiary)]">{m.original}</span>
+                                            <ArrowRight size={10} className="text-[var(--color-text-secondary)]" />
+                                            <span className="text-emerald-400 font-semibold">{m.replacement}</span>
+                                        </div>
+                                        {m.type && <div className={`text-[10px] uppercase ${modTypeClass(m.type)}`}>{m.type}</div>}
+                                        {m.element_type && <div className="text-[10px] text-amber-300 uppercase">{m.element_type}</div>}
+                                        {m.reason && <div className="text-[var(--color-text-secondary)] leading-relaxed">{m.reason}</div>}
+                                        {m.affected_shots && m.affected_shots.length > 0 && (
+                                            <div className="text-[10px] text-[var(--color-text-tertiary)]">影响镜头: {m.affected_shots.join(', ')}</div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -1280,17 +1322,15 @@ export default function Step3_DeconstructionReview() {
                         const replacementBadges: Array<{ replacement?: string }> = [];
                         const isDeleted = mode === 'revision' && (modShot?.action || '').toUpperCase() === 'DELETE';
                         const detailList =
-                            mode === 'revision'
-                                ? changeBadges
-                                : modificationInfo
-                                    ? [{
-                                        reason: modificationInfo.reason,
-                                        modType: modificationInfo.type,
-                                        affectedShots: modificationInfo.affected_shots,
-                                        changes: undefined,
-                                    }]
-                                    : [];
-                        const hasDetail = (mode === 'revision' && changeBadges.length > 0) || (mode === 'final' && detailList.length > 0);
+                            modificationInfo
+                                ? [{
+                                    reason: modificationInfo.reason,
+                                    modType: modificationInfo.type,
+                                    affectedShots: modificationInfo.affected_shots,
+                                    changes: undefined,
+                                }]
+                                : [];
+                        const hasDetail = detailList.length > 0 || (mode === 'revision' && changeBadges.length > 0);
 
                         return (
                             <div key={shot.id || idx} className="glass-card p-0 overflow-visible group hover:border-purple-500/30 transition-all duration-300 relative">
