@@ -25,7 +25,6 @@ import {
     Volume2,
     VolumeX,
     ArrowRight,
-    RefreshCw,
     Copy as CopyIcon,
     Trash2
 } from 'lucide-react';
@@ -102,42 +101,6 @@ interface Round2Data {
 }
 
 type AnnotationMap = Record<string, string>;
-interface ModificationLog {
-    summary?: string;
-    knowledge_base_applied?: string[];
-    modified_assets_list?: {
-        original?: string;
-        replacement?: string;
-        reason?: string;
-        affected_shots?: number[];
-        element_type?: string;
-    }[];
-    modified_shots?: {
-        id?: number;
-        action?: string;
-        reason?: string;
-        knowledge_reference?: string;
-        changes?: Record<string, { before?: string; after?: string }>;
-        backup?: Record<string, unknown>;
-    }[];
-    changes?: {
-        shot_id?: number;
-        action?: string;
-        reason?: string;
-    }[]; // 兼容旧字段
-    statistics?: {
-        total_shots_before?: number;
-        total_shots_after?: number;
-        deleted?: number;
-        merged?: number;
-        added?: number;
-        replaced?: number;
-        duration_before?: string;
-        duration_after?: string;
-        optimization_improvement_estimate?: string;
-    };
-}
-
 interface OptimizedStoryboardPayload {
     round1?: Round1Data | string | null;
     round2?: Round2Data | string | null;
@@ -332,8 +295,6 @@ export default function Step3_DeconstructionReview() {
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
     const [promptRaw, setPromptRaw] = useState('');
     const [promptCopyStatus, setPromptCopyStatus] = useState<'idle' | 'loading' | 'copied' | 'error'>('idle');
-    const [modificationLog, setModificationLog] = useState<ModificationLog | null>(null);
-    const [modLogError, setModLogError] = useState<string | null>(null);
     const [optimizedStoryboard, setOptimizedStoryboard] = useState<OptimizedStoryboardPayload | null>(null);
     const [optimizedError, setOptimizedError] = useState<string | null>(null);
     const [optimizedMetadata, setOptimizedMetadata] = useState<Record<string, unknown> | null>(null);
@@ -347,7 +308,7 @@ export default function Step3_DeconstructionReview() {
     const allowAnnotations = mode === 'review';
     const modeOptions: { key: ReviewMode; label: string; helper: string }[] = [
         { key: 'review', label: '原片审验', helper: '可编辑 + 批注' },
-        { key: 'revision', label: '原片修订', helper: '对照修改记录，纯展示' },
+        { key: 'revision', label: '原片修订', helper: '对比终版改动，只读' },
         { key: 'final', label: '全新剧本', helper: '终版剧本纯展示' },
     ];
     const modeSubtitleMap: Record<ReviewMode, string> = {
@@ -372,34 +333,8 @@ export default function Step3_DeconstructionReview() {
         })()
         : null;
     const deconstructionPath = currentWorkspace?.path ? `${currentWorkspace.path}/deconstruction.md` : '';
-    const modifiedShotMap = useMemo(() => {
-        const map = new Map<number, ModificationLog['modified_shots'][number]>();
-        if (mode !== 'revision') return map;
-        (modificationLog?.modified_shots || []).forEach((m) => {
-            if (typeof m.id === 'number') map.set(m.id, m);
-        });
-        // 兼容旧字段 changes/shot_id
-        (modificationLog?.changes || []).forEach((c) => {
-            if (typeof c.shot_id === 'number' && !map.has(c.shot_id)) {
-                map.set(c.shot_id, {
-                    id: c.shot_id,
-                    action: c.action,
-                    reason: c.reason,
-                });
-            }
-        });
-        return map;
-    }, [mode, modificationLog]);
-    const missingModifiedShots = useMemo(() => {
-        if (mode !== 'revision') return [];
-        const presentIds = new Set<number>();
-        if (round2Data && typeof round2Data !== 'string') {
-            (round2Data.shots || []).forEach((s) => {
-                if (typeof s.id === 'number') presentIds.add(s.id);
-            });
-        }
-        return (modificationLog?.modified_shots || []).filter((m) => typeof m.id === 'number' && !presentIds.has(m.id as number));
-    }, [mode, modificationLog, round2Data]);
+    const modifiedShotMap = useMemo(() => new Map<number, { action?: string; reason?: string }>(), []);
+    const missingModifiedShots = [];
 
     useEffect(() => {
         const fetchAssets = async () => {
@@ -432,26 +367,6 @@ export default function Step3_DeconstructionReview() {
         };
         loadPrompt();
     }, []);
-
-    const loadModLog = useCallback(async () => {
-        if (!workspaceSlug) return;
-        setModificationLog(null);
-        setModLogError(null);
-        try {
-            const resp = await fetch(`${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/modification_log.json`, { cache: 'no-store' });
-            if (!resp.ok) {
-                setModLogError(`未找到 modification_log.json（${resp.status}）`);
-                setModificationLog(null);
-                return;
-            }
-            const data = await resp.json();
-            setModificationLog(data as ModificationLog);
-        } catch (err) {
-            console.error('加载 modification_log 失败', err);
-            setModLogError('加载 modification_log.json 失败');
-            setModificationLog(null);
-        }
-    }, [workspaceSlug]);
 
     const loadOptimized = useCallback(async () => {
         if (!workspaceSlug) return;
@@ -486,9 +401,8 @@ export default function Step3_DeconstructionReview() {
     }, [workspaceSlug]);
 
     useEffect(() => {
-        loadModLog();
         loadOptimized();
-    }, [loadModLog, loadOptimized]);
+    }, [loadOptimized]);
 
     const optimizedMapped = useMemo(() => {
         if (!optimizedStoryboard) return { r1: null as Round1Data | null, r2: null as Round2Data | null };
@@ -794,13 +708,10 @@ export default function Step3_DeconstructionReview() {
     }, [mode, optimizedMapped.r1, optimizedMapped.r2, optimizedError, project?.deconstructionText]);
 
     useEffect(() => {
-        if (mode === 'revision') {
-            loadModLog();
-            loadOptimized();
-        } else if (mode === 'final') {
+        if (mode === 'revision' || mode === 'final') {
             loadOptimized();
         }
-    }, [mode, loadModLog, loadOptimized]);
+    }, [mode, loadOptimized]);
 
     const scheduleSave = (nextRound1: string, nextRound2: string) => {
         if (!canEdit) return;
@@ -991,19 +902,6 @@ export default function Step3_DeconstructionReview() {
                             </button>
                         </>
                     )}
-                    {mode === 'revision' && (
-                        <>
-                            <div className="w-px h-4 bg-[var(--glass-border)] mx-2" />
-                            <button
-                                onClick={loadModLog}
-                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-blue-500/30 transition-colors"
-                            >
-                                <RefreshCw size={14} />
-                                刷新修订数据
-                            </button>
-                        </>
-                    )}
-
                     {allowAnnotations && (
                         <>
                             <div className="w-px h-4 bg-[var(--glass-border)] mx-2" />
@@ -1029,156 +927,6 @@ export default function Step3_DeconstructionReview() {
                     </button>
                 </div>
             </div>
-
-            {mode === 'revision' && (
-                <div className="glass-card p-5 border border-blue-500/20 bg-[var(--glass-bg-light)] space-y-4">
-                    <div className="flex items-start justify-between gap-4">
-                        <div className="space-y-2">
-                            <div className="text-sm font-semibold text-[var(--color-text-primary)]">修订摘要</div>
-                            <p className="text-sm text-[var(--color-text-secondary)]">
-                                {modificationLog?.summary || modLogError || '未找到 modification_log.json'}
-                            </p>
-                        </div>
-                        {modificationLog?.statistics && (
-                            <div className="grid grid-cols-2 gap-2 text-xs text-[var(--color-text-secondary)]">
-                                <div className="px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                                    <div className="text-[10px] uppercase tracking-wide">镜头数</div>
-                                    <div className="font-semibold text-[var(--color-text-primary)]">
-                                        {modificationLog.statistics.total_shots_before} → {modificationLog.statistics.total_shots_after}
-                                    </div>
-                                </div>
-                                <div className="px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/20">
-                                    <div className="text-[10px] uppercase tracking-wide">删除</div>
-                                    <div className="font-semibold text-[var(--color-text-primary)]">
-                                        {modificationLog.statistics.deleted ?? 0} 个镜头
-                                    </div>
-                                </div>
-                                {typeof modificationLog.statistics.merged === 'number' && (
-                                    <div className="px-3 py-2 rounded-lg bg-orange-500/10 border border-orange-500/20">
-                                        <div className="text-[10px] uppercase tracking-wide">合并</div>
-                                        <div className="font-semibold text-[var(--color-text-primary)]">
-                                            {modificationLog.statistics.merged}
-                                        </div>
-                                    </div>
-                                )}
-                                {typeof modificationLog.statistics.added === 'number' && (
-                                    <div className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                                        <div className="text-[10px] uppercase tracking-wide">新增</div>
-                                        <div className="font-semibold text-[var(--color-text-primary)]">
-                                            {modificationLog.statistics.added}
-                                        </div>
-                                    </div>
-                                )}
-                                {typeof modificationLog.statistics.replaced === 'number' && (
-                                    <div className="px-3 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
-                                        <div className="text-[10px] uppercase tracking-wide">替换</div>
-                                        <div className="font-semibold text-[var(--color-text-primary)]">
-                                            {modificationLog.statistics.replaced}
-                                        </div>
-                                    </div>
-                                )}
-                                {modificationLog.statistics.optimization_improvement_estimate && (
-                                    <div className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 col-span-2">
-                                        <div className="text-[10px] uppercase tracking-wide">提升</div>
-                                        <div className="font-semibold text-[var(--color-text-primary)]">
-                                            {modificationLog.statistics.optimization_improvement_estimate}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    {modificationLog?.knowledge_base_applied && modificationLog.knowledge_base_applied.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                            {modificationLog.knowledge_base_applied.map((k) => (
-                                <span key={k} className="px-2 py-1 rounded-full text-[10px] bg-blue-500/10 text-blue-300 border border-blue-500/20">
-                                    {k}
-                                </span>
-                            ))}
-                        </div>
-                    )}
-
-                    {modificationLog?.modified_assets_list && modificationLog.modified_assets_list.length > 0 && (
-                        <div className="space-y-2">
-                            <div className="text-xs font-semibold text-[var(--color-text-primary)]">元素替换</div>
-                            <div className="grid gap-3 md:grid-cols-2">
-                                {modificationLog.modified_assets_list.map((item, idx) => (
-                                    <div key={`${item.original}-${idx}`} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--color-bg-secondary)]/40 space-y-1">
-                                        <div className="text-sm text-[var(--color-text-primary)]">
-                                            {item.original} → <span className="text-blue-400">{item.replacement}</span>
-                                        </div>
-                                        {item.element_type && <div className="text-[10px] text-amber-300 uppercase">{item.element_type}</div>}
-                                        {item.reason && <div className="text-xs text-[var(--color-text-secondary)]">{item.reason}</div>}
-                                        {item.affected_shots && item.affected_shots.length > 0 && (
-                                            <div className="text-[10px] text-[var(--color-text-tertiary)]">影响镜头: {item.affected_shots.join(', ')}</div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {modificationLog?.changes && modificationLog.changes.length > 0 && (
-                        <div className="space-y-2">
-                            <div className="text-xs font-semibold text-[var(--color-text-primary)]">镜头操作</div>
-                            <div className="grid gap-2 md:grid-cols-2">
-                                {modificationLog.changes.map((c, idx) => (
-                                    <div key={`${c.shot_id}-${idx}`} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--color-bg-secondary)]/40 flex items-start justify-between gap-3">
-                                        <div className="space-y-1">
-                                            <div className="text-sm text-[var(--color-text-primary)]">Shot #{c.shot_id}</div>
-                                            {c.reason && <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed">{c.reason}</div>}
-                                        </div>
-                                        <span className="px-2 py-1 text-[10px] rounded-full border border-red-500/30 text-red-300 bg-red-500/10 uppercase">{c.action}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {modificationLog?.modified_shots && modificationLog.modified_shots.length > 0 && (
-                        <div className="space-y-3">
-                            <div className="text-xs font-semibold text-[var(--color-text-primary)]">镜头变更详情</div>
-                            <div className="grid gap-3">
-                                {modificationLog.modified_shots.map((m, idx) => (
-                                    <div key={`${m.id}-${idx}`} className="p-4 rounded-lg border border-[var(--glass-border)] bg-[var(--color-bg-secondary)]/40 space-y-2">
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div>
-                                                <div className="text-sm text-[var(--color-text-primary)] font-semibold">Shot #{m.id}</div>
-                                                {m.reason && <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed mt-1">{m.reason}</div>}
-                                                {m.knowledge_reference && (
-                                                    <div className="text-[10px] text-blue-300 mt-1">依据: {m.knowledge_reference}</div>
-                                                )}
-                                            </div>
-                                            <span className="px-2 py-1 text-[10px] rounded-full border border-purple-500/30 text-purple-300 bg-purple-500/10 uppercase">
-                                                {m.action || 'CHANGE'}
-                                            </span>
-                                        </div>
-                                        {m.changes && Object.keys(m.changes).length > 0 && (
-                                            <div className="grid gap-2 md:grid-cols-2">
-                                                {Object.entries(m.changes).map(([field, diff]) => (
-                                                    <div key={field} className="p-2 rounded border border-[var(--glass-border)] bg-[var(--glass-bg-light)]/50 text-xs space-y-1">
-                                                        <div className="font-semibold text-[var(--color-text-primary)]">{field}</div>
-                                                        {diff.before && (
-                                                            <div className="text-[var(--color-text-tertiary)]">前: <span className="text-[var(--color-text-secondary)]">{diff.before}</span></div>
-                                                        )}
-                                                        {diff.after && (
-                                                            <div className="text-[var(--color-text-tertiary)]">后: <span className="text-[var(--color-text-primary)]">{diff.after}</span></div>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                        {m.backup && (
-                                            <div className="text-[10px] text-[var(--color-text-tertiary)]">备份: {JSON.stringify(m.backup)}</div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
 
             {/* Final Mode Metadata & Analysis */}
             {mode === 'final' && (
