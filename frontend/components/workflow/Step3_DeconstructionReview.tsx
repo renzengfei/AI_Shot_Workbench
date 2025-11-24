@@ -1,7 +1,7 @@
 'use client';
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { useWorkflowStore } from '@/lib/stores/workflowStore';
 import { useWorkspace } from '@/components/WorkspaceContext';
 import { parseRound1, parseRound2, parseStoredDeconstruction } from '@/lib/services/deconstruction';
@@ -25,6 +25,7 @@ import {
     Volume2,
     VolumeX,
     ArrowRight,
+    RefreshCw,
     Copy as CopyIcon,
     Trash2
 } from 'lucide-react';
@@ -413,48 +414,53 @@ export default function Step3_DeconstructionReview() {
         loadPrompt();
     }, []);
 
-    useEffect(() => {
+    const loadModLog = useCallback(async () => {
         if (!workspaceSlug) return;
-        const loadModLog = async () => {
+        setModificationLog(null);
+        setModLogError(null);
+        try {
+            const resp = await fetch(`${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/modification_log.json`, { cache: 'no-store' });
+            if (!resp.ok) {
+                setModLogError(`未找到 modification_log.json（${resp.status}）`);
+                setModificationLog(null);
+                return;
+            }
+            const data = await resp.json();
+            setModificationLog(data as ModificationLog);
+        } catch (err) {
+            console.error('加载 modification_log 失败', err);
+            setModLogError('加载 modification_log.json 失败');
             setModificationLog(null);
-            setModLogError(null);
-            try {
-                const resp = await fetch(`${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/modification_log.json`);
-                if (!resp.ok) {
-                    setModLogError(`未找到 modification_log.json（${resp.status}）`);
-                    return;
-                }
-                const data = await resp.json();
-                setModificationLog(data as ModificationLog);
-            } catch (err) {
-                console.error('加载 modification_log 失败', err);
-                setModLogError('加载 modification_log.json 失败');
-            }
-        };
+        }
+    }, [workspaceSlug]);
 
-        const loadOptimized = async () => {
+    const loadOptimized = useCallback(async () => {
+        if (!workspaceSlug) return;
+        setOptimizedStoryboard(null);
+        setOptimizedError(null);
+        try {
+            const resp = await fetch(`${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/optimized_storyboard.json`, { cache: 'no-store' });
+            if (!resp.ok) {
+                setOptimizedError(`未找到 optimized_storyboard.json（${resp.status}）`);
+                setOptimizedStoryboard(null);
+                return;
+            }
+            const data = await resp.json();
+            setOptimizedStoryboard({
+                round1: (data as OptimizedStoryboardPayload).round1 ?? null,
+                round2: (data as OptimizedStoryboardPayload).round2 ?? null,
+            });
+        } catch (err) {
+            console.error('加载 optimized_storyboard 失败', err);
+            setOptimizedError('加载 optimized_storyboard.json 失败');
             setOptimizedStoryboard(null);
-            setOptimizedError(null);
-            try {
-                const resp = await fetch(`${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/optimized_storyboard.json`);
-                if (!resp.ok) {
-                    setOptimizedError(`未找到 optimized_storyboard.json（${resp.status}）`);
-                    return;
-                }
-                const data = await resp.json();
-                setOptimizedStoryboard({
-                    round1: (data as OptimizedStoryboardPayload).round1 ?? null,
-                    round2: (data as OptimizedStoryboardPayload).round2 ?? null,
-                });
-            } catch (err) {
-                console.error('加载 optimized_storyboard 失败', err);
-                setOptimizedError('加载 optimized_storyboard.json 失败');
-            }
-        };
+        }
+    }, [workspaceSlug]);
 
+    useEffect(() => {
         loadModLog();
         loadOptimized();
-    }, [workspaceSlug]);
+    }, [loadModLog, loadOptimized]);
 
     // Load/save annotations per workspace
     useEffect(() => {
@@ -709,6 +715,14 @@ export default function Step3_DeconstructionReview() {
         }
     }, [mode, optimizedStoryboard, optimizedError, project?.deconstructionText]);
 
+    useEffect(() => {
+        if (mode === 'revision') {
+            loadModLog();
+        } else if (mode === 'final') {
+            loadOptimized();
+        }
+    }, [mode, loadModLog, loadOptimized]);
+
     const scheduleSave = (nextRound1: string, nextRound2: string) => {
         if (!canEdit) return;
         if (saveTimeoutRef.current) {
@@ -879,6 +893,18 @@ export default function Step3_DeconstructionReview() {
                                     : promptCopyStatus === 'copied'
                                         ? '已复制提示词'
                                         : '复制剧本优化提示词'}
+                            </button>
+                        </>
+                    )}
+                    {mode === 'revision' && (
+                        <>
+                            <div className="w-px h-4 bg-[var(--glass-border)] mx-2" />
+                            <button
+                                onClick={loadModLog}
+                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-blue-500/30 transition-colors"
+                            >
+                                <RefreshCw size={14} />
+                                刷新修订数据
                             </button>
                         </>
                     )}
