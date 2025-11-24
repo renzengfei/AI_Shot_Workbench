@@ -70,6 +70,11 @@ interface Round1Data {
 
 interface Round2Shot {
     id?: number;
+    original_id?: number;
+    modification_info?: {
+        type?: string;
+        reason?: string;
+    };
     mission?: string;
     timestamp?: string;
     end_time?: string;
@@ -140,6 +145,10 @@ interface OptimizedStoryboardPayload {
     deconstruction?: {
         skeleton?: Round1Data | Record<string, unknown> | null;
         shots?: Round2Shot[];
+    };
+    optimization_analysis?: {
+        summary?: string;
+        knowledge_base_applied?: string[];
     };
 }
 
@@ -320,6 +329,8 @@ export default function Step3_DeconstructionReview() {
     const [modLogError, setModLogError] = useState<string | null>(null);
     const [optimizedStoryboard, setOptimizedStoryboard] = useState<OptimizedStoryboardPayload | null>(null);
     const [optimizedError, setOptimizedError] = useState<string | null>(null);
+    const [optimizedMetadata, setOptimizedMetadata] = useState<Record<string, unknown> | null>(null);
+    const [optimizedAnalysis, setOptimizedAnalysis] = useState<{ summary?: string; knowledge_base_applied?: string[] } | null>(null);
 
     // Global Volume State
     const [globalVolume, setGlobalVolume] = useState(1);
@@ -334,7 +345,7 @@ export default function Step3_DeconstructionReview() {
     const modeSubtitleMap: Record<ReviewMode, string> = {
         review: '确认原片拆解，并可编辑/批注',
         revision: '对照修改记录查看修订版，只读',
-        final: '查看终版剧本，只读',
+        final: '查看全新剧本终版，只读',
     };
 
     const toggleGlobalMute = () => setIsGlobalMuted(!isGlobalMuted);
@@ -438,6 +449,8 @@ export default function Step3_DeconstructionReview() {
         if (!workspaceSlug) return;
         setOptimizedStoryboard(null);
         setOptimizedError(null);
+        setOptimizedMetadata(null);
+        setOptimizedAnalysis(null);
         try {
             const resp = await fetch(`${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/optimized_storyboard.json`, { cache: 'no-store' });
             if (!resp.ok) {
@@ -446,9 +459,14 @@ export default function Step3_DeconstructionReview() {
                 return;
             }
             const data = await resp.json();
+            if (data.metadata) setOptimizedMetadata(data.metadata as Record<string, unknown>);
+            if (data.optimization_analysis) setOptimizedAnalysis(data.optimization_analysis as { summary?: string; knowledge_base_applied?: string[] });
             setOptimizedStoryboard({
                 round1: (data as OptimizedStoryboardPayload).round1 ?? null,
                 round2: (data as OptimizedStoryboardPayload).round2 ?? null,
+                metadata: data.metadata,
+                deconstruction: (data as OptimizedStoryboardPayload).deconstruction,
+                optimization_analysis: data.optimization_analysis,
             });
         } catch (err) {
             console.error('加载 optimized_storyboard 失败', err);
@@ -666,7 +684,11 @@ export default function Step3_DeconstructionReview() {
                         const skeleton = data.deconstruction.skeleton ?? null;
                         const shots = data.deconstruction.shots ?? null;
                         return {
-                            r1: skeleton ? (skeleton as Round1Data) : null,
+                            r1: skeleton
+                                ? (Array.isArray((skeleton as Round1Data)?.round1_skeleton?.skeleton_nodes) || (skeleton as Round1Data)?.round1_hook
+                                    ? (skeleton as Round1Data)
+                                    : ({ round1_skeleton: skeleton } as Round1Data))
+                                : null,
                             r2: shots ? ({ shots } as Round2Data) : null,
                         };
                     }
@@ -1085,6 +1107,43 @@ export default function Step3_DeconstructionReview() {
                 </div>
             )}
 
+            {/* Final Mode Metadata & Analysis */}
+            {mode === 'final' && (
+                <div className="glass-card p-5 border border-purple-500/20 bg-[var(--glass-bg-light)] space-y-3">
+                    <div className="flex items-center gap-2 text-purple-300">
+                        <Zap size={16} />
+                        <span className="text-sm font-semibold">优化摘要</span>
+                    </div>
+                    {optimizedMetadata && (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-[var(--color-text-secondary)]">
+                            {Object.entries(optimizedMetadata).map(([k, v]) => (
+                                <div key={k} className="p-3 rounded-lg bg-[var(--color-bg-secondary)]/50 border border-[var(--glass-border)]">
+                                    <div className="text-[10px] uppercase text-[var(--color-text-tertiary)]">{k}</div>
+                                    <div className="text-[var(--color-text-primary)] break-words">{String(v)}</div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {optimizedAnalysis?.summary && (
+                        <div className="text-sm text-[var(--color-text-primary)] leading-relaxed bg-[var(--glass-bg-light)]/70 p-3 rounded-lg border border-[var(--glass-border)]">
+                            {optimizedAnalysis.summary}
+                        </div>
+                    )}
+                    {optimizedAnalysis?.knowledge_base_applied && optimizedAnalysis.knowledge_base_applied.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                            {optimizedAnalysis.knowledge_base_applied.map((k) => (
+                                <span key={k} className="px-2 py-1 rounded-full text-[10px] bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                                    {k}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                    {!optimizedMetadata && !optimizedAnalysis?.summary && (
+                        <div className="text-xs text-[var(--color-text-tertiary)]">未提供优化元数据。</div>
+                    )}
+                </div>
+            )}
+
             {/* Round 1 Section - Bento Grid Layout */}
             <div className="space-y-4">
                 <div className="flex items-center justify-between px-1">
@@ -1440,6 +1499,7 @@ export default function Step3_DeconstructionReview() {
                         const mission = shot.mission || '';
                         const shotId = shot.id ?? idx + 1;
                         const modShot = mode === 'revision' ? modifiedShotMap.get(shotId) : undefined;
+                        const modificationInfo = mode === 'final' ? shot.modification_info : modShot?.changes ? { type: modShot.action, reason: modShot.reason } : undefined;
                         const changeBadges =
                             mode === 'revision'
                                 ? (modificationLog?.modified_shots?.filter((c) => c.id === shotId) || modificationLog?.changes?.filter((c) => c.shot_id === shotId) || [])
@@ -1451,6 +1511,13 @@ export default function Step3_DeconstructionReview() {
                         const isDeleted = mode === 'revision' && (modShot?.action || '').toUpperCase() === 'DELETE';
                         const getChange = (key: string) =>
                             (modShot?.changes as Record<string, { before?: string; after?: string }> | undefined)?.[key];
+                        const detailList =
+                            mode === 'revision'
+                                ? changeBadges
+                                : modificationInfo?.reason
+                                    ? [{ reason: modificationInfo.reason, changes: modificationInfo ? { modification: { after: modificationInfo.reason } } : undefined }]
+                                    : [];
+                        const hasDetail = (mode === 'revision' && changeBadges.length > 0) || (mode === 'final' && detailList.length > 0);
 
                         return (
                             <div key={shot.id || idx} className="glass-card p-0 overflow-visible group hover:border-purple-500/30 transition-all duration-300 relative">
@@ -1463,6 +1530,16 @@ export default function Step3_DeconstructionReview() {
                                         {isDeleted && (
                                             <span className="text-[10px] px-2 py-1 rounded-full bg-red-500/10 text-red-300 border border-red-500/20 uppercase">
                                                 已删除
+                                            </span>
+                                        )}
+                                        {modificationInfo?.type && (
+                                            <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 uppercase">
+                                                {modificationInfo.type}
+                                            </span>
+                                        )}
+                                        {shot.original_id && (
+                                            <span className="text-[10px] px-2 py-1 rounded-full bg-[var(--glass-bg-light)] text-[var(--color-text-secondary)] border border-[var(--glass-border)]">
+                                                原ID: {shot.original_id}
                                             </span>
                                         )}
                                         {replacementBadges.map((rep, repIdx) => (
@@ -1486,9 +1563,9 @@ export default function Step3_DeconstructionReview() {
                                 )}
 
                                 {/* In-Card Optimization Details */}
-                                {mode === 'revision' && changeBadges.length > 0 && (
+                                {hasDetail ? (
                                     <div className="px-6 pt-4 pb-0">
-                                        {changeBadges.map((change, cIdx) => (
+                                        {detailList.map((change, cIdx) => (
                                             <div key={`detail-${cIdx}`} className="p-4 rounded-lg bg-purple-500/5 border border-purple-500/20 space-y-3">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2">
@@ -1535,7 +1612,7 @@ export default function Step3_DeconstructionReview() {
                                             </div>
                                         ))}
                                     </div>
-                                )}
+                                ) : null}
 
                                 <div className="p-6 flex flex-col 2xl:flex-row gap-8">
                                     {/* Media Section - Larger Side by Side */}
