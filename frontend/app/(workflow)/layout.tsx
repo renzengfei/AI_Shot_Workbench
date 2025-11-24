@@ -91,7 +91,7 @@ function Shell({ children }: { children: React.ReactNode }) {
                 </div>
             </header>
 
-            <main className="max-w-screen-2xl mx-auto px-6 lg:px-8 py-8 space-y-8">
+            <main className="mx-auto px-6 lg:px-8 py-8 space-y-8">
                 <div className="min-h-[600px]">{children}</div>
             </main>
         </div>

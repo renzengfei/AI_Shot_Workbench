@@ -212,7 +212,7 @@ export default function Step2_Deconstruction() {
                     onClick={nextStep}
                     className="px-6 py-2.5 rounded-full bg-gradient-to-r from-blue-600 to-violet-600 text-white text-sm font-medium shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 flex items-center gap-2"
                 >
-                    下一步：原片拆解审验
+                下一步：剧本重构
                     <ArrowRight size={16} />
                 </button>
             </div>
