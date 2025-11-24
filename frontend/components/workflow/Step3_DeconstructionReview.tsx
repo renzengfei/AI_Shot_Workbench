@@ -831,6 +831,15 @@ export default function Step3_DeconstructionReview() {
         });
         return map;
     }, [assets]);
+    const frameMap = useMemo(() => {
+        const map = new Map<number, string>();
+        assets.forEach((asset) => {
+            if (asset.frame) {
+                map.set(asset.ordinal, asset.frame);
+            }
+        });
+        return map;
+    }, [assets]);
 
     return (
         <div className="space-y-8 pb-20">
@@ -1487,11 +1496,20 @@ export default function Step3_DeconstructionReview() {
                 {/* Shots Grid - Single Column for better visibility */}
                 <div className="space-y-6">
                     {typeof round2Data !== 'string' && round2Data?.shots?.map((shot, idx) => {
-                        const frameUrl = workspaceSlug && shot.keyframe
-                            ? `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/assets/frames/${shot.keyframe}`
-                            : null;
+                        const frameName =
+                            shot.keyframe ||
+                            (shot.original_id ? frameMap.get(shot.original_id) : undefined) ||
+                            frameMap.get(shot.id ?? idx + 1) ||
+                            null;
+                        const frameUrl =
+                            workspaceSlug && frameName
+                                ? `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/assets/frames/${frameName}`
+                                : null;
                         const clipFromAssets =
-                            workspaceSlug && (shot.keyframe ? clipMap.get(shot.keyframe) : clipMap.get(`ordinal-${shot.id ?? idx + 1}`));
+                            workspaceSlug &&
+                            ((shot.keyframe ? clipMap.get(shot.keyframe) : undefined) ||
+                                (shot.original_id ? clipMap.get(`ordinal-${shot.original_id}`) : undefined) ||
+                                clipMap.get(`ordinal-${shot.id ?? idx + 1}`));
                         const clipUrl =
                             workspaceSlug && clipFromAssets
                                 ? `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/assets/videos/${clipFromAssets}`
