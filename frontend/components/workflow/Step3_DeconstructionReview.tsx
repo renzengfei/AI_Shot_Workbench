@@ -1276,14 +1276,8 @@ export default function Step3_DeconstructionReview() {
                                 : modShot?.changes
                                     ? { type: modShot.action, reason: modShot.reason, affected_shots: [] as number[] }
                                     : undefined;
-                        const changeBadges =
-                            mode === 'revision'
-                                ? (modificationLog?.modified_shots?.filter((c) => c.id === shotId) || modificationLog?.changes?.filter((c) => c.shot_id === shotId) || [])
-                                : [];
-                        const replacementBadges =
-                            mode === 'revision'
-                                ? modificationLog?.modified_assets_list?.filter((item) => item.affected_shots?.includes(shotId)) || []
-                                : [];
+                        const changeBadges: Array<{ reason?: string; modType?: string; affectedShots?: number[]; changes?: Record<string, { before?: string; after?: string }> }> = [];
+                        const replacementBadges: Array<{ replacement?: string }> = [];
                         const isDeleted = mode === 'revision' && (modShot?.action || '').toUpperCase() === 'DELETE';
                         const detailList =
                             mode === 'revision'
