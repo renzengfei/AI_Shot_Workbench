@@ -34,6 +34,13 @@ export interface Project {
     // Step 3: Deconstruction
     deconstructionText: string;
 
+    // Step 4: Production Config
+    productionConfig: {
+        tailDensityEnabled: boolean;
+        tailDensityDuration: number;
+        viralTemplate: string;
+    };
+
     // Step 4-8: Shot List
     shots: Shot[];
 }
@@ -56,6 +63,7 @@ interface WorkflowState {
     updateDeconstruction: (text: string) => void;
     setShots: (shots: Shot[]) => void;
     updateShot: (id: string, data: Partial<Shot>) => void;
+    updateProductionConfig: (config: Partial<Project['productionConfig']>) => void;
 }
 
 export const useWorkflowStore = create<WorkflowState>((set, get) => ({
@@ -71,6 +79,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
             lastModified: new Date(),
             cuts: [],
             deconstructionText: '',
+            productionConfig: {
+                tailDensityEnabled: false,
+                tailDensityDuration: 0,
+                viralTemplate: 'default',
+            },
             shots: [],
         };
         set({ project: newProject });
@@ -83,7 +96,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         const { project } = get();
         if (project) {
             set({ project: { ...project, currentStep: step } });
-            persistStep(project.id, step).catch(() => {});
+            persistStep(project.id, step).catch(() => { });
         }
     },
 
@@ -92,7 +105,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         if (project && project.currentStep < 9) {
             const next = (project.currentStep + 1) as WorkflowStep;
             set({ project: { ...project, currentStep: next } });
-            persistStep(project.id, next).catch(() => {});
+            persistStep(project.id, next).catch(() => { });
         }
     },
 
@@ -101,7 +114,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         if (project && project.currentStep > 1) {
             const prev = (project.currentStep - 1) as WorkflowStep;
             set({ project: { ...project, currentStep: prev } });
-            persistStep(project.id, prev).catch(() => {});
+            persistStep(project.id, prev).catch(() => { });
         }
     },
 
@@ -133,6 +146,18 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
                 shot.id === id ? { ...shot, ...data } : shot
             );
             set({ project: { ...project, shots: updatedShots } });
+        }
+    },
+
+    updateProductionConfig: (config) => {
+        const { project } = get();
+        if (project) {
+            set({
+                project: {
+                    ...project,
+                    productionConfig: { ...project.productionConfig, ...config },
+                },
+            });
         }
     },
 }));

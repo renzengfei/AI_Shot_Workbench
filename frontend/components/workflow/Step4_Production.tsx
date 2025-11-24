@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Wand2, Image as ImageIcon, Video, Download } from 'lucide-react';
-import { useWorkflowStore } from '@/lib/stores/workflowStore';
+import { Wand2, Image as ImageIcon, Video, Download, Clock, Copy } from 'lucide-react';
+import { useWorkflowStore, type Shot } from '@/lib/stores/workflowStore';
 
 export default function Step4_Production() {
     const { project, updateProductionConfig } = useWorkflowStore();
@@ -125,22 +125,46 @@ export default function Step4_Production() {
                 </div>
 
                 {/* Prompt List */}
-                <div className="space-y-3">
-                    {project.optimizedShots.slice(0, 3).map((shot) => (
+                <div className="space-y-4">
+                    {project.shots.slice(0, 3).map((shot: Shot) => (
                         <div
-                            key={shot.shotId}
-                            className="glass-card"
-                            style={{ padding: 'var(--spacing-md)' }}
+                            key={shot.id}
+                            className="group relative overflow-hidden rounded-2xl border border-white/20 bg-white/5 backdrop-blur-xl transition-all duration-500 hover:shadow-2xl hover:shadow-blue-500/10 hover:-translate-y-1 hover:border-blue-400/30"
                         >
-                            <div className="flex items-center gap-2 mb-2">
-                                <span className="font-semibold">镜头 {shot.shotId}</span>
-                                <span className="apple-caption">
-                                    {shot.startTime.toFixed(2)}s
-                                </span>
+                            {/* Gradient Overlay on Hover */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+                            <div className="relative z-10 p-6 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="px-3 py-1 rounded-lg bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 text-blue-300 text-xs font-bold uppercase tracking-wider shadow-sm">
+                                            SHOT {shot.id}
+                                        </div>
+                                        <div className="h-4 w-px bg-white/10" />
+                                        <div className="flex items-center gap-1.5 text-slate-400 text-xs font-mono">
+                                            <Clock size={12} />
+                                            <span>{shot.timeRange.start.toFixed(2)}s</span>
+                                        </div>
+                                    </div>
+                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                        <button className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+                                            <Copy size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">
+                                        画面描述 / Visual
+                                    </div>
+                                    <p className="text-sm text-slate-700 leading-relaxed font-medium p-4 rounded-xl bg-black/5 border border-black/10 group-hover:bg-black/10 transition-colors">
+                                        {shot.description}
+                                    </p>
+                                </div>
                             </div>
-                            <p className="apple-body">
-                                {shot.description}
-                            </p>
+
+                            {/* Bottom Gradient Bar */}
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
                         </div>
                     ))}
                 </div>

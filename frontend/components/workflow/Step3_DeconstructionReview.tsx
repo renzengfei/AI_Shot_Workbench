@@ -99,6 +99,15 @@ interface StructuredInitialFrame {
     color_palette?: string;
 }
 
+interface ShotAlternative {
+    type?: string;
+    description?: string;
+    visual_changes?: string;
+    viral_score?: number;
+    reason?: string;
+    affected_shots_change?: number[];
+}
+
 type AnnotationMap = Record<string, string>;
 interface OptimizedStoryboardPayload {
     round1?: Round1Data | string | null;
@@ -614,29 +623,41 @@ export default function Step3_DeconstructionReview() {
         label: string,
         originalVal?: string,
         optimizedVal?: string,
-    ) => {
+    ): ReactNode => {
         if (mode !== 'revision') return originalNode;
         const nextVal = optimizedVal;
         const origVal = originalVal ?? '';
         if (!nextVal || nextVal === origVal) return originalNode;
 
         const isMissing = !origVal;
+        // Use more subtle backgrounds and borders for Apple Glass feel
         const panelClass = isMissing
-            ? 'border-blue-400/50 bg-blue-500/10 text-[var(--color-text-primary)]'
-            : 'border-red-400/50 bg-red-500/10 text-[var(--color-text-primary)]';
-        const labelClass = isMissing ? 'text-blue-300' : 'text-red-300';
+            ? 'border-blue-500/30 bg-blue-500/5 text-slate-700'
+            : 'border-amber-500/30 bg-amber-500/5 text-slate-700';
+        const labelClass = isMissing ? 'text-blue-600' : 'text-amber-600';
+        const badgeClass = isMissing
+            ? 'bg-blue-500 text-white border-transparent'
+            : 'bg-amber-500 text-white border-transparent';
 
         return (
-            <div className="space-y-2">
-                <div>{originalNode}</div>
-                <div className={`border rounded-lg p-3 text-sm ${panelClass}`}>
-                    <div className={`flex items-center gap-2 text-xs uppercase font-semibold mb-1 ${labelClass}`}>
-                        <span>{label}</span>
-                        <span className={`px-2 py-0.5 rounded-full border ${isMissing ? 'border-blue-300/60 text-blue-300' : 'border-red-300/60 text-red-300'}`}>
-                            新
+            <div className="space-y-3 group/revision">
+                <div className="relative">
+                    {originalNode}
+                    {/* Visual indicator connecting original to new */}
+                    <div className="absolute left-4 -bottom-3 w-0.5 h-3 bg-gradient-to-b from-slate-300 to-transparent z-0" />
+                </div>
+
+                <div className={`relative z-10 border rounded-xl p-4 text-sm shadow-sm backdrop-blur-sm transition-all duration-300 hover:shadow-md ${panelClass}`}>
+                    <div className="flex items-center justify-between mb-2">
+                        <div className={`flex items-center gap-2 text-xs uppercase font-bold tracking-wider ${labelClass}`}>
+                            <Sparkles size={12} />
+                            <span>{label} (优化后)</span>
+                        </div>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm ${badgeClass}`}>
+                            NEW
                         </span>
                     </div>
-                    <div className="whitespace-pre-wrap leading-relaxed">{nextVal}</div>
+                    <div className="whitespace-pre-wrap leading-relaxed font-medium">{nextVal}</div>
                 </div>
             </div>
         );
@@ -961,6 +982,19 @@ export default function Step3_DeconstructionReview() {
                                 ))}
                             </div>
                         )}
+                        {optimizedAnalysis?.checkpoints && typeof optimizedAnalysis.checkpoints === 'object' && (
+                            <div className="space-y-2">
+                                <div className="text-xs font-semibold text-[var(--color-text-primary)]">Checkpoints</div>
+                                <div className="grid gap-2 md:grid-cols-2">
+                                    {Object.entries(optimizedAnalysis.checkpoints as Record<string, unknown>).map(([k, v]) => (
+                                        <div key={k} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--glass-bg-light)]/70 text-xs space-y-1">
+                                            <div className="uppercase text-[var(--color-text-tertiary)]">{k}</div>
+                                            <div className="text-[var(--color-text-primary)] whitespace-pre-wrap leading-relaxed">{String(v)}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         {!optimizedMetadata && !optimizedAnalysis?.summary && (
                             <div className="text-xs text-[var(--color-text-tertiary)]">未提供优化元数据。</div>
                         )}
@@ -998,6 +1032,21 @@ export default function Step3_DeconstructionReview() {
                                             {m.affected_shots && m.affected_shots.length > 0 && (
                                                 <div className="text-xs text-[var(--color-text-tertiary)]">影响镜头: {m.affected_shots.join(', ')}</div>
                                             )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        {optimizedAnalysis?.modified_assets_overview && Array.isArray(optimizedAnalysis.modified_assets_overview) && (
+                            <div className="space-y-2">
+                                <div className="text-xs font-semibold text-[var(--color-text-primary)]">Modified Assets 概览</div>
+                                <div className="grid gap-2 md:grid-cols-2">
+                                    {(optimizedAnalysis.modified_assets_overview as Array<Record<string, unknown>>).map((item, idx) => (
+                                        <div key={idx} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--glass-bg-light)]/70 text-xs space-y-1">
+                                            {item.shot_id && <div className="font-semibold text-[var(--color-text-primary)]">Shot {item.shot_id}</div>}
+                                            {item.field && <div className="text-[var(--color-text-secondary)]">字段: {String(item.field)}</div>}
+                                            {item.element_type && <div className="text-[var(--color-text-secondary)]">元素: {String(item.element_type)}</div>}
+                                            {item.reason && <div className="text-[var(--color-text-primary)] whitespace-pre-wrap leading-relaxed">{String(item.reason)}</div>}
                                         </div>
                                     ))}
                                 </div>
@@ -1408,6 +1457,8 @@ export default function Step3_DeconstructionReview() {
                             } else if (modIsDiff) {
                                 modBadgeClass = 'border-red-400/50 bg-red-500/10';
                             }
+                            const alternatives = (shot as { alternatives?: ShotAlternative[] }).alternatives || [];
+                            const densityScore = (shot as { density_score?: number }).density_score;
 
                             // Determine border color based on modification
                             let borderColor = "border-white/10";
@@ -1436,6 +1487,7 @@ export default function Step3_DeconstructionReview() {
                                 workspaceSlug && frameName
                                     ? `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/assets/frames/${frameName}`
                                     : null;
+
                             const clipFromAssets =
                                 workspaceSlug &&
                                 ((shot.keyframe ? clipMap.get(shot.keyframe) : undefined) ||
@@ -1509,10 +1561,10 @@ export default function Step3_DeconstructionReview() {
                                         {/* Right Column: All Content Fields (3/4 width = 75%) */}
                                         <div className="md:col-span-3 space-y-6">
                                             {modificationInfo && (
-                                                <div className={`p-4 rounded-2xl text-sm border ${modBadgeClass} space-y-2`}>
+                                                <div className={`p-4 rounded-2xl text-sm border ${modBadgeClass} space-y-2 bg-gradient-to-br from-blue-50/50 to-indigo-50/30`}>
                                                     <div className="flex items-center gap-2 flex-wrap">
-                                                        <Sparkles size={16} className="text-amber-300" />
-                                                        <span className="text-[var(--color-text-primary)] font-semibold text-xs uppercase">优化概述</span>
+                                                        <Sparkles size={16} className="text-blue-500" />
+                                                        <span className="text-blue-700 font-semibold text-xs uppercase">优化概述</span>
                                                         {modificationInfo.type && (
                                                             <span className={`px-2 py-0.5 rounded-full border ${modTypeClass(modificationInfo.type)}`}>
                                                                 {modificationInfo.type}
@@ -1520,7 +1572,7 @@ export default function Step3_DeconstructionReview() {
                                                         )}
                                                     </div>
                                                     {modificationInfo.reason && (
-                                                        <div className="text-[var(--color-text-secondary)] leading-relaxed whitespace-pre-wrap">
+                                                        <div className="text-slate-600 leading-relaxed whitespace-pre-wrap">
                                                             {modificationInfo.reason}
                                                         </div>
                                                     )}
@@ -1528,7 +1580,7 @@ export default function Step3_DeconstructionReview() {
                                             )}
                                             {/* Mission */}
                                             <div className="space-y-2">
-                                                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-blue-400/80 pl-1">
+                                                <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-blue-400/80 pl-1">
                                                     <span>任务 / 目标</span>
                                                     {renderAnnotationControl(`shot-${shot.id ?? index}-mission`, `Shot #${shot.id ?? index + 1} Mission`)}
                                                 </div>
@@ -1543,7 +1595,8 @@ export default function Step3_DeconstructionReview() {
                                                             })
                                                         }
                                                         readOnly={!canEdit}
-                                                        className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-blue-500/30 min-h-[80px] placeholder:text-slate-400"
+                                                        rows={3}
+                                                        className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-blue-500/30 resize-y placeholder:text-slate-400"
                                                         placeholder="未定义任务"
                                                     />,
                                                     '任务 / 目标',
@@ -1555,7 +1608,7 @@ export default function Step3_DeconstructionReview() {
                                             {/* Initial Frame Details */}
                                             {structuredFrameOriginal || structuredFrameOptimized ? (
                                                 <div className="space-y-3 pb-4 border-b border-white/5">
-                                                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-600 pl-1">
+                                                    <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-slate-600 pl-1">
                                                         <span>初始帧设定 / Initial Frame</span>
                                                         {renderAnnotationControl(`shot-${shot.id ?? index}-initial`, `Shot #${shot.id ?? index + 1} Initial Frame`)}
                                                     </div>
@@ -1563,8 +1616,8 @@ export default function Step3_DeconstructionReview() {
                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl bg-black/5 border border-black/10 text-sm text-slate-700">
                                                             {/* Foreground */}
                                                             <div className="space-y-2">
-                                                                <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase">
-                                                                    <Users size={12} className="text-blue-500" />
+                                                                <div className="flex items-center gap-2 text-sm font-semibold text-slate-600 uppercase">
+                                                                    <Users size={14} className="text-blue-500" />
                                                                     前景 / Foreground
                                                                 </div>
                                                                 <div className="space-y-1 pl-2 border-l-2 border-blue-500/20">
@@ -1587,7 +1640,7 @@ export default function Step3_DeconstructionReview() {
                                                                     )}
                                                                     {Array.isArray(structuredFrameOriginal.foreground?.objects) && structuredFrameOriginal.foreground.objects.length > 0 ? (
                                                                         structuredFrameOriginal.foreground.objects.map((obj, idx) => (
-                                                                            <div key={idx} className="text-xs text-slate-600">• {obj}</div>
+                                                                            <div key={idx} className="text-sm text-slate-600">• {obj}</div>
                                                                         ))
                                                                     ) : (
                                                                         <div className="text-xs text-slate-400 italic">无道具</div>
@@ -1597,14 +1650,14 @@ export default function Step3_DeconstructionReview() {
 
                                                             {/* Midground */}
                                                             <div className="space-y-2">
-                                                                <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase">
-                                                                    <Layers size={12} className="text-purple-500" />
+                                                                <div className="flex items-center gap-2 text-sm font-semibold text-slate-600 uppercase">
+                                                                    <Layers size={14} className="text-purple-500" />
                                                                     中景 / Midground
                                                                 </div>
                                                                 <div className="space-y-1 pl-2 border-l-2 border-purple-500/20">
                                                                     {Array.isArray(structuredFrameOriginal.midground?.characters) && structuredFrameOriginal.midground.characters.length > 0 ? (
                                                                         structuredFrameOriginal.midground.characters.map((char, idx) => (
-                                                                            <div key={idx} className="text-xs">
+                                                                            <div key={idx} className="text-sm">
                                                                                 {typeof char === 'string' ? char : char.tag || '-'}
                                                                             </div>
                                                                         ))
@@ -1613,7 +1666,7 @@ export default function Step3_DeconstructionReview() {
                                                                     )}
                                                                     {Array.isArray(structuredFrameOriginal.midground?.objects) && structuredFrameOriginal.midground.objects.length > 0 ? (
                                                                         structuredFrameOriginal.midground.objects.map((obj, idx) => (
-                                                                            <div key={idx} className="text-xs text-slate-600">• {obj}</div>
+                                                                            <div key={idx} className="text-sm text-slate-600">• {obj}</div>
                                                                         ))
                                                                     ) : (
                                                                         <div className="text-xs text-slate-400 italic">无道具</div>
@@ -1623,28 +1676,28 @@ export default function Step3_DeconstructionReview() {
 
                                                             {/* Background */}
                                                             <div className="space-y-2">
-                                                                <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase">
-                                                                    <ImageIcon size={12} className="text-pink-500" />
+                                                                <div className="flex items-center gap-2 text-sm font-semibold text-slate-500 uppercase">
+                                                                    <ImageIcon size={14} className="text-pink-500" />
                                                                     背景 / Background
                                                                 </div>
                                                                 <div className="space-y-1 pl-2 border-l-2 border-pink-500/20">
-                                                                    <div className="text-xs"><span className="text-slate-500">环境:</span> {structuredFrameOriginal.background?.environment || '-'}</div>
-                                                                    <div className="text-xs"><span className="text-slate-500">景深:</span> {structuredFrameOriginal.background?.depth || '-'}</div>
+                                                                    <div className="text-sm"><span className="text-slate-500">环境:</span> {structuredFrameOriginal.background?.environment || '-'}</div>
+                                                                    <div className="text-sm"><span className="text-slate-500">景深:</span> {structuredFrameOriginal.background?.depth || '-'}</div>
                                                                 </div>
                                                             </div>
 
                                                             {/* Lighting & Palette */}
                                                             <div className="space-y-2">
-                                                                <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase">
-                                                                    <Sun size={12} className="text-amber-500" />
+                                                                <div className="flex items-center gap-2 text-sm font-semibold text-slate-500 uppercase">
+                                                                    <Sun size={14} className="text-amber-500" />
                                                                     光影与色调 / Lighting & Palette
                                                                 </div>
                                                                 <div className="space-y-1 pl-2 border-l-2 border-amber-500/20">
-                                                                    <div className="flex items-center gap-1 text-xs">
+                                                                    <div className="flex items-center gap-1 text-sm">
                                                                         <span className="text-slate-500">光照:</span>
                                                                         <span>{structuredFrameOriginal.lighting || '-'}</span>
                                                                     </div>
-                                                                    <div className="flex items-center gap-1 text-xs">
+                                                                    <div className="flex items-center gap-1 text-sm">
                                                                         <Palette size={10} className="text-slate-400" />
                                                                         <span className="text-slate-500">色调:</span>
                                                                         <span>{structuredFrameOriginal.color_palette || '-'}</span>
@@ -1654,86 +1707,100 @@ export default function Step3_DeconstructionReview() {
                                                         </div>
                                                     )}
                                                     {structuredFrameOptimized && (!structuredFrameOriginal || JSON.stringify(structuredFrameOriginal) !== JSON.stringify(structuredFrameOptimized)) && (
-                                                        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl text-sm ${structuredFrameOriginal ? 'bg-red-500/5 border border-red-400/30' : 'bg-blue-500/5 border border-blue-400/30'}`}>
-                                                            {/* Foreground */}
-                                                            <div className="space-y-2">
-                                                                <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase">
-                                                                    <Users size={12} className="text-blue-400" />
-                                                                    优化前景
-                                                                </div>
-                                                                <div className="space-y-1 pl-2 border-l-2 border-blue-400/30">
-                                                                    {Array.isArray(structuredFrameOptimized.foreground?.characters) && structuredFrameOptimized.foreground.characters.length > 0 ? (
-                                                                        structuredFrameOptimized.foreground.characters.map((char, idx) => (
-                                                                            <div key={idx} className="text-xs text-slate-800">
-                                                                                {typeof char === 'string' ? char : [char.tag, char.pose, char.expression].filter(Boolean).join(' · ')}
-                                                                            </div>
-                                                                        ))
-                                                                    ) : (
-                                                                        <div className="text-xs text-slate-500 italic">无角色</div>
-                                                                    )}
-                                                                    {Array.isArray(structuredFrameOptimized.foreground?.objects) && structuredFrameOptimized.foreground.objects.length > 0 ? (
-                                                                        structuredFrameOptimized.foreground.objects.map((obj, idx) => (
-                                                                            <div key={idx} className="text-xs text-slate-700">• {obj}</div>
-                                                                        ))
-                                                                    ) : (
-                                                                        <div className="text-xs text-slate-500 italic">无道具</div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Midground */}
-                                                            <div className="space-y-2">
-                                                                <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase">
-                                                                    <Layers size={12} className="text-purple-400" />
-                                                                    优化中景
-                                                                </div>
-                                                                <div className="space-y-1 pl-2 border-l-2 border-purple-400/30">
-                                                                    {Array.isArray(structuredFrameOptimized.midground?.characters) && structuredFrameOptimized.midground.characters.length > 0 ? (
-                                                                        structuredFrameOptimized.midground.characters.map((char, idx) => (
-                                                                            <div key={idx} className="text-xs text-slate-800">
-                                                                                {typeof char === 'string' ? char : char.tag || '-'}
-                                                                            </div>
-                                                                        ))
-                                                                    ) : (
-                                                                        <div className="text-xs text-slate-500 italic">无角色</div>
-                                                                    )}
-                                                                    {Array.isArray(structuredFrameOptimized.midground?.objects) && structuredFrameOptimized.midground.objects.length > 0 ? (
-                                                                        structuredFrameOptimized.midground.objects.map((obj, idx) => (
-                                                                            <div key={idx} className="text-xs text-slate-700">• {obj}</div>
-                                                                        ))
-                                                                    ) : (
-                                                                        <div className="text-xs text-slate-500 italic">无道具</div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Background */}
-                                                            <div className="space-y-2">
-                                                                <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase">
-                                                                    <ImageIcon size={12} className="text-pink-400" />
-                                                                    优化背景
-                                                                </div>
-                                                                <div className="space-y-1 pl-2 border-l-2 border-pink-400/30">
-                                                                    <div className="text-xs text-slate-800"><span className="text-slate-500">环境:</span> {structuredFrameOptimized.background?.environment || '-'}</div>
-                                                                    <div className="text-xs text-slate-800"><span className="text-slate-500">景深:</span> {structuredFrameOptimized.background?.depth || '-'}</div>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Lighting & Palette */}
-                                                            <div className="space-y-2">
-                                                                <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase">
-                                                                    <Sun size={12} className="text-amber-400" />
-                                                                    优化光影/色调
-                                                                </div>
-                                                                <div className="space-y-1 pl-2 border-l-2 border-amber-400/30">
-                                                                    <div className="flex items-center gap-1 text-xs text-slate-800">
-                                                                        <span className="text-slate-500">光照:</span>
-                                                                        <span>{structuredFrameOptimized.lighting || '-'}</span>
+                                                        <div className="space-y-3 group/revision mt-4">
+                                                            <div className="relative z-10 border rounded-xl p-4 text-sm shadow-sm backdrop-blur-sm transition-all duration-300 hover:shadow-md border-amber-500/30 bg-amber-500/5 text-slate-700">
+                                                                <div className="flex items-center justify-between mb-3">
+                                                                    <div className="flex items-center gap-2 text-sm uppercase font-bold tracking-wider text-amber-600">
+                                                                        <Sparkles size={12} />
+                                                                        <span>初始帧设定 (优化后)</span>
                                                                     </div>
-                                                                    <div className="flex items-center gap-1 text-xs text-slate-800">
-                                                                        <Palette size={10} className="text-slate-400" />
-                                                                        <span className="text-slate-500">色调:</span>
-                                                                        <span>{structuredFrameOptimized.color_palette || '-'}</span>
+                                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm bg-amber-500 text-white border-transparent">
+                                                                        NEW
+                                                                    </span>
+                                                                </div>
+
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                                    {/* Foreground */}
+                                                                    <div className="space-y-2">
+                                                                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-500 uppercase">
+                                                                            <Users size={12} className="text-blue-400" />
+                                                                            优化前景
+                                                                        </div>
+                                                                        <div className="space-y-1 pl-2 border-l-2 border-blue-400/30">
+                                                                            {Array.isArray(structuredFrameOptimized.foreground?.characters) && structuredFrameOptimized.foreground.characters.length > 0 ? (
+                                                                                structuredFrameOptimized.foreground.characters.map((char, idx) => (
+                                                                                    <div key={idx} className="text-sm text-slate-800 font-medium">
+                                                                                        {typeof char === 'string' ? char : [char.tag, char.pose, char.expression].filter(Boolean).join(' · ')}
+                                                                                    </div>
+                                                                                ))
+                                                                            ) : (
+                                                                                <div className="text-xs text-slate-500 italic">无角色</div>
+                                                                            )}
+                                                                            {Array.isArray(structuredFrameOptimized.foreground?.objects) && structuredFrameOptimized.foreground.objects.length > 0 ? (
+                                                                                structuredFrameOptimized.foreground.objects.map((obj, idx) => (
+                                                                                    <div key={idx} className="text-xs text-slate-700">• {obj}</div>
+                                                                                ))
+                                                                            ) : (
+                                                                                <div className="text-xs text-slate-500 italic">无道具</div>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Midground */}
+                                                                    <div className="space-y-2">
+                                                                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase">
+                                                                            <Layers size={12} className="text-purple-400" />
+                                                                            优化中景
+                                                                        </div>
+                                                                        <div className="space-y-1 pl-2 border-l-2 border-purple-400/30">
+                                                                            {Array.isArray(structuredFrameOptimized.midground?.characters) && structuredFrameOptimized.midground.characters.length > 0 ? (
+                                                                                structuredFrameOptimized.midground.characters.map((char, idx) => (
+                                                                                    <div key={idx} className="text-xs text-slate-800 font-medium">
+                                                                                        {typeof char === 'string' ? char : char.tag || '-'}
+                                                                                    </div>
+                                                                                ))
+                                                                            ) : (
+                                                                                <div className="text-xs text-slate-500 italic">无角色</div>
+                                                                            )}
+                                                                            {Array.isArray(structuredFrameOptimized.midground?.objects) && structuredFrameOptimized.midground.objects.length > 0 ? (
+                                                                                structuredFrameOptimized.midground.objects.map((obj, idx) => (
+                                                                                    <div key={idx} className="text-xs text-slate-700">• {obj}</div>
+                                                                                ))
+                                                                            ) : (
+                                                                                <div className="text-xs text-slate-500 italic">无道具</div>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Background */}
+                                                                    <div className="space-y-2">
+                                                                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase">
+                                                                            <ImageIcon size={12} className="text-pink-400" />
+                                                                            优化背景
+                                                                        </div>
+                                                                        <div className="space-y-1 pl-2 border-l-2 border-pink-400/30">
+                                                                            <div className="text-xs text-slate-800"><span className="text-slate-500">环境:</span> {structuredFrameOptimized.background?.environment || '-'}</div>
+                                                                            <div className="text-xs text-slate-800"><span className="text-slate-500">景深:</span> {structuredFrameOptimized.background?.depth || '-'}</div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Lighting & Palette */}
+                                                                    <div className="space-y-2">
+                                                                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase">
+                                                                            <Sun size={12} className="text-amber-400" />
+                                                                            优化光影/色调
+                                                                        </div>
+                                                                        <div className="space-y-1 pl-2 border-l-2 border-amber-400/30">
+                                                                            <div className="flex items-center gap-1 text-xs text-slate-800">
+                                                                                <span className="text-slate-500">光照:</span>
+                                                                                <span>{structuredFrameOptimized.lighting || '-'}</span>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-1 text-xs text-slate-800">
+                                                                                <Palette size={10} className="text-slate-400" />
+                                                                                <span className="text-slate-500">色调:</span>
+                                                                                <span>{structuredFrameOptimized.color_palette || '-'}</span>
+                                                                            </div>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -1742,7 +1809,7 @@ export default function Step3_DeconstructionReview() {
                                                 </div>
                                             ) : initialFrameText || initialFrameTextOptimized ? (
                                                 <div className="space-y-2">
-                                                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500 pl-1">
+                                                    <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
                                                         <ImageIcon size={12} className="text-blue-500" />
                                                         <span>首帧描述</span>
                                                         {renderAnnotationControl(`shot-${shot.id ?? index}-initial`, `Shot #${shot.id ?? index + 1} Initial Frame`)}
@@ -1758,7 +1825,8 @@ export default function Step3_DeconstructionReview() {
                                                                 })
                                                             }
                                                             readOnly={!canEdit}
-                                                            className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-blue-500/30 min-h-[80px] placeholder:text-slate-400"
+                                                            rows={3}
+                                                            className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-blue-500/30 resize-y placeholder:text-slate-400"
                                                             placeholder="首帧描述..."
                                                         />,
                                                         '首帧描述',
@@ -1770,7 +1838,7 @@ export default function Step3_DeconstructionReview() {
 
                                             {/* Visual - Full Width */}
                                             <div className="space-y-2">
-                                                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-purple-400/80 pl-1">
+                                                <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-purple-400/80 pl-1">
                                                     <span>视频描述</span>
                                                     {renderAnnotationControl(`shot-${shot.id ?? index}-visual`, `Shot #${shot.id ?? index + 1} Visual`)}
                                                 </div>
@@ -1785,7 +1853,8 @@ export default function Step3_DeconstructionReview() {
                                                             })
                                                         }
                                                         readOnly={!canEdit}
-                                                        className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-purple-500/30 min-h-[100px] placeholder:text-slate-400"
+                                                        rows={3}
+                                                        className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-purple-500/30 resize-y placeholder:text-slate-400"
                                                         placeholder="画面描述..."
                                                     />,
                                                     '视频描述',
@@ -1797,7 +1866,7 @@ export default function Step3_DeconstructionReview() {
                                             {/* Audio & Camera side by side on desktop */}
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div className="space-y-2">
-                                                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-pink-400/80 pl-1">
+                                                    <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-pink-400/80 pl-1">
                                                         <span>音频 / 对白</span>
                                                         {renderAnnotationControl(`shot-${shot.id ?? index}-audio`, `Shot #${shot.id ?? index + 1} Audio`)}
                                                     </div>
@@ -1812,7 +1881,8 @@ export default function Step3_DeconstructionReview() {
                                                                 })
                                                             }
                                                             readOnly={!canEdit}
-                                                            className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors min-h-[80px] focus:outline-none focus:border-pink-500/30 placeholder:text-slate-400"
+                                                            rows={3}
+                                                            className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-y focus:outline-none focus:border-pink-500/30 placeholder:text-slate-400"
                                                             placeholder="音频..."
                                                         />,
                                                         '音频 / 对白',
@@ -1822,7 +1892,7 @@ export default function Step3_DeconstructionReview() {
                                                 </div>
 
                                                 <div className="space-y-2">
-                                                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-cyan-400/80 pl-1">
+                                                    <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-cyan-400/80 pl-1">
                                                         <span>运镜 / 动作</span>
                                                         {renderAnnotationControl(`shot-${shot.id ?? index}-camera`, `Shot #${shot.id ?? index + 1} Camera`)}
                                                     </div>
@@ -1837,7 +1907,8 @@ export default function Step3_DeconstructionReview() {
                                                                 })
                                                             }
                                                             readOnly={!canEdit}
-                                                            className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors min-h-[80px] focus:outline-none focus:border-cyan-500/30 placeholder:text-slate-400"
+                                                            rows={3}
+                                                            className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-y focus:outline-none focus:border-cyan-500/30 placeholder:text-slate-400"
                                                             placeholder="运镜..."
                                                         />,
                                                         '运镜 / 动作',
@@ -1851,7 +1922,7 @@ export default function Step3_DeconstructionReview() {
                                             <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
                                                 {/* Beat */}
                                                 <div className="space-y-1">
-                                                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500 pl-1">
+                                                    <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
                                                         <Music size={12} className="text-green-500" />
                                                         节拍 / Beat
                                                     </div>
@@ -1867,7 +1938,7 @@ export default function Step3_DeconstructionReview() {
 
                                                 {/* Viral Element */}
                                                 <div className="space-y-1">
-                                                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500 pl-1">
+                                                    <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
                                                         <Sparkles size={12} className="text-amber-500" />
                                                         病毒元素 / Viral Element
                                                     </div>
@@ -1883,7 +1954,7 @@ export default function Step3_DeconstructionReview() {
 
                                                 {/* Emotion */}
                                                 <div className="space-y-1">
-                                                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500 pl-1">
+                                                    <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
                                                         <Heart size={12} className="text-red-500" />
                                                         情绪 / Emotion
                                                     </div>
@@ -1899,7 +1970,7 @@ export default function Step3_DeconstructionReview() {
 
                                                 {/* Logic Mapping */}
                                                 <div className="space-y-1">
-                                                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500 pl-1">
+                                                    <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
                                                         <GitFork size={12} className="text-blue-500" />
                                                         逻辑映射 / Logic Mapping
                                                     </div>
@@ -1912,7 +1983,52 @@ export default function Step3_DeconstructionReview() {
                                                         optLogic,
                                                     )}
                                                 </div>
+
+                                                {/* Density Score */}
+                                                {densityScore !== undefined && (
+                                                    <div className="space-y-1">
+                                                        <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
+                                                            <Zap size={12} className="text-yellow-400" />
+                                                            密度评分
+                                                        </div>
+                                                        <div className="p-3 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm">
+                                                            {densityScore}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
+
+                                            {/* Alternatives */}
+                                            {Array.isArray(alternatives) && alternatives.length > 0 && (
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
+                                                        <Sparkles size={12} className="text-amber-400" />
+                                                        备选方案
+                                                    </div>
+                                                    <div className="grid gap-3 md:grid-cols-2">
+                                                        {alternatives.map((alt: ShotAlternative, altIdx: number) => (
+                                                            <div key={`alt-${altIdx}`} className="p-3 rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg-light)]/60 text-sm space-y-1">
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="font-semibold text-[var(--color-text-primary)]">{alt.type || `方案 ${altIdx + 1}`}</span>
+                                                                    {alt.viral_score !== undefined && (
+                                                                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/40">Viral {alt.viral_score}</span>
+                                                                    )}
+                                                                </div>
+                                                                {alt.description && <div className="text-[var(--color-text-secondary)] leading-relaxed">{alt.description}</div>}
+                                                                {alt.visual_changes && (
+                                                                    <div className="text-[var(--color-text-primary)] leading-relaxed whitespace-pre-wrap">
+                                                                        {alt.visual_changes}
+                                                                    </div>
+                                                                )}
+                                                                {alt.reason && <div className="text-xs text-[var(--color-text-tertiary)]">理由: {alt.reason}</div>}
+                                                                {Array.isArray(alt.affected_shots_change) && alt.affected_shots_change.length > 0 && (
+                                                                    <div className="text-xs text-[var(--color-text-tertiary)]">影响镜头: {alt.affected_shots_change.join(', ')}</div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
