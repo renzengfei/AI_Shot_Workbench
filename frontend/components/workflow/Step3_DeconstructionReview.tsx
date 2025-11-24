@@ -949,11 +949,11 @@ export default function Step3_DeconstructionReview() {
             </div>
 
             {/* Final Mode Metadata & Analysis */}
-            {mode === 'final' && (
+            {(mode === 'final' || mode === 'revision') && (
                 <div className="glass-card p-5 border border-purple-500/20 bg-[var(--glass-bg-light)] space-y-3">
                     <div className="flex items-center gap-2 text-purple-300">
                         <Zap size={16} />
-                        <span className="text-sm font-semibold">优化摘要</span>
+                        <span className="text-sm font-semibold">{mode === 'final' ? '优化摘要' : '修订摘要（对比终版）'}</span>
                     </div>
                     {optimizedMetadata && (
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-[var(--color-text-secondary)]">
@@ -1312,12 +1312,7 @@ export default function Step3_DeconstructionReview() {
                         const mission = shot.mission || '';
                         const shotId = shot.id ?? idx + 1;
                         const modShot = mode === 'revision' ? modifiedShotMap.get(shotId) : undefined;
-                        const modificationInfo =
-                            mode === 'final'
-                                ? shot.modification_info
-                                : modShot?.changes
-                                    ? { type: modShot.action, reason: modShot.reason, affected_shots: [] as number[] }
-                                    : undefined;
+                        const modificationInfo = shot.modification_info;
                         const changeBadges: Array<{ reason?: string; modType?: string; affectedShots?: number[]; changes?: Record<string, { before?: string; after?: string }> }> = [];
                         const replacementBadges: Array<{ replacement?: string }> = [];
                         const isDeleted = mode === 'revision' && (modShot?.action || '').toUpperCase() === 'DELETE';
@@ -1330,7 +1325,7 @@ export default function Step3_DeconstructionReview() {
                                     changes: undefined,
                                 }]
                                 : [];
-                        const hasDetail = detailList.length > 0 || (mode === 'revision' && changeBadges.length > 0);
+                        const hasDetail = detailList.length > 0 || changeBadges.length > 0;
 
                         return (
                             <div key={shot.id || idx} className="glass-card p-0 overflow-visible group hover:border-purple-500/30 transition-all duration-300 relative">
