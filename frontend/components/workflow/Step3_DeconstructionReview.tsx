@@ -145,11 +145,18 @@ interface OptimizedStoryboardPayload {
     deconstruction?: {
         skeleton?: Round1Data | Record<string, unknown> | null;
         shots?: Round2Shot[];
+        deleted_shots?: DeletedShot[];
     };
     optimization_analysis?: {
         summary?: string;
         knowledge_base_applied?: string[];
     };
+}
+
+interface DeletedShot {
+    original_id?: number;
+    reason?: string;
+    type?: string;
 }
 
 const VideoPlayer = ({ src, volume, muted }: { src: string; volume: number; muted: boolean }) => {
@@ -331,6 +338,7 @@ export default function Step3_DeconstructionReview() {
     const [optimizedError, setOptimizedError] = useState<string | null>(null);
     const [optimizedMetadata, setOptimizedMetadata] = useState<Record<string, unknown> | null>(null);
     const [optimizedAnalysis, setOptimizedAnalysis] = useState<{ summary?: string; knowledge_base_applied?: string[] } | null>(null);
+    const [deletedShots, setDeletedShots] = useState<DeletedShot[]>([]);
 
     // Global Volume State
     const [globalVolume, setGlobalVolume] = useState(1);
@@ -451,6 +459,7 @@ export default function Step3_DeconstructionReview() {
         setOptimizedError(null);
         setOptimizedMetadata(null);
         setOptimizedAnalysis(null);
+        setDeletedShots([]);
         try {
             const resp = await fetch(`${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/optimized_storyboard.json`, { cache: 'no-store' });
             if (!resp.ok) {
@@ -461,6 +470,7 @@ export default function Step3_DeconstructionReview() {
             const data = await resp.json();
             if (data.metadata) setOptimizedMetadata(data.metadata as Record<string, unknown>);
             if (data.optimization_analysis) setOptimizedAnalysis(data.optimization_analysis as { summary?: string; knowledge_base_applied?: string[] });
+            if (data.deconstruction?.deleted_shots) setDeletedShots(data.deconstruction.deleted_shots as DeletedShot[]);
             setOptimizedStoryboard({
                 round1: (data as OptimizedStoryboardPayload).round1 ?? null,
                 round2: (data as OptimizedStoryboardPayload).round2 ?? null,
@@ -668,6 +678,14 @@ export default function Step3_DeconstructionReview() {
                 )}
             </div>
         );
+    };
+
+    const modTypeClass = (modType?: string) => {
+        const upper = (modType || '').toUpperCase();
+        if (upper === 'DELETE') return 'text-red-300';
+        if (upper === 'REPLACE') return 'text-amber-300';
+        if (upper === 'ADD' || upper === 'INSERT') return 'text-emerald-300';
+        return 'text-blue-300';
     };
 
     useEffect(() => {
@@ -1157,6 +1175,23 @@ export default function Step3_DeconstructionReview() {
                     {!optimizedMetadata && !optimizedAnalysis?.summary && (
                         <div className="text-xs text-[var(--color-text-tertiary)]">未提供优化元数据。</div>
                     )}
+
+                    {deletedShots && deletedShots.length > 0 && (
+                        <div className="space-y-2">
+                            <div className="text-xs font-semibold text-red-300 flex items-center gap-2">
+                                <Trash2 size={12} /> 已删除镜头
+                            </div>
+                            <div className="grid gap-2 md:grid-cols-2">
+                                {deletedShots.map((d, idx) => (
+                                    <div key={`${d.original_id ?? idx}`} className="p-3 rounded-lg border border-red-500/20 bg-red-500/5 text-xs space-y-1">
+                                        <div className="font-semibold text-[var(--color-text-primary)]">Shot #{d.original_id ?? idx + 1}</div>
+                                        {d.reason && <div className="text-[var(--color-text-secondary)] leading-relaxed">{d.reason}</div>}
+                                        {d.type && <div className="text-[10px] uppercase text-red-300">类型: {d.type}</div>}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -1550,7 +1585,7 @@ export default function Step3_DeconstructionReview() {
                                         reason: modificationInfo.reason,
                                         modType: modificationInfo.type,
                                         affectedShots: modificationInfo.affected_shots,
-                                        changes: modificationInfo.reason ? { modification: { after: modificationInfo.reason } } : undefined,
+                                        changes: undefined,
                                     }]
                                     : [];
                         const hasDetail = (mode === 'revision' && changeBadges.length > 0) || (mode === 'final' && detailList.length > 0);
@@ -1606,13 +1641,15 @@ export default function Step3_DeconstructionReview() {
                                                     )}
                                                 </div>
 
+                                                {'modType' in change && change.modType && (
+                                                    <div className={`text-[10px] uppercase ${modTypeClass(change.modType)}`}>
+                                                        类型: {change.modType}
+                                                    </div>
+                                                )}
                                                 {'reason' in change && change.reason && (
                                                     <div className="text-sm text-[var(--color-text-primary)] leading-relaxed pl-2 border-l-2 border-purple-500/30">
                                                         {change.reason}
                                                     </div>
-                                                )}
-                                                {'modType' in change && change.modType && (
-                                                    <div className="text-[10px] text-emerald-300 uppercase">类型: {change.modType}</div>
                                                 )}
                                                 {'affectedShots' in change &&
                                                     Array.isArray((change as { affectedShots?: number[] }).affectedShots) &&

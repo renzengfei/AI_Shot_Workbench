@@ -631,6 +631,13 @@ function verifyLogicChain() {
         "viral_element": "...",
         // ... 其他字段
       }
+    ],
+    "deleted_shots": [
+      {
+        "original_id": 2,
+        "reason": "信息密度低，动作冗余",
+        "type": "DELETE"
+      }
     ]
   }
 }
@@ -643,7 +650,7 @@ function verifyLogicChain() {
 **执行指令**:
 
 1. **构造输出路径**:
-   - 输出路径 = 输入目录 + \`/optimized_storyboard.json\`
+   - 输出路径 = 输入目录 + `/optimized_storyboard.json`
 
 2. **判断是否需要分批**:
    - 统计优化后的镜头总数
