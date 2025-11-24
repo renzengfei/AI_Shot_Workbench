@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { AlertCircle, ArrowRight, Check, ChevronRight, Copy, Film, Layout, MessageSquare, Music, Play, Clock, Pause, ChevronLeft, Maximize, Volume2, VolumeX, Zap, Box, BookOpen, GitBranch, Anchor, Users, Sun, Palette, Image as ImageIcon, Layers, Heart, Sparkles, GitFork, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { useWorkflowStore } from '@/lib/stores/workflowStore';
 import { useWorkspace } from '@/components/WorkspaceContext';
 import { parseRound1, parseRound2, parseStoredDeconstruction } from '@/lib/services/deconstruction';
@@ -107,6 +107,53 @@ interface ShotAlternative {
     reason?: string;
     affected_shots_change?: number[];
 }
+
+const AutoTextArea = ({
+    value,
+    onChange,
+    className,
+    placeholder,
+    minRows = 1,
+    maxRows = 12,
+    readOnly,
+}: {
+    value: string;
+    onChange: (e: ChangeEvent<HTMLTextAreaElement>) => void;
+    className?: string;
+    placeholder?: string;
+    minRows?: number;
+    maxRows?: number;
+    readOnly?: boolean;
+}) => {
+    const ref = useRef<HTMLTextAreaElement | null>(null);
+    const resize = useCallback(() => {
+        const el = ref.current;
+        if (!el) return;
+        el.style.height = 'auto';
+        el.rows = 1;
+        const lineHeight = parseInt(getComputedStyle(el).lineHeight || '20', 10);
+        const maxHeight = maxRows * lineHeight;
+        const next = Math.min(maxHeight, el.scrollHeight);
+        el.style.height = `${next}px`;
+    }, [maxRows]);
+
+    useLayoutEffect(() => {
+        resize();
+    }, [value, minRows, maxRows, resize]);
+
+    return (
+        <textarea
+            ref={ref}
+            value={value}
+            onChange={onChange}
+            readOnly={readOnly}
+            rows={1}
+            style={{ overflow: 'hidden' }}
+            className={className}
+            placeholder={placeholder}
+        />
+    );
+};
 
 type AnnotationMap = Record<string, string>;
 interface OptimizedStoryboardPayload {
@@ -1102,7 +1149,7 @@ export default function Step3_DeconstructionReview() {
                                 {typeof round1Data === 'string' ? (
                                     <p className="text-sm text-white/40 italic">JSON 解析失败</p>
                                 ) : (
-                                    <textarea
+                                    <AutoTextArea
                                         value={round1Data?.round1_skeleton?.story_summary || ''}
                                         onChange={(e) =>
                                             mutateRound1((draft) => {
@@ -1110,7 +1157,9 @@ export default function Step3_DeconstructionReview() {
                                             })
                                         }
                                         readOnly={!canEdit}
-                                        className="w-full bg-black/5 border border-black/10 rounded-2xl p-6 text-base text-slate-700 min-h-[160px] focus:outline-none focus:border-blue-500/30 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 leading-relaxed resize-y placeholder:text-slate-400 shadow-inner"
+                                        minRows={1}
+                                        maxRows={24}
+                                        className="w-full bg-black/5 border border-black/10 rounded-2xl p-6 text-base text-slate-700 focus:outline-none focus:border-blue-500/30 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 leading-relaxed resize-none placeholder:text-slate-400 shadow-inner"
                                         placeholder="输入故事概要..."
                                     />
                                 )}
@@ -1125,7 +1174,7 @@ export default function Step3_DeconstructionReview() {
                                     <span className="font-bold text-sm tracking-wide uppercase text-indigo-500/80">底层逻辑链</span>
                                     {renderAnnotationControl('logic_chain', '底层逻辑链')}
                                 </div>
-                                <textarea
+                                <AutoTextArea
                                     value={typeof round1Data !== 'string' ? round1Data?.round1_skeleton?.logic_chain || '' : ''}
                                     onChange={(e) =>
                                         mutateRound1((draft) => {
@@ -1133,7 +1182,9 @@ export default function Step3_DeconstructionReview() {
                                         })
                                     }
                                     readOnly={!canEdit}
-                                    className="w-full bg-black/5 border border-black/10 rounded-xl p-4 text-sm text-indigo-700 min-h-[80px] focus:outline-none focus:border-indigo-500/30 focus:ring-2 focus:ring-indigo-500/10 transition-all resize-y italic font-medium shadow-inner placeholder:text-indigo-400"
+                                    minRows={1}
+                                    maxRows={20}
+                                    className="w-full bg-black/5 border border-black/10 rounded-xl p-4 text-sm text-indigo-700 focus:outline-none focus:border-indigo-500/30 focus:ring-2 focus:ring-indigo-500/10 transition-all resize-none italic font-medium shadow-inner placeholder:text-indigo-400"
                                     placeholder="输入逻辑链..."
                                 />
                             </div>
@@ -1151,15 +1202,15 @@ export default function Step3_DeconstructionReview() {
                                     <div className="absolute left-[27px] top-4 bottom-8 w-0.5 bg-gradient-to-b from-purple-500/40 via-purple-500/20 to-transparent" />
 
                                     {typeof round1Data !== 'string' && (round1Data?.round1_skeleton?.skeleton_nodes || []).map((node, idx) => (
-                                        <div key={idx} className="relative pl-12 pb-8 last:pb-0 group">
+                                        <div key={idx} className="relative flex items-stretch gap-4 pb-8 last:pb-0 group">
                                             {/* Timeline Dot */}
-                                            <div className="w-14 h-14 flex items-center justify-center z-10 absolute left-0 top-4">
+                                            <div className="w-14 flex items-center justify-center z-10 pt-2">
                                                 <div className="w-10 h-10 rounded-full bg-[#1a1a2e] border-2 border-purple-500/40 text-purple-300 flex items-center justify-center text-sm font-bold shadow-[0_0_15px_rgba(168,85,247,0.2)] group-hover:scale-110 group-hover:border-purple-400 group-hover:text-white group-hover:shadow-[0_0_20px_rgba(168,85,247,0.4)] transition-all duration-300">
                                                     {idx + 1}
                                                 </div>
                                             </div>
 
-                                            <textarea
+                                            <AutoTextArea
                                                 value={node || ''}
                                                 onChange={(e) =>
                                                     mutateRound1((draft) => {
@@ -1169,7 +1220,9 @@ export default function Step3_DeconstructionReview() {
                                                     })
                                                 }
                                                 readOnly={!canEdit}
-                                                className="w-full bg-black/5 border border-black/10 rounded-xl p-4 text-sm text-slate-700 min-h-[70px] focus:outline-none focus:border-purple-500/30 focus:ring-2 focus:ring-purple-500/10 transition-all resize-y shadow-sm hover:bg-black/10"
+                                                minRows={1}
+                                                maxRows={12}
+                                                className="w-full bg-black/5 border border-black/10 rounded-xl p-4 text-sm text-slate-700 focus:outline-none focus:border-purple-500/30 focus:ring-2 focus:ring-purple-500/10 transition-all resize-none shadow-sm hover:bg-black/10 leading-relaxed"
                                             />
                                         </div>
                                     ))}
@@ -1191,7 +1244,7 @@ export default function Step3_DeconstructionReview() {
                                 <div className="space-y-5">
                                     <div className="space-y-2">
                                         <div className="text-xs font-bold text-pink-500/60 uppercase tracking-wider ml-1">视觉钩子</div>
-                                        <input
+                                        <AutoTextArea
                                             value={typeof round1Data !== 'string' ? round1Data?.round1_hook?.visual_hook || '' : ''}
                                             onChange={(e) =>
                                                 mutateRound1((draft) => {
@@ -1199,12 +1252,14 @@ export default function Step3_DeconstructionReview() {
                                                 })
                                             }
                                             readOnly={!canEdit}
-                                            className="w-full bg-black/5 border border-black/10 rounded-xl px-4 py-3 text-sm text-slate-700 focus:outline-none focus:border-pink-500/30 focus:ring-2 focus:ring-pink-500/10 transition-all"
+                                            minRows={2}
+                                            maxRows={12}
+                                            className="w-full bg-black/5 border border-black/10 rounded-xl px-4 py-3 text-sm text-slate-700 leading-relaxed focus:outline-none focus:border-pink-500/30 focus:ring-2 focus:ring-pink-500/10 transition-all resize-none"
                                         />
                                     </div>
                                     <div className="space-y-2">
                                         <div className="text-xs font-bold text-pink-500/60 uppercase tracking-wider ml-1">音频钩子</div>
-                                        <input
+                                        <AutoTextArea
                                             value={typeof round1Data !== 'string' ? round1Data?.round1_hook?.audio_hook || '' : ''}
                                             onChange={(e) =>
                                                 mutateRound1((draft) => {
@@ -1212,12 +1267,14 @@ export default function Step3_DeconstructionReview() {
                                                 })
                                             }
                                             readOnly={!canEdit}
-                                            className="w-full bg-black/5 border border-black/10 rounded-xl px-4 py-3 text-sm text-slate-700 focus:outline-none focus:border-pink-500/30 focus:ring-2 focus:ring-pink-500/10 transition-all"
+                                            minRows={1}
+                                            maxRows={12}
+                                            className="w-full bg-black/5 border border-black/10 rounded-xl px-4 py-3 text-sm text-slate-700 leading-relaxed focus:outline-none focus:border-pink-500/30 focus:ring-2 focus:ring-pink-500/10 transition-all resize-none"
                                         />
                                     </div>
                                     <div className="space-y-2">
                                         <div className="text-xs font-bold text-pink-500/60 uppercase tracking-wider ml-1">留存策略</div>
-                                        <textarea
+                                        <AutoTextArea
                                             value={typeof round1Data !== 'string' ? round1Data?.round1_hook?.retention_strategy || '' : ''}
                                             onChange={(e) =>
                                                 mutateRound1((draft) => {
@@ -1225,7 +1282,9 @@ export default function Step3_DeconstructionReview() {
                                                 })
                                             }
                                             readOnly={!canEdit}
-                                            className="w-full bg-black/5 border border-black/10 rounded-xl px-4 py-3 text-sm text-slate-700 focus:outline-none focus:border-pink-500/30 focus:ring-2 focus:ring-pink-500/10 min-h-[80px] resize-y transition-all"
+                                            minRows={2}
+                                            maxRows={12}
+                                            className="w-full bg-black/5 border border-black/10 rounded-xl px-4 py-3 text-sm text-slate-700 leading-relaxed focus:outline-none focus:border-pink-500/30 focus:ring-2 focus:ring-pink-500/10 transition-all resize-none"
                                         />
                                     </div>
                                 </div>
@@ -1242,47 +1301,53 @@ export default function Step3_DeconstructionReview() {
                                 </div>
                                 <div className="space-y-4">
                                     {typeof round1Data !== 'string' && (round1Data?.round1_skeleton?.viral_elements_found || []).map((v, idx) => (
-                                        <div key={idx} className="bg-black/5 p-4 rounded-xl border border-black/10 space-y-3 hover:border-amber-500/20 hover:bg-black/10 transition-all duration-300 group">
-                                            <div className="flex gap-3 border-b border-black/5 pb-2">
-                                                <input
-                                                    value={v.category || ''}
+                                            <div key={idx} className="bg-black/5 p-4 rounded-xl border border-black/10 space-y-3 hover:border-amber-500/20 hover:bg-black/10 transition-all duration-300 group">
+                                                <div className="flex gap-3 border-b border-black/5 pb-2">
+                                                    <AutoTextArea
+                                                        value={v.category || ''}
+                                                        onChange={(e) =>
+                                                            mutateRound1((draft) => {
+                                                                const list = [...(draft.round1_skeleton?.viral_elements_found || [])];
+                                                                list[idx] = { ...(list[idx] || {}), category: e.target.value };
+                                                                draft.round1_skeleton = { ...(draft.round1_skeleton || {}), viral_elements_found: list };
+                                                            })
+                                                        }
+                                                        readOnly={!canEdit}
+                                                        minRows={1}
+                                                        maxRows={4}
+                                                        className="w-1/3 text-xs font-bold text-amber-400 bg-transparent border-none focus:ring-0 px-0 resize-none leading-relaxed placeholder:text-amber-400/30"
+                                                        placeholder="类别"
+                                                    />
+                                                    <div className="w-px bg-black/10" />
+                                                    <AutoTextArea
+                                                        value={v.element || ''}
+                                                        onChange={(e) =>
+                                                            mutateRound1((draft) => {
+                                                                const list = [...(draft.round1_skeleton?.viral_elements_found || [])];
+                                                                list[idx] = { ...(list[idx] || {}), element: e.target.value };
+                                                                draft.round1_skeleton = { ...(draft.round1_skeleton || {}), viral_elements_found: list };
+                                                            })
+                                                        }
+                                                        readOnly={!canEdit}
+                                                        minRows={1}
+                                                        maxRows={6}
+                                                        className="flex-1 text-sm font-bold text-slate-700 bg-transparent border-none focus:ring-0 px-0 resize-none leading-relaxed placeholder:text-slate-400"
+                                                        placeholder="元素"
+                                                    />
+                                                </div>
+                                                <AutoTextArea
+                                                    value={v.description || ''}
                                                     onChange={(e) =>
                                                         mutateRound1((draft) => {
-                                                            const list = [...(draft.round1_skeleton?.viral_elements_found || [])];
-                                                            list[idx] = { ...(list[idx] || {}), category: e.target.value };
-                                                            draft.round1_skeleton = { ...(draft.round1_skeleton || {}), viral_elements_found: list };
-                                                        })
-                                                    }
-                                                    readOnly={!canEdit}
-                                                    className="w-1/3 text-xs font-bold text-amber-400 bg-transparent border-none focus:ring-0 px-0 placeholder:text-amber-400/30"
-                                                    placeholder="类别"
-                                                />
-                                                <div className="w-px bg-black/10" />
-                                                <input
-                                                    value={v.element || ''}
-                                                    onChange={(e) =>
-                                                        mutateRound1((draft) => {
-                                                            const list = [...(draft.round1_skeleton?.viral_elements_found || [])];
-                                                            list[idx] = { ...(list[idx] || {}), element: e.target.value };
-                                                            draft.round1_skeleton = { ...(draft.round1_skeleton || {}), viral_elements_found: list };
-                                                        })
-                                                    }
-                                                    readOnly={!canEdit}
-                                                    className="flex-1 text-sm font-bold text-slate-700 bg-transparent border-none focus:ring-0 px-0 placeholder:text-slate-400"
-                                                    placeholder="元素"
-                                                />
-                                            </div>
-                                            <textarea
-                                                value={v.description || ''}
-                                                onChange={(e) =>
-                                                    mutateRound1((draft) => {
                                                         const list = [...(draft.round1_skeleton?.viral_elements_found || [])];
                                                         list[idx] = { ...(list[idx] || {}), description: e.target.value };
                                                         draft.round1_skeleton = { ...(draft.round1_skeleton || {}), viral_elements_found: list };
                                                     })
                                                 }
                                                 readOnly={!canEdit}
-                                                className="w-full text-xs text-slate-500 bg-transparent border-none focus:ring-0 p-0 resize-none min-h-[40px] placeholder:text-slate-400"
+                                                    minRows={1}
+                                                    maxRows={10}
+                                                className="w-full text-sm text-slate-600 bg-transparent border-none focus:ring-0 p-0 resize-none leading-relaxed placeholder:text-slate-400"
                                                 placeholder="详细描述..."
                                             />
                                         </div>
@@ -1585,7 +1650,7 @@ export default function Step3_DeconstructionReview() {
                                                     {renderAnnotationControl(`shot-${shot.id ?? index}-mission`, `Shot #${shot.id ?? index + 1} Mission`)}
                                                 </div>
                                                 {renderFieldWithRevision(
-                                                    <textarea
+                                                    <AutoTextArea
                                                         value={missionVal}
                                                         onChange={(e) =>
                                                             mutateRound2((draft) => {
@@ -1595,8 +1660,9 @@ export default function Step3_DeconstructionReview() {
                                                             })
                                                         }
                                                         readOnly={!canEdit}
-                                                        rows={3}
-                                                        className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-blue-500/30 resize-y placeholder:text-slate-400"
+                                                        minRows={1}
+                                                        maxRows={12}
+                                                        className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-blue-500/30 resize-none placeholder:text-slate-400"
                                                         placeholder="未定义任务"
                                                     />,
                                                     '任务 / 目标',
@@ -1613,17 +1679,17 @@ export default function Step3_DeconstructionReview() {
                                                         {renderAnnotationControl(`shot-${shot.id ?? index}-initial`, `Shot #${shot.id ?? index + 1} Initial Frame`)}
                                                     </div>
                                                     {structuredFrameOriginal && (
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl bg-black/5 border border-black/10 text-sm text-slate-700">
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 rounded-2xl bg-black/5 border border-black/10 text-base text-slate-800 leading-relaxed">
                                                             {/* Foreground */}
-                                                            <div className="space-y-2">
-                                                                <div className="flex items-center gap-2 text-sm font-semibold text-slate-600 uppercase">
-                                                                    <Users size={14} className="text-blue-500" />
+                                                            <div className="space-y-3">
+                                                                <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
+                                                                    <Users size={16} className="text-blue-500" />
                                                                     前景 / Foreground
                                                                 </div>
-                                                                <div className="space-y-1 pl-2 border-l-2 border-blue-500/20">
+                                                                <div className="space-y-2 pl-3 border-l-2 border-blue-500/30">
                                                                     {Array.isArray(structuredFrameOriginal.foreground?.characters) && structuredFrameOriginal.foreground.characters.length > 0 ? (
                                                                         structuredFrameOriginal.foreground.characters.map((char, idx) => (
-                                                                            <div key={idx} className="text-xs">
+                                                                            <div key={idx} className="text-sm leading-relaxed">
                                                                                 {typeof char === 'string' ? (
                                                                                     <span className="text-slate-800">{char}</span>
                                                                                 ) : (
@@ -1636,25 +1702,25 @@ export default function Step3_DeconstructionReview() {
                                                                             </div>
                                                                         ))
                                                                     ) : (
-                                                                        <div className="text-xs text-slate-400 italic">无角色</div>
+                                                                        <div className="text-sm text-slate-500 italic">无角色</div>
                                                                     )}
                                                                     {Array.isArray(structuredFrameOriginal.foreground?.objects) && structuredFrameOriginal.foreground.objects.length > 0 ? (
                                                                         structuredFrameOriginal.foreground.objects.map((obj, idx) => (
-                                                                            <div key={idx} className="text-sm text-slate-600">• {obj}</div>
+                                                                            <div key={idx} className="text-sm text-slate-700">• {obj}</div>
                                                                         ))
                                                                     ) : (
-                                                                        <div className="text-xs text-slate-400 italic">无道具</div>
+                                                                        <div className="text-sm text-slate-500 italic">无道具</div>
                                                                     )}
                                                                 </div>
                                                             </div>
 
                                                             {/* Midground */}
-                                                            <div className="space-y-2">
-                                                                <div className="flex items-center gap-2 text-sm font-semibold text-slate-600 uppercase">
-                                                                    <Layers size={14} className="text-purple-500" />
+                                                            <div className="space-y-3">
+                                                                <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
+                                                                    <Layers size={16} className="text-purple-500" />
                                                                     中景 / Midground
                                                                 </div>
-                                                                <div className="space-y-1 pl-2 border-l-2 border-purple-500/20">
+                                                                <div className="space-y-2 pl-3 border-l-2 border-purple-500/30">
                                                                     {Array.isArray(structuredFrameOriginal.midground?.characters) && structuredFrameOriginal.midground.characters.length > 0 ? (
                                                                         structuredFrameOriginal.midground.characters.map((char, idx) => (
                                                                             <div key={idx} className="text-sm">
@@ -1662,42 +1728,42 @@ export default function Step3_DeconstructionReview() {
                                                                             </div>
                                                                         ))
                                                                     ) : (
-                                                                        <div className="text-xs text-slate-400 italic">无角色</div>
+                                                                        <div className="text-sm text-slate-500 italic">无角色</div>
                                                                     )}
                                                                     {Array.isArray(structuredFrameOriginal.midground?.objects) && structuredFrameOriginal.midground.objects.length > 0 ? (
                                                                         structuredFrameOriginal.midground.objects.map((obj, idx) => (
                                                                             <div key={idx} className="text-sm text-slate-600">• {obj}</div>
                                                                         ))
                                                                     ) : (
-                                                                        <div className="text-xs text-slate-400 italic">无道具</div>
+                                                                        <div className="text-sm text-slate-500 italic">无道具</div>
                                                                     )}
                                                                 </div>
                                                             </div>
 
                                                             {/* Background */}
-                                                            <div className="space-y-2">
-                                                                <div className="flex items-center gap-2 text-sm font-semibold text-slate-500 uppercase">
-                                                                    <ImageIcon size={14} className="text-pink-500" />
+                                                            <div className="space-y-3">
+                                                                <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
+                                                                    <ImageIcon size={16} className="text-pink-500" />
                                                                     背景 / Background
                                                                 </div>
-                                                                <div className="space-y-1 pl-2 border-l-2 border-pink-500/20">
+                                                                <div className="space-y-1 pl-3 border-l-2 border-pink-500/30">
                                                                     <div className="text-sm"><span className="text-slate-500">环境:</span> {structuredFrameOriginal.background?.environment || '-'}</div>
                                                                     <div className="text-sm"><span className="text-slate-500">景深:</span> {structuredFrameOriginal.background?.depth || '-'}</div>
                                                                 </div>
                                                             </div>
 
                                                             {/* Lighting & Palette */}
-                                                            <div className="space-y-2">
-                                                                <div className="flex items-center gap-2 text-sm font-semibold text-slate-500 uppercase">
-                                                                    <Sun size={14} className="text-amber-500" />
+                                                            <div className="space-y-3">
+                                                                <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
+                                                                    <Sun size={16} className="text-amber-500" />
                                                                     光影与色调 / Lighting & Palette
                                                                 </div>
-                                                                <div className="space-y-1 pl-2 border-l-2 border-amber-500/20">
-                                                                    <div className="flex items-center gap-1 text-sm">
+                                                                <div className="space-y-1 pl-3 border-l-2 border-amber-500/30">
+                                                                    <div className="flex items-center gap-1 text-sm leading-relaxed">
                                                                         <span className="text-slate-500">光照:</span>
                                                                         <span>{structuredFrameOriginal.lighting || '-'}</span>
                                                                     </div>
-                                                                    <div className="flex items-center gap-1 text-sm">
+                                                                    <div className="flex items-center gap-1 text-sm leading-relaxed">
                                                                         <Palette size={10} className="text-slate-400" />
                                                                         <span className="text-slate-500">色调:</span>
                                                                         <span>{structuredFrameOriginal.color_palette || '-'}</span>
@@ -1708,94 +1774,94 @@ export default function Step3_DeconstructionReview() {
                                                     )}
                                                     {structuredFrameOptimized && (!structuredFrameOriginal || JSON.stringify(structuredFrameOriginal) !== JSON.stringify(structuredFrameOptimized)) && (
                                                         <div className="space-y-3 group/revision mt-4">
-                                                            <div className="relative z-10 border rounded-xl p-4 text-sm shadow-sm backdrop-blur-sm transition-all duration-300 hover:shadow-md border-amber-500/30 bg-amber-500/5 text-slate-700">
-                                                                <div className="flex items-center justify-between mb-3">
-                                                                    <div className="flex items-center gap-2 text-sm uppercase font-bold tracking-wider text-amber-600">
-                                                                        <Sparkles size={12} />
+                                                            <div className="relative z-10 border rounded-2xl p-7 text-base shadow-sm backdrop-blur-sm transition-all duration-300 hover:shadow-md border-amber-500/30 bg-amber-500/5 text-slate-800 leading-relaxed">
+                                                                <div className="flex items-center justify-between mb-4">
+                                                                    <div className="flex items-center gap-2 text-base uppercase font-bold tracking-wider text-amber-600">
+                                                                        <Sparkles size={16} />
                                                                         <span>初始帧设定 (优化后)</span>
                                                                     </div>
-                                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm bg-amber-500 text-white border-transparent">
+                                                                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full shadow-sm bg-amber-500 text-white border-transparent">
                                                                         NEW
                                                                     </span>
                                                                 </div>
 
-                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                                                     {/* Foreground */}
-                                                                    <div className="space-y-2">
-                                                                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-500 uppercase">
-                                                                            <Users size={12} className="text-blue-400" />
+                                                                    <div className="space-y-3">
+                                                                        <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
+                                                                            <Users size={16} className="text-blue-400" />
                                                                             优化前景
                                                                         </div>
-                                                                        <div className="space-y-1 pl-2 border-l-2 border-blue-400/30">
+                                                                        <div className="space-y-2 pl-3 border-l-2 border-blue-400/30">
                                                                             {Array.isArray(structuredFrameOptimized.foreground?.characters) && structuredFrameOptimized.foreground.characters.length > 0 ? (
                                                                                 structuredFrameOptimized.foreground.characters.map((char, idx) => (
-                                                                                    <div key={idx} className="text-sm text-slate-800 font-medium">
+                                                                                    <div key={idx} className="text-sm text-slate-800 leading-relaxed">
                                                                                         {typeof char === 'string' ? char : [char.tag, char.pose, char.expression].filter(Boolean).join(' · ')}
                                                                                     </div>
                                                                                 ))
                                                                             ) : (
-                                                                                <div className="text-xs text-slate-500 italic">无角色</div>
+                                                                                <div className="text-sm text-slate-500 italic">无角色</div>
                                                                             )}
                                                                             {Array.isArray(structuredFrameOptimized.foreground?.objects) && structuredFrameOptimized.foreground.objects.length > 0 ? (
                                                                                 structuredFrameOptimized.foreground.objects.map((obj, idx) => (
-                                                                                    <div key={idx} className="text-xs text-slate-700">• {obj}</div>
+                                                                                    <div key={idx} className="text-sm text-slate-700">• {obj}</div>
                                                                                 ))
                                                                             ) : (
-                                                                                <div className="text-xs text-slate-500 italic">无道具</div>
+                                                                                <div className="text-sm text-slate-500 italic">无道具</div>
                                                                             )}
                                                                         </div>
                                                                     </div>
 
                                                                     {/* Midground */}
-                                                                    <div className="space-y-2">
-                                                                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase">
-                                                                            <Layers size={12} className="text-purple-400" />
+                                                                    <div className="space-y-3">
+                                                                        <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
+                                                                            <Layers size={16} className="text-purple-400" />
                                                                             优化中景
                                                                         </div>
-                                                                        <div className="space-y-1 pl-2 border-l-2 border-purple-400/30">
+                                                                        <div className="space-y-2 pl-3 border-l-2 border-purple-400/30">
                                                                             {Array.isArray(structuredFrameOptimized.midground?.characters) && structuredFrameOptimized.midground.characters.length > 0 ? (
                                                                                 structuredFrameOptimized.midground.characters.map((char, idx) => (
-                                                                                    <div key={idx} className="text-xs text-slate-800 font-medium">
+                                                                                    <div key={idx} className="text-sm text-slate-800">
                                                                                         {typeof char === 'string' ? char : char.tag || '-'}
                                                                                     </div>
                                                                                 ))
                                                                             ) : (
-                                                                                <div className="text-xs text-slate-500 italic">无角色</div>
+                                                                                <div className="text-sm text-slate-500 italic">无角色</div>
                                                                             )}
                                                                             {Array.isArray(structuredFrameOptimized.midground?.objects) && structuredFrameOptimized.midground.objects.length > 0 ? (
                                                                                 structuredFrameOptimized.midground.objects.map((obj, idx) => (
-                                                                                    <div key={idx} className="text-xs text-slate-700">• {obj}</div>
+                                                                                    <div key={idx} className="text-sm text-slate-700">• {obj}</div>
                                                                                 ))
                                                                             ) : (
-                                                                                <div className="text-xs text-slate-500 italic">无道具</div>
+                                                                                <div className="text-sm text-slate-500 italic">无道具</div>
                                                                             )}
                                                                         </div>
                                                                     </div>
 
                                                                     {/* Background */}
-                                                                    <div className="space-y-2">
-                                                                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase">
-                                                                            <ImageIcon size={12} className="text-pink-400" />
+                                                                    <div className="space-y-3">
+                                                                        <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
+                                                                            <ImageIcon size={16} className="text-pink-400" />
                                                                             优化背景
                                                                         </div>
-                                                                        <div className="space-y-1 pl-2 border-l-2 border-pink-400/30">
-                                                                            <div className="text-xs text-slate-800"><span className="text-slate-500">环境:</span> {structuredFrameOptimized.background?.environment || '-'}</div>
-                                                                            <div className="text-xs text-slate-800"><span className="text-slate-500">景深:</span> {structuredFrameOptimized.background?.depth || '-'}</div>
+                                                                        <div className="space-y-1 pl-3 border-l-2 border-pink-400/30">
+                                                                            <div className="text-sm text-slate-800"><span className="text-slate-500">环境:</span> {structuredFrameOptimized.background?.environment || '-'}</div>
+                                                                            <div className="text-sm text-slate-800"><span className="text-slate-500">景深:</span> {structuredFrameOptimized.background?.depth || '-'}</div>
                                                                         </div>
                                                                     </div>
 
                                                                     {/* Lighting & Palette */}
-                                                                    <div className="space-y-2">
-                                                                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase">
-                                                                            <Sun size={12} className="text-amber-400" />
+                                                                    <div className="space-y-3">
+                                                                        <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
+                                                                            <Sun size={16} className="text-amber-400" />
                                                                             优化光影/色调
                                                                         </div>
-                                                                        <div className="space-y-1 pl-2 border-l-2 border-amber-400/30">
-                                                                            <div className="flex items-center gap-1 text-xs text-slate-800">
+                                                                        <div className="space-y-1 pl-3 border-l-2 border-amber-400/30">
+                                                                            <div className="flex items-center gap-1 text-sm text-slate-800">
                                                                                 <span className="text-slate-500">光照:</span>
                                                                                 <span>{structuredFrameOptimized.lighting || '-'}</span>
                                                                             </div>
-                                                                            <div className="flex items-center gap-1 text-xs text-slate-800">
+                                                                            <div className="flex items-center gap-1 text-sm text-slate-800">
                                                                                 <Palette size={10} className="text-slate-400" />
                                                                                 <span className="text-slate-500">色调:</span>
                                                                                 <span>{structuredFrameOptimized.color_palette || '-'}</span>
@@ -1815,7 +1881,7 @@ export default function Step3_DeconstructionReview() {
                                                         {renderAnnotationControl(`shot-${shot.id ?? index}-initial`, `Shot #${shot.id ?? index + 1} Initial Frame`)}
                                                     </div>
                                                     {renderFieldWithRevision(
-                                                        <textarea
+                                                        <AutoTextArea
                                                             value={initialFrameText}
                                                             onChange={(e) =>
                                                                 mutateRound2((draft) => {
@@ -1825,8 +1891,9 @@ export default function Step3_DeconstructionReview() {
                                                                 })
                                                             }
                                                             readOnly={!canEdit}
-                                                            rows={3}
-                                                            className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-blue-500/30 resize-y placeholder:text-slate-400"
+                                                            minRows={1}
+                                                            maxRows={16}
+                                                            className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-blue-500/30 resize-none placeholder:text-slate-400"
                                                             placeholder="首帧描述..."
                                                         />,
                                                         '首帧描述',
@@ -1843,7 +1910,7 @@ export default function Step3_DeconstructionReview() {
                                                     {renderAnnotationControl(`shot-${shot.id ?? index}-visual`, `Shot #${shot.id ?? index + 1} Visual`)}
                                                 </div>
                                                 {renderFieldWithRevision(
-                                                    <textarea
+                                                    <AutoTextArea
                                                         value={visualVal}
                                                         onChange={(e) =>
                                                             mutateRound2((draft) => {
@@ -1853,8 +1920,9 @@ export default function Step3_DeconstructionReview() {
                                                             })
                                                         }
                                                         readOnly={!canEdit}
-                                                        rows={3}
-                                                        className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-purple-500/30 resize-y placeholder:text-slate-400"
+                                                        minRows={1}
+                                                        maxRows={16}
+                                                        className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-purple-500/30 resize-none placeholder:text-slate-400"
                                                         placeholder="画面描述..."
                                                     />,
                                                     '视频描述',
@@ -1871,7 +1939,7 @@ export default function Step3_DeconstructionReview() {
                                                         {renderAnnotationControl(`shot-${shot.id ?? index}-audio`, `Shot #${shot.id ?? index + 1} Audio`)}
                                                     </div>
                                                     {renderFieldWithRevision(
-                                                        <textarea
+                                                        <AutoTextArea
                                                             value={audioVal}
                                                             onChange={(e) =>
                                                                 mutateRound2((draft) => {
@@ -1881,8 +1949,9 @@ export default function Step3_DeconstructionReview() {
                                                                 })
                                                             }
                                                             readOnly={!canEdit}
-                                                            rows={3}
-                                                            className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-y focus:outline-none focus:border-pink-500/30 placeholder:text-slate-400"
+                                                            minRows={1}
+                                                            maxRows={12}
+                                                            className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-pink-500/30 placeholder:text-slate-400"
                                                             placeholder="音频..."
                                                         />,
                                                         '音频 / 对白',
@@ -1897,7 +1966,7 @@ export default function Step3_DeconstructionReview() {
                                                         {renderAnnotationControl(`shot-${shot.id ?? index}-camera`, `Shot #${shot.id ?? index + 1} Camera`)}
                                                     </div>
                                                     {renderFieldWithRevision(
-                                                        <textarea
+                                                        <AutoTextArea
                                                             value={cameraVal}
                                                             onChange={(e) =>
                                                                 mutateRound2((draft) => {
@@ -1907,8 +1976,9 @@ export default function Step3_DeconstructionReview() {
                                                                 })
                                                             }
                                                             readOnly={!canEdit}
-                                                            rows={3}
-                                                            className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-y focus:outline-none focus:border-cyan-500/30 placeholder:text-slate-400"
+                                                            minRows={1}
+                                                            maxRows={12}
+                                                            className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-cyan-500/30 placeholder:text-slate-400"
                                                             placeholder="运镜..."
                                                         />,
                                                         '运镜 / 动作',
