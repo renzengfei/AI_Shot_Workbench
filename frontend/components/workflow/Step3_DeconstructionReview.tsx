@@ -1499,7 +1499,7 @@ export default function Step3_DeconstructionReview() {
                         const mission = shot.mission || '';
                         const shotId = shot.id ?? idx + 1;
                         const modShot = mode === 'revision' ? modifiedShotMap.get(shotId) : undefined;
-                        const modificationInfo = mode === 'final' ? shot.modification_info : modShot?.changes ? { type: modShot.action, reason: modShot.reason } : undefined;
+                        const modificationInfo = mode === 'final' ? shot.modification_info : modShot?.changes ? { type: modShot.action, reason: modShot.reason, affected_shots: [] as number[] } : undefined;
                         const changeBadges =
                             mode === 'revision'
                                 ? (modificationLog?.modified_shots?.filter((c) => c.id === shotId) || modificationLog?.changes?.filter((c) => c.shot_id === shotId) || [])
@@ -1613,6 +1613,25 @@ export default function Step3_DeconstructionReview() {
                                         ))}
                                     </div>
                                 ) : null}
+
+                                {mode === 'final' && modificationInfo && (
+                                    <div className="px-6 pt-3 pb-0">
+                                        <div className="p-3 rounded-lg bg-[var(--glass-bg-light)] border border-[var(--glass-border)] space-y-2">
+                                            <div className="text-xs font-semibold text-[var(--color-text-primary)] flex items-center gap-2">
+                                                <Zap size={12} className="text-emerald-400" />
+                                                变更说明
+                                            </div>
+                                            {modificationInfo.reason && (
+                                                <div className="text-sm text-[var(--color-text-secondary)] leading-relaxed">{modificationInfo.reason}</div>
+                                            )}
+                                            {modificationInfo.affected_shots && modificationInfo.affected_shots.length > 0 && (
+                                                <div className="text-[10px] text-[var(--color-text-tertiary)]">
+                                                    影响镜头: {modificationInfo.affected_shots.join(', ')}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="p-6 flex flex-col 2xl:flex-row gap-8">
                                     {/* Media Section - Larger Side by Side */}
