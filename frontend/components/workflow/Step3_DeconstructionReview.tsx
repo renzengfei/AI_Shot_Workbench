@@ -1525,7 +1525,12 @@ export default function Step3_DeconstructionReview() {
                         const mission = shot.mission || '';
                         const shotId = shot.id ?? idx + 1;
                         const modShot = mode === 'revision' ? modifiedShotMap.get(shotId) : undefined;
-                        const modificationInfo = mode === 'final' ? shot.modification_info : modShot?.changes ? { type: modShot.action, reason: modShot.reason, affected_shots: [] as number[] } : undefined;
+                        const modificationInfo =
+                            mode === 'final'
+                                ? shot.modification_info
+                                : modShot?.changes
+                                    ? { type: modShot.action, reason: modShot.reason, affected_shots: [] as number[] }
+                                    : undefined;
                         const changeBadges =
                             mode === 'revision'
                                 ? (modificationLog?.modified_shots?.filter((c) => c.id === shotId) || modificationLog?.changes?.filter((c) => c.shot_id === shotId) || [])
@@ -1540,8 +1545,13 @@ export default function Step3_DeconstructionReview() {
                         const detailList =
                             mode === 'revision'
                                 ? changeBadges
-                                : modificationInfo?.reason
-                                    ? [{ reason: modificationInfo.reason, changes: modificationInfo ? { modification: { after: modificationInfo.reason } } : undefined }]
+                                : modificationInfo
+                                    ? [{
+                                        reason: modificationInfo.reason,
+                                        modType: modificationInfo.type,
+                                        affectedShots: modificationInfo.affected_shots,
+                                        changes: modificationInfo.reason ? { modification: { after: modificationInfo.reason } } : undefined,
+                                    }]
                                     : [];
                         const hasDetail = (mode === 'revision' && changeBadges.length > 0) || (mode === 'final' && detailList.length > 0);
 
@@ -1556,16 +1566,6 @@ export default function Step3_DeconstructionReview() {
                                         {isDeleted && (
                                             <span className="text-[10px] px-2 py-1 rounded-full bg-red-500/10 text-red-300 border border-red-500/20 uppercase">
                                                 已删除
-                                            </span>
-                                        )}
-                                        {modificationInfo?.type && (
-                                            <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 uppercase">
-                                                {modificationInfo.type}
-                                            </span>
-                                        )}
-                                        {shot.original_id && (
-                                            <span className="text-[10px] px-2 py-1 rounded-full bg-[var(--glass-bg-light)] text-[var(--color-text-secondary)] border border-[var(--glass-border)]">
-                                                原ID: {shot.original_id}
                                             </span>
                                         )}
                                         {replacementBadges.map((rep, repIdx) => (
@@ -1611,6 +1611,17 @@ export default function Step3_DeconstructionReview() {
                                                         {change.reason}
                                                     </div>
                                                 )}
+                                                {'modType' in change && change.modType && (
+                                                    <div className="text-[10px] text-emerald-300 uppercase">类型: {change.modType}</div>
+                                                )}
+                                                {'affectedShots' in change &&
+                                                    Array.isArray((change as { affectedShots?: number[] }).affectedShots) &&
+                                                    (change as { affectedShots?: number[] }).affectedShots &&
+                                                    (change as { affectedShots?: number[] }).affectedShots!.length > 0 && (
+                                                        <div className="text-[10px] text-[var(--color-text-tertiary)]">
+                                                            影响镜头: {(change as { affectedShots?: number[] }).affectedShots!.join(', ')}
+                                                        </div>
+                                                    )}
 
                                                 {'changes' in change && change.changes && Object.keys(change.changes).length > 0 && (
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
@@ -1639,25 +1650,6 @@ export default function Step3_DeconstructionReview() {
                                         ))}
                                     </div>
                                 ) : null}
-
-                                {mode === 'final' && modificationInfo && (
-                                    <div className="px-6 pt-3 pb-0">
-                                        <div className="p-3 rounded-lg bg-[var(--glass-bg-light)] border border-[var(--glass-border)] space-y-2">
-                                            <div className="text-xs font-semibold text-[var(--color-text-primary)] flex items-center gap-2">
-                                                <Zap size={12} className="text-emerald-400" />
-                                                变更说明
-                                            </div>
-                                            {modificationInfo.reason && (
-                                                <div className="text-sm text-[var(--color-text-secondary)] leading-relaxed">{modificationInfo.reason}</div>
-                                            )}
-                                            {modificationInfo.affected_shots && modificationInfo.affected_shots.length > 0 && (
-                                                <div className="text-[10px] text-[var(--color-text-tertiary)]">
-                                                    影响镜头: {modificationInfo.affected_shots.join(', ')}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
 
                                 <div className="p-6 flex flex-col 2xl:flex-row gap-8">
                                     {/* Media Section - Larger Side by Side */}
