@@ -840,6 +840,13 @@ export default function Step3_DeconstructionReview() {
         });
         return map;
     }, [assets]);
+    const frameNameSet = useMemo(() => {
+        const set = new Set<string>();
+        assets.forEach((asset) => {
+            if (asset.frame) set.add(asset.frame);
+        });
+        return set;
+    }, [assets]);
 
     return (
         <div className="space-y-8 pb-20">
@@ -1496,8 +1503,9 @@ export default function Step3_DeconstructionReview() {
                 {/* Shots Grid - Single Column for better visibility */}
                 <div className="space-y-6">
                     {typeof round2Data !== 'string' && round2Data?.shots?.map((shot, idx) => {
+                        const preferredKeyframe = shot.keyframe && frameNameSet.has(shot.keyframe) ? shot.keyframe : null;
                         const frameName =
-                            shot.keyframe ||
+                            preferredKeyframe ||
                             (shot.original_id ? frameMap.get(shot.original_id) : undefined) ||
                             frameMap.get(shot.id ?? idx + 1) ||
                             null;
