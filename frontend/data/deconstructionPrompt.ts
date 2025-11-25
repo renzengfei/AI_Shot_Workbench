@@ -190,10 +190,14 @@ export const DECONSTRUCTION_PROMPT = `# Role: Kpop 短视频拆解专家 (Kpop S
 1. **观察首帧图（分层观察，输出为结构化 JSON）** → 
    - **前景层（foreground）**：
      - 识别前景中的**角色**：为每个角色记录 tag（角色标签）、pose（姿态）、expression（表情）、clothing（服装）
-     - 识别前景中的**物体**：记录为字符串数组
+       - ⚠️ **重要**：角色**手持/穿戴/携带**的道具应写在 \`pose\` 或 \`clothing\` 中 (如: "双手握着菜刀", "脖子上套着游泳圈")
+     - 识别前景中的**孤立物体**：记录为字符串数组
+       - ⚠️ **重要**：\`objects\` **仅用于孤立的环境道具** (如: "桌上的花瓶", "地上的躺椅", "墙上的时钟")
+       - ❌ **禁止**：将角色手持/穿戴的道具写入 \`objects\`（避免冗余）
      - 若前景无角色和物体，整个 foreground 设为 null
    - **中景层（midground）**：
-     - 同样识别角色和物体，结构与前景层相同
+     - 同样识别角色和孤立物体，结构与前景层相同
+     - **同样遵守**：角色手持道具写在角色字段，环境道具写在 objects 数组
      - 若无中景，设为 null
    - **背景层（background）**：
      - environment：背景环境描述（天空、建筑、室内/室外等）
@@ -269,7 +273,7 @@ export const DECONSTRUCTION_PROMPT = `# Role: Kpop 短视频拆解专家 (Kpop S
               "clothing": "黑色oversize T恤，胸前有白色英文字母"
             }
           ],
-          "objects": []
+          "objects": []  // 无孤立物体（如果角色拿着杯子，应写在 pose 中，如"右手握着蓝色杯子"）
         },
         "midground": null,
         "background": {
@@ -299,12 +303,12 @@ export const DECONSTRUCTION_PROMPT = `# Role: Kpop 短视频拆解专家 (Kpop S
           "characters": [
             {
               "tag": "蓝色头发女生",
-              "pose": "站立，双手握着不锈钢菜刀，低头盯着砧板，眉头微皱",
+              "pose": "站立，双手握着不锈钢菜刀，低头盯着砧板，眉头微皱",  // 菜刀已在角色 pose 中
               "expression": "专注，眉头微皱",
               "clothing": "白色围裙系在蓝色波浪长发连衣裙外"
             }
           ],
-          "objects": ["木质砧板（上有红色西瓜和水珠）", "不锈钢菜刀"]
+          "objects": ["木质砧板（上有红色西瓜和水珠）"]  // 仅孤立物体：砧板。菜刀已在角色 pose 中，不重复
         },
         "midground": null,
         "background": {

@@ -1,7 +1,7 @@
 'use client';
 /* eslint-disable @next/next/no-img-element */
 
-import { AlertCircle, ArrowRight, Check, Copy, Layout, MessageSquare, Volume2, VolumeX, Zap, Trash2, Film, Box, BookOpen, GitBranch, Anchor, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Edit, Eye, RefreshCw, Plus, Minus, Volume2, VolumeX, Download, AlertCircle, Trash2, X, FileText, Zap, Users, Box, Layout, Film, ArrowRight, Check, Copy, MessageSquare, ClipboardPaste, BookOpen, GitBranch, Anchor } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useWorkflowStore } from '@/lib/stores/workflowStore';
 import { useWorkspace } from '@/components/WorkspaceContext';
@@ -58,6 +58,16 @@ export default function Step3_DeconstructionReview() {
             element_type?: string;
         }>
     >([]);
+
+    // Compare JSON Feature States
+    const [showComparePanel, setShowComparePanel] = useState(false);
+    const [compareRound1Text, setCompareRound1Text] = useState('');
+    const [compareRound2Text, setCompareRound2Text] = useState('');
+    const [compareRound1Error, setCompareRound1Error] = useState<string | null>(null);
+    const [compareRound2Error, setCompareRound2Error] = useState<string | null>(null);
+    const [compareData, setCompareData] = useState<{ round1: Round1Data | null; round2: Round2Data | null } | null>(null);
+    const [diffMap, setDiffMap] = useState<Map<string, { oldVal: string; newVal: string }>>(new Map());
+    const [, setActiveDiffPopover] = useState<string | null>(null);
 
     // Global Volume State
     const [globalVolume, setGlobalVolume] = useState(1);
@@ -257,12 +267,145 @@ export default function Step3_DeconstructionReview() {
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
+    // Helper to render character or object item (handles both string and object types)
+    const renderFrameItem = (item: unknown): string => {
+        if (typeof item === 'string') return item;
+        if (typeof item === 'object' && item !== null) {
+            // Handle structured character object with tag, pose, expression, clothing
+            const obj = item as Record<string, unknown>;
+            const parts: string[] = [];
+            if (obj.tag) parts.push(String(obj.tag));
+            if (obj.pose) parts.push(`姿态: ${obj.pose}`);
+            if (obj.expression) parts.push(`表情: ${obj.expression}`);
+            if (obj.clothing) parts.push(`服装: ${obj.clothing}`);
+            if (obj.name) parts.push(String(obj.name));
+            if (obj.description) parts.push(String(obj.description));
+            return parts.length > 0 ? parts.join(' · ') : JSON.stringify(item);
+        }
+        return String(item);
+    };
+
+    // Render structured Initial Frame content for diff popover
+    const renderInitialFrameDiff = (jsonStr: string) => {
+        try {
+            const frame = JSON.parse(jsonStr);
+            return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    {/* Foreground */}
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-orange-500">
+                            <Users size={14} />
+                            <span>前景 / FOREGROUND</span>
+                        </div>
+                        <div className="space-y-2 pl-1">
+                            <div>
+                                <div className="text-slate-500 text-[10px] mb-1">角色:</div>
+                                <div className="space-y-1">
+                                    {(frame.foreground?.characters || []).map((c: unknown, i: number) => (
+                                        <div key={i} className="p-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-700">{renderFrameItem(c) || '添加角色...'}</div>
+                                    ))}
+                                    {(!frame.foreground?.characters?.length) && <div className="p-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 italic">无角色</div>}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-slate-500 text-[10px] mb-1">道具:</div>
+                                <div className="space-y-1">
+                                    {(frame.foreground?.objects || []).map((o: unknown, i: number) => (
+                                        <div key={i} className="p-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-700">{renderFrameItem(o) || '添加道具...'}</div>
+                                    ))}
+                                    {(!frame.foreground?.objects?.length) && <div className="p-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 italic">无道具</div>}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {/* Midground */}
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-orange-500">
+                            <Box size={14} />
+                            <span>中景 / MIDGROUND</span>
+                        </div>
+                        <div className="space-y-2 pl-1">
+                            <div>
+                                <div className="text-slate-500 text-[10px] mb-1">角色:</div>
+                                <div className="space-y-1">
+                                    {(frame.midground?.characters || []).map((c: unknown, i: number) => (
+                                        <div key={i} className="p-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-700">{renderFrameItem(c) || '添加角色...'}</div>
+                                    ))}
+                                    {(!frame.midground?.characters?.length) && <div className="p-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 italic">无角色</div>}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-slate-500 text-[10px] mb-1">道具:</div>
+                                <div className="space-y-1">
+                                    {(frame.midground?.objects || []).map((o: unknown, i: number) => (
+                                        <div key={i} className="p-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-700">{renderFrameItem(o) || '添加道具...'}</div>
+                                    ))}
+                                    {(!frame.midground?.objects?.length) && <div className="p-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 italic">无道具</div>}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {/* Background */}
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-orange-500">
+                            <Layout size={14} />
+                            <span>背景 / BACKGROUND</span>
+                        </div>
+                        <div className="space-y-2 pl-1">
+                            <div>
+                                <div className="text-slate-500 text-[10px] mb-1">环境:</div>
+                                <div className="p-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-700">
+                                    {frame.background?.environment || <span className="italic text-slate-400">无</span>}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-slate-500 text-[10px] mb-1">景深:</div>
+                                <div className="p-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-700">
+                                    {frame.background?.depth || <span className="italic text-slate-400">无</span>}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {/* Lighting & Palette */}
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-orange-500">
+                            <Zap size={14} />
+                            <span>光影与色调 / LIGHTING & PALETTE</span>
+                        </div>
+                        <div className="space-y-2 pl-1">
+                            <div>
+                                <div className="text-slate-500 text-[10px] mb-1">光照:</div>
+                                <div className="p-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-700">
+                                    {frame.lighting || <span className="italic text-slate-400">无</span>}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-slate-500 text-[10px] mb-1">色调:</div>
+                                <div className="p-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-700">
+                                    {frame.color_palette || <span className="italic text-slate-400">无</span>}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        } catch {
+            // Not valid JSON, render as plain text
+            return (
+                <div className="text-[var(--color-text-secondary)] whitespace-pre-wrap text-xs">
+                    {jsonStr || <span className="italic text-slate-400">(空)</span>}
+                </div>
+            );
+        }
+    };
+
     const renderAnnotationControl = (id: string, label: string) => {
         if (!allowAnnotations) return null;
         const value = annotations[id] || '';
         const isOpen = editingKey === id;
+
         return (
-            <div className="relative inline-block annotation-wrapper">
+            <div className="relative inline-flex items-center gap-1 annotation-wrapper">
                 <button
                     className={`annotation-btn text-xs px-3 py-1 rounded-lg border transition shadow-sm ${value ? 'border-blue-500/50 text-blue-400 bg-blue-500/15' : 'border-[var(--glass-border)] text-[var(--color-text-tertiary)] bg-[var(--glass-bg-light)]/60 hover:text-[var(--color-text-primary)]'}`}
                     onClick={() => openAnnotation(id, label)}
@@ -356,6 +499,325 @@ export default function Step3_DeconstructionReview() {
         if (upper === 'REPLACE') return 'text-amber-300';
         if (upper === 'ADD' || upper === 'INSERT') return 'text-emerald-300';
         return 'text-blue-300';
+    };
+
+    // Compare JSON Functions
+    const normalizeValue = (val: unknown): string => {
+        if (val === null || val === undefined) return '';
+        if (typeof val === 'string') return val.trim();
+        if (typeof val === 'object') return JSON.stringify(val);
+        return String(val);
+    };
+
+    const computeDiffMap = useCallback((newR1: Round1Data | null, newR2: Round2Data | null): Map<string, { oldVal: string; newVal: string }> => {
+        const map = new Map<string, { oldVal: string; newVal: string }>();
+        if (!round1Data || typeof round1Data === 'string') return map;
+        if (!round2Data || typeof round2Data === 'string') return map;
+
+        // Round 1 fields
+        if (newR1) {
+            const skeleton = newR1.round1_skeleton;
+            const oldSkeleton = round1Data.round1_skeleton;
+            // story_summary
+            if (normalizeValue(skeleton?.story_summary) !== normalizeValue(oldSkeleton?.story_summary)) {
+                map.set('story_summary', { oldVal: normalizeValue(oldSkeleton?.story_summary), newVal: normalizeValue(skeleton?.story_summary) });
+            }
+            // logic_chain
+            if (normalizeValue(skeleton?.logic_chain) !== normalizeValue(oldSkeleton?.logic_chain)) {
+                map.set('logic_chain', { oldVal: normalizeValue(oldSkeleton?.logic_chain), newVal: normalizeValue(skeleton?.logic_chain) });
+            }
+            // hooks (combined)
+            const hook = newR1.round1_hook;
+            const oldHook = round1Data.round1_hook;
+            const hookFields = ['visual_hook', 'audio_hook', 'retention_strategy', 'beat1_reference'] as const;
+            for (const field of hookFields) {
+                if (normalizeValue(hook?.[field]) !== normalizeValue(oldHook?.[field])) {
+                    map.set(`hooks_${field}`, { oldVal: normalizeValue(oldHook?.[field]), newVal: normalizeValue(hook?.[field]) });
+                }
+            }
+            // viral elements (compare by index)
+            const oldViral = oldSkeleton?.viral_elements_found || [];
+            const newViral = skeleton?.viral_elements_found || [];
+            for (let i = 0; i < Math.max(oldViral.length, newViral.length); i++) {
+                const ov = oldViral[i];
+                const nv = newViral[i];
+                if (normalizeValue(ov) !== normalizeValue(nv)) {
+                    map.set(`viral_${i}`, { oldVal: normalizeValue(ov), newVal: normalizeValue(nv) });
+                }
+            }
+        }
+
+        // Round 2 fields
+        if (newR2) {
+            // Characters
+            const oldChars = round2Data.characters || {};
+            const newChars = newR2.characters || {};
+            const allCharKeys = new Set([...Object.keys(oldChars), ...Object.keys(newChars)]);
+            for (const key of allCharKeys) {
+                if (normalizeValue(oldChars[key]) !== normalizeValue(newChars[key])) {
+                    map.set(`characters_${key}`, { oldVal: normalizeValue(oldChars[key]), newVal: normalizeValue(newChars[key]) });
+                }
+            }
+            // Shots
+            const oldShots = round2Data.shots || [];
+            const newShots = newR2.shots || [];
+            // Map of internal field names to diffMap key names (some keys differ from field names for ShotCard compatibility)
+            const shotFieldKeyMap: Record<string, string> = {
+                mission: 'mission',
+                visual_changes: 'visual_changes',
+                audio: 'audio',
+                camera: 'camera',
+                beat: 'beat',
+                viral_element: 'viral_element',
+                emotion: 'emotion',
+                logic_mapping: 'logic_mapping',
+            };
+            const shotFields = Object.keys(shotFieldKeyMap) as (keyof typeof shotFieldKeyMap)[];
+            for (let i = 0; i < Math.max(oldShots.length, newShots.length); i++) {
+                const os = oldShots[i];
+                const ns = newShots[i];
+                // Use shot.id if available, otherwise use index (0-based) to match ShotCard's key format
+                const shotId = os?.id ?? ns?.id ?? i;
+                for (const field of shotFields) {
+                    const oldFieldVal = os ? normalizeValue(os[field as keyof Round2Shot]) : '';
+                    const newFieldVal = ns ? normalizeValue(ns[field as keyof Round2Shot]) : '';
+                    if (oldFieldVal !== newFieldVal) {
+                        const keyName = shotFieldKeyMap[field];
+                        map.set(`shot-${shotId}-${keyName}`, { oldVal: oldFieldVal, newVal: newFieldVal });
+                    }
+                }
+                
+                // Handle initial_frame sub-fields separately
+                const oldFrame = os?.initial_frame;
+                const newFrame = ns?.initial_frame;
+                const parseFrame = (frame: unknown) => {
+                    if (!frame) return null;
+                    if (typeof frame === 'string') {
+                        try { return JSON.parse(frame); } catch { return null; }
+                    }
+                    return frame as Record<string, unknown>;
+                };
+                const oldParsed = parseFrame(oldFrame);
+                const newParsed = parseFrame(newFrame);
+                
+                // Helper to get nested array as string
+                const getArrayStr = (obj: Record<string, unknown> | null, path: string[]): string => {
+                    if (!obj) return '';
+                    let val: unknown = obj;
+                    for (const key of path) {
+                        val = (val as Record<string, unknown>)?.[key];
+                    }
+                    if (Array.isArray(val)) return JSON.stringify(val);
+                    return '';
+                };
+                // Helper to get nested string value
+                const getStrVal = (obj: Record<string, unknown> | null, path: string[]): string => {
+                    if (!obj) return '';
+                    let val: unknown = obj;
+                    for (const key of path) {
+                        val = (val as Record<string, unknown>)?.[key];
+                    }
+                    return typeof val === 'string' ? val : '';
+                };
+                
+                // Compare each sub-field of initial_frame
+                const initialSubFields = [
+                    { key: 'initial_fg_chars', path: ['foreground', 'characters'], isArray: true },
+                    { key: 'initial_fg_objects', path: ['foreground', 'objects'], isArray: true },
+                    { key: 'initial_mg_chars', path: ['midground', 'characters'], isArray: true },
+                    { key: 'initial_mg_objects', path: ['midground', 'objects'], isArray: true },
+                    { key: 'initial_bg_env', path: ['background', 'environment'], isArray: false },
+                    { key: 'initial_bg_depth', path: ['background', 'depth'], isArray: false },
+                    { key: 'initial_lighting', path: ['lighting'], isArray: false },
+                    { key: 'initial_palette', path: ['color_palette'], isArray: false },
+                ];
+                for (const { key, path, isArray } of initialSubFields) {
+                    const oldVal = isArray ? getArrayStr(oldParsed, path) : getStrVal(oldParsed, path);
+                    const newVal = isArray ? getArrayStr(newParsed, path) : getStrVal(newParsed, path);
+                    if (oldVal !== newVal) {
+                        map.set(`shot-${shotId}-${key}`, { oldVal, newVal });
+                    }
+                }
+            }
+        }
+
+        return map;
+    }, [round1Data, round2Data]);
+
+    const handleParseCompareJson = () => {
+        let r1: Round1Data | null = null;
+        let r2: Round2Data | null = null;
+        let hasError = false;
+
+        // Parse Round 1
+        if (compareRound1Text.trim()) {
+            try {
+                JSON.parse(compareRound1Text);
+                const parsed = parseRound1(compareRound1Text);
+                if (parsed.error) {
+                    setCompareRound1Error(parsed.error);
+                    hasError = true;
+                } else {
+                    r1 = parsed.data as Round1Data;
+                    setCompareRound1Error(null);
+                }
+            } catch (err) {
+                setCompareRound1Error(`JSON 解析失败: ${err instanceof Error ? err.message : '未知错误'}`);
+                hasError = true;
+            }
+        } else {
+            setCompareRound1Error(null);
+        }
+
+        // Parse Round 2
+        if (compareRound2Text.trim()) {
+            try {
+                JSON.parse(compareRound2Text);
+                const parsed = parseRound2(compareRound2Text);
+                if (parsed.error) {
+                    setCompareRound2Error(parsed.error);
+                    hasError = true;
+                } else {
+                    r2 = parsed.data as Round2Data;
+                    setCompareRound2Error(null);
+                }
+            } catch (err) {
+                setCompareRound2Error(`JSON 解析失败: ${err instanceof Error ? err.message : '未知错误'}`);
+                hasError = true;
+            }
+        } else {
+            setCompareRound2Error(null);
+        }
+
+        if (!compareRound1Text.trim() && !compareRound2Text.trim()) {
+            setCompareRound1Error('请至少粘贴 Round 1 或 Round 2 的 JSON');
+            return;
+        }
+
+        if (!hasError) {
+            setCompareData({ round1: r1, round2: r2 });
+            const diffResult = computeDiffMap(r1, r2);
+            setDiffMap(diffResult);
+        }
+    };
+
+    const handleAcceptDiff = (key: string) => {
+        const diff = diffMap.get(key);
+        if (!diff) return;
+
+        // Apply the new value based on key pattern
+        if (key === 'story_summary') {
+            mutateRound1((draft) => {
+                draft.round1_skeleton = { ...(draft.round1_skeleton || {}), story_summary: diff.newVal };
+            });
+        } else if (key === 'logic_chain') {
+            mutateRound1((draft) => {
+                draft.round1_skeleton = { ...(draft.round1_skeleton || {}), logic_chain: diff.newVal };
+            });
+        } else if (key.startsWith('hooks_')) {
+            const field = key.replace('hooks_', '') as 'visual_hook' | 'audio_hook' | 'retention_strategy' | 'beat1_reference';
+            mutateRound1((draft) => {
+                draft.round1_hook = { ...(draft.round1_hook || {}), [field]: diff.newVal };
+            });
+        } else if (key.startsWith('viral_')) {
+            const idx = parseInt(key.replace('viral_', ''));
+            if (!isNaN(idx) && compareData?.round1?.round1_skeleton?.viral_elements_found?.[idx]) {
+                mutateRound1((draft) => {
+                    const list = [...(draft.round1_skeleton?.viral_elements_found || [])];
+                    list[idx] = compareData.round1!.round1_skeleton!.viral_elements_found![idx];
+                    draft.round1_skeleton = { ...(draft.round1_skeleton || {}), viral_elements_found: list };
+                });
+            }
+        } else if (key.startsWith('characters_')) {
+            const charName = key.replace('characters_', '');
+            mutateRound2((draft) => {
+                if (!draft.characters) draft.characters = {};
+                draft.characters[charName] = diff.newVal;
+            });
+        } else if (key.startsWith('shot-')) {
+            const match = key.match(/^shot-(\d+)-(.+)$/);
+            if (match) {
+                const shotId = parseInt(match[1]);
+                const keyName = match[2];
+                
+                // Check if this is an initial_frame sub-field
+                const initialSubFieldMap: Record<string, { path: string[]; isArray: boolean }> = {
+                    initial_fg_chars: { path: ['foreground', 'characters'], isArray: true },
+                    initial_fg_objects: { path: ['foreground', 'objects'], isArray: true },
+                    initial_mg_chars: { path: ['midground', 'characters'], isArray: true },
+                    initial_mg_objects: { path: ['midground', 'objects'], isArray: true },
+                    initial_bg_env: { path: ['background', 'environment'], isArray: false },
+                    initial_bg_depth: { path: ['background', 'depth'], isArray: false },
+                    initial_lighting: { path: ['lighting'], isArray: false },
+                    initial_palette: { path: ['color_palette'], isArray: false },
+                };
+                
+                if (keyName in initialSubFieldMap) {
+                    // Handle initial_frame sub-field
+                    const { path, isArray } = initialSubFieldMap[keyName];
+                    mutateRound2((draft) => {
+                        if (!draft.shots) return;
+                        const shotIdx = draft.shots.findIndex((s) => (s.id ?? 0) === shotId);
+                        if (shotIdx < 0) return;
+                        
+                        // Get or create initial_frame object
+                        let frame = draft.shots[shotIdx].initial_frame;
+                        if (typeof frame === 'string') {
+                            try { frame = JSON.parse(frame); } catch { frame = {}; }
+                        }
+                        if (!frame || typeof frame !== 'object') frame = {};
+                        
+                        // Parse new value
+                        const newVal = isArray ? JSON.parse(diff.newVal || '[]') : diff.newVal;
+                        
+                        // Set nested value
+                        let target = frame as Record<string, unknown>;
+                        for (let i = 0; i < path.length - 1; i++) {
+                            if (!target[path[i]] || typeof target[path[i]] !== 'object') {
+                                target[path[i]] = {};
+                            }
+                            target = target[path[i]] as Record<string, unknown>;
+                        }
+                        target[path[path.length - 1]] = newVal;
+                        
+                        draft.shots[shotIdx].initial_frame = frame as Round2Shot['initial_frame'];
+                    });
+                } else {
+                    // Handle regular shot fields
+                    const field = keyName as keyof Round2Shot;
+                    mutateRound2((draft) => {
+                        if (!draft.shots) return;
+                        const shotIdx = draft.shots.findIndex((s) => (s.id ?? 0) === shotId);
+                        if (shotIdx >= 0) {
+                            const newShot = compareData?.round2?.shots?.find((s) => (s.id ?? 0) === shotId);
+                            if (newShot && field in newShot) {
+                                // @ts-expect-error - dynamic field assignment
+                                draft.shots[shotIdx][field] = newShot[field];
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
+        // Remove from diff map after accepting
+        setDiffMap((prev) => {
+            const next = new Map(prev);
+            next.delete(key);
+            return next;
+        });
+        setActiveDiffPopover(null);
+    };
+
+    const clearCompareData = () => {
+        setCompareData(null);
+        setDiffMap(new Map());
+        setCompareRound1Text('');
+        setCompareRound2Text('');
+        setCompareRound1Error(null);
+        setCompareRound2Error(null);
+        setShowComparePanel(false);
+        setActiveDiffPopover(null);
     };
 
     // 修订模式下，当前已不再展示缺失镜头列表，保持占位防止运行时错误
@@ -612,7 +1074,116 @@ export default function Step3_DeconstructionReview() {
                                         : '复制批注'}
                         </span>
                     </button>
+                    {/* Compare JSON Button - Only in review mode */}
+                    {mode === 'review' && (
+                        <button
+                            onClick={() => setShowComparePanel(!showComparePanel)}
+                            className={`
+                                flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+                                ${compareData
+                                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                    : 'bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 border border-orange-500/20'}
+                            `}
+                        >
+                            <ClipboardPaste size={14} />
+                            <span>{compareData ? `对比中 (${diffMap.size}处差异)` : '粘贴JSON对比'}</span>
+                        </button>
+                    )}
                 </div>
+
+                {/* Compare JSON Panel - Only visible when showComparePanel is true */}
+                {mode === 'review' && showComparePanel && (
+                    <div className="p-4 rounded-xl bg-[var(--color-bg-secondary)]/50 border border-amber-500/30 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold text-amber-400 flex items-center gap-2">
+                                <ClipboardPaste size={16} />
+                                粘贴新 JSON 进行对比
+                            </h4>
+                            <div className="flex items-center gap-2">
+                                {compareData && (
+                                    <span className="text-xs px-2 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                        {diffMap.size} 处差异
+                                    </span>
+                                )}
+                                <button
+                                    onClick={() => setShowComparePanel(false)}
+                                    className="p-1 hover:bg-[var(--color-bg-tertiary)] rounded text-[var(--color-text-tertiary)]"
+                                >
+                                    <X size={16} />
+                                </button>
+                            </div>
+                        </div>
+                        {/* Two separate JSON inputs for Round 1 and Round 2 */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Round 1 Input */}
+                            <div className="space-y-2">
+                                <label className="text-xs font-semibold text-blue-400">Round 1: 宏观骨架 + 钩子</label>
+                                <textarea
+                                    value={compareRound1Text}
+                                    onChange={(e) => setCompareRound1Text(e.target.value)}
+                                    placeholder="粘贴 Round 1 JSON（含 round1_skeleton 和 round1_hook）..."
+                                    className={`w-full h-28 bg-[var(--color-bg-primary)] border rounded-lg p-3 text-xs font-mono text-[var(--color-text-primary)] focus:outline-none focus:ring-1 resize-none ${
+                                        compareRound1Error 
+                                            ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20' 
+                                            : 'border-[var(--glass-border)] focus:border-blue-500/50 focus:ring-blue-500/20'
+                                    }`}
+                                />
+                                {compareRound1Error && (
+                                    <div className="text-xs text-red-400 flex items-center gap-1">
+                                        <AlertCircle size={12} />
+                                        {compareRound1Error}
+                                    </div>
+                                )}
+                            </div>
+                            {/* Round 2 Input */}
+                            <div className="space-y-2">
+                                <label className="text-xs font-semibold text-purple-400">Round 2: 分镜头分析</label>
+                                <textarea
+                                    value={compareRound2Text}
+                                    onChange={(e) => setCompareRound2Text(e.target.value)}
+                                    placeholder="粘贴 Round 2 JSON（含 characters 和 shots）..."
+                                    className={`w-full h-28 bg-[var(--color-bg-primary)] border rounded-lg p-3 text-xs font-mono text-[var(--color-text-primary)] focus:outline-none focus:ring-1 resize-none ${
+                                        compareRound2Error 
+                                            ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20' 
+                                            : 'border-[var(--glass-border)] focus:border-purple-500/50 focus:ring-purple-500/20'
+                                    }`}
+                                />
+                                {compareRound2Error && (
+                                    <div className="text-xs text-red-400 flex items-center gap-1">
+                                        <AlertCircle size={12} />
+                                        {compareRound2Error}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={handleParseCompareJson}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition font-medium text-sm"
+                            >
+                                <RefreshCw size={14} />
+                                解析并对比
+                            </button>
+                            {compareData && (
+                                <button
+                                    onClick={clearCompareData}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--glass-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-red-500/50 transition font-medium text-sm"
+                                >
+                                    <X size={14} />
+                                    清除对比
+                                </button>
+                            )}
+                        </div>
+                        {compareData && diffMap.size > 0 && (
+                            <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+                                <span className="text-amber-400 font-medium">提示:</span> 在下方字段旁边点击
+                                <span className="mx-1 px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px]">核验</span>
+                                按钮查看差异并选择是否采纳。
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* Global Volume Control */}
                 <div className="flex items-center gap-4 p-3 rounded-lg bg-[var(--color-bg-secondary)]/50 border border-[var(--glass-border)]">
                     <button
@@ -1139,6 +1710,8 @@ export default function Step3_DeconstructionReview() {
                                     isGlobalMuted={isGlobalMuted}
                                     clipUrl={clipUrl}
                                     frameUrl={frameUrl}
+                                    diffMap={diffMap}
+                                    onAcceptDiff={handleAcceptDiff}
                                 />
                             );
                         })}
