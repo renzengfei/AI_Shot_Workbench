@@ -1,342 +1,27 @@
 'use client';
 /* eslint-disable @next/next/no-img-element */
 
-import { AlertCircle, ArrowRight, Check, ChevronRight, Copy, Film, Layout, MessageSquare, Music, Play, Clock, Pause, ChevronLeft, Maximize, Volume2, VolumeX, Zap, Box, BookOpen, GitBranch, Anchor, Users, Sun, Palette, Image as ImageIcon, Layers, Heart, Sparkles, GitFork, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
+import { AlertCircle, ArrowRight, Check, Copy, Layout, MessageSquare, Volume2, VolumeX, Zap, Trash2, Film, Box, BookOpen, GitBranch, Anchor, Users } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useWorkflowStore } from '@/lib/stores/workflowStore';
 import { useWorkspace } from '@/components/WorkspaceContext';
 import { parseRound1, parseRound2, parseStoredDeconstruction } from '@/lib/services/deconstruction';
 import { useStepNavigator } from '@/lib/hooks/useStepNavigator';
+import { AutoTextArea } from '@/components/ui/AutoTextArea';
+import { ShotCard } from '@/components/workflow/ShotCard';
+import {
+    ReviewMode,
+    AssetItem,
+    Round1Data,
+    Round2Data,
+    Round2Shot,
+    DeletedShot,
+    OptimizedStoryboardPayload
+} from '@/types/deconstruction';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
-type ReviewMode = 'review' | 'revision' | 'final';
-
-interface AssetItem {
-    ordinal: number;
-    start: number;
-    end: number;
-    duration: number;
-    frame: string;
-    frame_status: string;
-    clip?: string | null;
-    clip_status?: string | null;
-}
-
-interface Round1Skeleton {
-    story_summary?: string;
-    logic_chain?: string;
-    skeleton_nodes?: string[];
-    viral_elements_found?: {
-        category?: string;
-        element?: string;
-        timestamp?: string;
-        description?: string;
-    }[];
-}
-
-interface Round1Hook {
-    visual_hook?: string;
-    audio_hook?: string;
-    retention_strategy?: string;
-    beat1_reference?: string;
-}
-
-interface Round1Data {
-    round1_skeleton?: Round1Skeleton;
-    round1_hook?: Round1Hook;
-}
-
-interface Round2Shot {
-    id?: number;
-    original_id?: number;
-    modification_info?: {
-        type?: string;
-        reason?: string;
-    };
-    mission?: string;
-    timestamp?: string;
-    end_time?: string;
-    duration?: string | number;
-    keyframe?: string;
-    initial_frame?: string | StructuredInitialFrame;
-    visual_changes?: string;
-    camera?: string;
-    audio?: string;
-    beat?: string;
-    viral_element?: string;
-    emotion?: string;
-    logic_mapping?: string;
-    modification?: {
-        type?: string;
-        reason?: string;
-    };
-}
-
-interface Round2Data {
-    characters?: Record<string, string>;
-    shots?: Round2Shot[];
-}
-
-interface FrameCharacter {
-    tag?: string;
-    pose?: string;
-    expression?: string;
-}
-
-interface FrameLayer {
-    characters?: Array<FrameCharacter | string>;
-    objects?: string[];
-}
-
-interface StructuredInitialFrame {
-    foreground?: FrameLayer;
-    midground?: FrameLayer;
-    background?: {
-        environment?: string;
-        depth?: string;
-    };
-    lighting?: string;
-    color_palette?: string;
-}
-
-interface ShotAlternative {
-    type?: string;
-    description?: string;
-    visual_changes?: string;
-    viral_score?: number;
-    reason?: string;
-    affected_shots_change?: number[];
-}
-
-const AutoTextArea = ({
-    value,
-    onChange,
-    className,
-    placeholder,
-    minRows = 1,
-    maxRows = 12,
-    readOnly,
-}: {
-    value: string;
-    onChange: (e: ChangeEvent<HTMLTextAreaElement>) => void;
-    className?: string;
-    placeholder?: string;
-    minRows?: number;
-    maxRows?: number;
-    readOnly?: boolean;
-}) => {
-    const ref = useRef<HTMLTextAreaElement | null>(null);
-    const resize = useCallback(() => {
-        const el = ref.current;
-        if (!el) return;
-        el.style.height = 'auto';
-        el.rows = 1;
-        const lineHeight = parseInt(getComputedStyle(el).lineHeight || '20', 10);
-        const maxHeight = maxRows * lineHeight;
-        const next = Math.min(maxHeight, el.scrollHeight);
-        el.style.height = `${next}px`;
-    }, [maxRows]);
-
-    useLayoutEffect(() => {
-        resize();
-    }, [value, minRows, maxRows, resize]);
-
-    return (
-        <textarea
-            ref={ref}
-            value={value}
-            onChange={onChange}
-            readOnly={readOnly}
-            rows={1}
-            style={{ overflow: 'hidden' }}
-            className={className}
-            placeholder={placeholder}
-        />
-    );
-};
 
 type AnnotationMap = Record<string, string>;
-interface OptimizedStoryboardPayload {
-    round1?: Round1Data | string | null;
-    round2?: Round2Data | string | null;
-    metadata?: Record<string, unknown>;
-    deconstruction?: {
-        skeleton?: Round1Data | Record<string, unknown> | null;
-        shots?: Round2Shot[];
-        deleted_shots?: DeletedShot[];
-        modified_assets?: {
-            type?: string;
-            original?: string;
-            replacement?: string;
-            reason?: string;
-            affected_shots?: number[];
-            element_type?: string;
-        }[];
-    };
-    optimization_analysis?: {
-        summary?: string;
-        knowledge_base_applied?: string[];
-    };
-}
-
-interface DeletedShot {
-    original_id?: number;
-    reason?: string;
-    type?: string;
-}
-
-const VideoPlayer = ({ src, volume = 1, muted = false, className, aspectRatio = "aspect-[9/16]" }: { src: string; volume?: number; muted?: boolean; className?: string; aspectRatio?: string }) => {
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [playing, setPlaying] = useState(false);
-    const [currentTime, setCurrentTime] = useState(0);
-    const [duration, setDuration] = useState(0);
-    const [rate, setRate] = useState(1.0);
-
-    useEffect(() => {
-        if (videoRef.current) {
-            videoRef.current.volume = volume;
-            videoRef.current.muted = muted;
-        }
-    }, [volume, muted]);
-
-    useEffect(() => {
-        const video = videoRef.current;
-        if (!video) return;
-
-        const onTimeUpdate = () => setCurrentTime(video.currentTime);
-        const onLoadedMetadata = () => setDuration(video.duration);
-        const onPlay = () => setPlaying(true);
-        const onPause = () => setPlaying(false);
-
-        video.addEventListener('timeupdate', onTimeUpdate);
-        video.addEventListener('loadedmetadata', onLoadedMetadata);
-        video.addEventListener('play', onPlay);
-        video.addEventListener('pause', onPause);
-
-        return () => {
-            video.removeEventListener('timeupdate', onTimeUpdate);
-            video.removeEventListener('loadedmetadata', onLoadedMetadata);
-            video.removeEventListener('play', onPlay);
-            video.removeEventListener('pause', onPause);
-        };
-    }, []);
-
-    const togglePlay = () => {
-        if (videoRef.current) {
-            if (playing) videoRef.current.pause();
-            else videoRef.current.play();
-        }
-    };
-
-    const handleSeek = (e: ChangeEvent<HTMLInputElement>) => {
-        const time = parseFloat(e.target.value);
-        if (videoRef.current) {
-            videoRef.current.currentTime = time;
-            setCurrentTime(time);
-        }
-    };
-
-    const changeRate = (newRate: number) => {
-        setRate(newRate);
-        if (videoRef.current) videoRef.current.playbackRate = newRate;
-    };
-
-    const stepFrame = (direction: number) => {
-        if (videoRef.current) {
-            videoRef.current.pause();
-            videoRef.current.currentTime += direction * 0.033;
-        }
-    };
-
-    const toggleFullscreen = () => {
-        if (containerRef.current) {
-            if (!document.fullscreenElement) {
-                containerRef.current.requestFullscreen();
-            } else {
-                document.exitFullscreen();
-            }
-        }
-    };
-
-    const formatTime = (time: number) => {
-        const minutes = Math.floor(time / 60);
-        const seconds = Math.floor(time % 60);
-        const ms = Math.floor((time % 1) * 100);
-        return `${minutes}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
-    };
-
-    return (
-        <div ref={containerRef} className={`flex flex-col gap-2 w-full relative ${className || ''}`}>
-            {/* Video Area - Matches Image Card Style */}
-            <div className={`relative ${aspectRatio} bg-transparent rounded-xl overflow-hidden border border-[var(--glass-border)] shadow-lg cursor-pointer group`} onClick={togglePlay}>
-                <video
-                    ref={videoRef}
-                    src={src}
-                    className="w-full h-full object-cover"
-                    loop
-                    playsInline
-                />
-            </div>
-
-            {/* Controls Area */}
-            <div className="flex flex-col gap-2 px-1 bg-[var(--glass-bg-light)] p-2 rounded-xl border border-[var(--glass-border)]">
-                {/* Progress Bar */}
-                <div className="flex items-center gap-2 text-xs text-[var(--color-text-tertiary)] font-mono">
-                    <span className="w-10 text-right">{formatTime(currentTime)}</span>
-                    <input
-                        type="range"
-                        min={0}
-                        max={duration || 100}
-                        step={0.01}
-                        value={currentTime}
-                        onChange={handleSeek}
-                        className="flex-1 h-1 bg-[var(--color-bg-secondary)] rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-500"
-                    />
-                    <span className="w-10">{formatTime(duration)}</span>
-                </div>
-
-                {/* Buttons Row */}
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                        <button onClick={togglePlay} className="p-1.5 hover:bg-[var(--color-bg-secondary)] rounded text-[var(--color-text-primary)]">
-                            {playing ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
-                        </button>
-
-                        <div className="w-px h-4 bg-[var(--glass-border)] mx-1" />
-
-                        <button onClick={() => stepFrame(-1)} className="p-1.5 hover:bg-[var(--color-bg-secondary)] rounded text-[var(--color-text-primary)]" title="上一帧">
-                            <ChevronLeft size={14} />
-                        </button>
-                        <button onClick={() => stepFrame(1)} className="p-1.5 hover:bg-[var(--color-bg-secondary)] rounded text-[var(--color-text-primary)]" title="下一帧">
-                            <ChevronRight size={14} />
-                        </button>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <div className="flex bg-[var(--color-bg-secondary)]/50 rounded p-0.5">
-                            {[0.25, 0.5, 1.0].map((r) => (
-                                <button
-                                    key={r}
-                                    onClick={() => changeRate(r)}
-                                    className={`text-xs px-1.5 py-0.5 rounded transition ${rate === r
-                                        ? 'bg-blue-500 text-white shadow-sm'
-                                        : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-                                        }`}
-                                >
-                                    {r}x
-                                </button>
-                            ))}
-                        </div>
-                        <button onClick={toggleFullscreen} className="p-1.5 hover:bg-[var(--color-bg-secondary)] rounded text-[var(--color-text-primary)]">
-                            <Maximize size={14} />
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
 
 export default function Step3_DeconstructionReview() {
     const { project, updateDeconstruction } = useWorkflowStore();
@@ -663,51 +348,6 @@ export default function Step3_DeconstructionReview() {
             setCopyStatus('error');
             setTimeout(() => setCopyStatus('idle'), 1500);
         }
-    };
-
-    const renderFieldWithRevision = (
-        originalNode: ReactNode,
-        label: string,
-        originalVal?: string,
-        optimizedVal?: string,
-    ): ReactNode => {
-        if (mode !== 'revision') return originalNode;
-        const nextVal = optimizedVal;
-        const origVal = originalVal ?? '';
-        if (!nextVal || nextVal === origVal) return originalNode;
-
-        const isMissing = !origVal;
-        // Use more subtle backgrounds and borders for Apple Glass feel
-        const panelClass = isMissing
-            ? 'border-blue-500/30 bg-blue-500/5 text-slate-700'
-            : 'border-amber-500/30 bg-amber-500/5 text-slate-700';
-        const labelClass = isMissing ? 'text-blue-600' : 'text-amber-600';
-        const badgeClass = isMissing
-            ? 'bg-blue-500 text-white border-transparent'
-            : 'bg-amber-500 text-white border-transparent';
-
-        return (
-            <div className="space-y-3 group/revision">
-                <div className="relative">
-                    {originalNode}
-                    {/* Visual indicator connecting original to new */}
-                    <div className="absolute left-4 -bottom-3 w-0.5 h-3 bg-gradient-to-b from-slate-300 to-transparent z-0" />
-                </div>
-
-                <div className={`relative z-10 border rounded-xl p-4 text-sm shadow-sm backdrop-blur-sm transition-all duration-300 hover:shadow-md ${panelClass}`}>
-                    <div className="flex items-center justify-between mb-2">
-                        <div className={`flex items-center gap-2 text-xs uppercase font-bold tracking-wider ${labelClass}`}>
-                            <Sparkles size={12} />
-                            <span>{label} (优化后)</span>
-                        </div>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm ${badgeClass}`}>
-                            NEW
-                        </span>
-                    </div>
-                    <div className="whitespace-pre-wrap leading-relaxed font-medium">{nextVal}</div>
-                </div>
-            </div>
-        );
     };
 
     const modTypeClass = (modType?: string) => {
@@ -1301,52 +941,52 @@ export default function Step3_DeconstructionReview() {
                                 </div>
                                 <div className="space-y-4">
                                     {typeof round1Data !== 'string' && (round1Data?.round1_skeleton?.viral_elements_found || []).map((v, idx) => (
-                                            <div key={idx} className="bg-black/5 p-4 rounded-xl border border-black/10 space-y-3 hover:border-amber-500/20 hover:bg-black/10 transition-all duration-300 group">
-                                                <div className="flex gap-3 border-b border-black/5 pb-2">
-                                                    <AutoTextArea
-                                                        value={v.category || ''}
-                                                        onChange={(e) =>
-                                                            mutateRound1((draft) => {
-                                                                const list = [...(draft.round1_skeleton?.viral_elements_found || [])];
-                                                                list[idx] = { ...(list[idx] || {}), category: e.target.value };
-                                                                draft.round1_skeleton = { ...(draft.round1_skeleton || {}), viral_elements_found: list };
-                                                            })
-                                                        }
-                                                        readOnly={!canEdit}
-                                                        minRows={1}
-                                                        maxRows={4}
-                                                        className="w-1/3 text-xs font-bold text-amber-400 bg-transparent border-none focus:ring-0 px-0 resize-none leading-relaxed placeholder:text-amber-400/30"
-                                                        placeholder="类别"
-                                                    />
-                                                    <div className="w-px bg-black/10" />
-                                                    <AutoTextArea
-                                                        value={v.element || ''}
-                                                        onChange={(e) =>
-                                                            mutateRound1((draft) => {
-                                                                const list = [...(draft.round1_skeleton?.viral_elements_found || [])];
-                                                                list[idx] = { ...(list[idx] || {}), element: e.target.value };
-                                                                draft.round1_skeleton = { ...(draft.round1_skeleton || {}), viral_elements_found: list };
-                                                            })
-                                                        }
-                                                        readOnly={!canEdit}
-                                                        minRows={1}
-                                                        maxRows={6}
-                                                        className="flex-1 text-sm font-bold text-slate-700 bg-transparent border-none focus:ring-0 px-0 resize-none leading-relaxed placeholder:text-slate-400"
-                                                        placeholder="元素"
-                                                    />
-                                                </div>
+                                        <div key={idx} className="bg-black/5 p-4 rounded-xl border border-black/10 space-y-3 hover:border-amber-500/20 hover:bg-black/10 transition-all duration-300 group">
+                                            <div className="flex gap-3 border-b border-black/5 pb-2">
                                                 <AutoTextArea
-                                                    value={v.description || ''}
+                                                    value={v.category || ''}
                                                     onChange={(e) =>
                                                         mutateRound1((draft) => {
+                                                            const list = [...(draft.round1_skeleton?.viral_elements_found || [])];
+                                                            list[idx] = { ...(list[idx] || {}), category: e.target.value };
+                                                            draft.round1_skeleton = { ...(draft.round1_skeleton || {}), viral_elements_found: list };
+                                                        })
+                                                    }
+                                                    readOnly={!canEdit}
+                                                    minRows={1}
+                                                    maxRows={4}
+                                                    className="w-1/3 text-xs font-bold text-amber-400 bg-transparent border-none focus:ring-0 px-0 resize-none leading-relaxed placeholder:text-amber-400/30"
+                                                    placeholder="类别"
+                                                />
+                                                <div className="w-px bg-black/10" />
+                                                <AutoTextArea
+                                                    value={v.element || ''}
+                                                    onChange={(e) =>
+                                                        mutateRound1((draft) => {
+                                                            const list = [...(draft.round1_skeleton?.viral_elements_found || [])];
+                                                            list[idx] = { ...(list[idx] || {}), element: e.target.value };
+                                                            draft.round1_skeleton = { ...(draft.round1_skeleton || {}), viral_elements_found: list };
+                                                        })
+                                                    }
+                                                    readOnly={!canEdit}
+                                                    minRows={1}
+                                                    maxRows={6}
+                                                    className="flex-1 text-sm font-bold text-slate-700 bg-transparent border-none focus:ring-0 px-0 resize-none leading-relaxed placeholder:text-slate-400"
+                                                    placeholder="元素"
+                                                />
+                                            </div>
+                                            <AutoTextArea
+                                                value={v.description || ''}
+                                                onChange={(e) =>
+                                                    mutateRound1((draft) => {
                                                         const list = [...(draft.round1_skeleton?.viral_elements_found || [])];
                                                         list[idx] = { ...(list[idx] || {}), description: e.target.value };
                                                         draft.round1_skeleton = { ...(draft.round1_skeleton || {}), viral_elements_found: list };
                                                     })
                                                 }
                                                 readOnly={!canEdit}
-                                                    minRows={1}
-                                                    maxRows={10}
+                                                minRows={1}
+                                                maxRows={10}
                                                 className="w-full text-sm text-slate-600 bg-transparent border-none focus:ring-0 p-0 resize-none leading-relaxed placeholder:text-slate-400"
                                                 placeholder="详细描述..."
                                             />
@@ -1457,90 +1097,7 @@ export default function Step3_DeconstructionReview() {
                     {/* Shot List - Apple Glass Style */}
                     <div className="space-y-12">
                         {typeof round2Data !== 'string' && round2Data?.shots && round2Data.shots.map((shot: Round2Shot, index: number) => {
-                            const shotId = shot.id ?? index + 1;
-                            const modType = shot.modification?.type;
                             const optimizedShot = getOptimizedShot(shot, index);
-
-                            const originalInitialFrame = shot.initial_frame;
-                            const optimizedInitialFrame = optimizedShot?.initial_frame;
-                            const structuredFrameOriginal = typeof originalInitialFrame === 'object' && originalInitialFrame !== null && !Array.isArray(originalInitialFrame)
-                                ? originalInitialFrame as StructuredInitialFrame
-                                : null;
-                            const structuredFrameOptimized = typeof optimizedInitialFrame === 'object' && optimizedInitialFrame !== null && !Array.isArray(optimizedInitialFrame)
-                                ? optimizedInitialFrame as StructuredInitialFrame
-                                : null;
-                            const initialFrameText = typeof originalInitialFrame === 'string'
-                                ? originalInitialFrame
-                                : '';
-                            const initialFrameTextOptimized = typeof optimizedInitialFrame === 'string'
-                                ? optimizedInitialFrame
-                                : optimizedInitialFrame
-                                    ? JSON.stringify(optimizedInitialFrame, null, 2)
-                                    : '';
-
-                            const baseMission = shot.mission ?? '';
-                            const optMission = optimizedShot?.mission;
-                            const missionVal = mode === 'revision' ? baseMission : (shot.mission ?? optMission ?? '');
-
-                            const baseVisual = shot.visual_changes ?? '';
-                            const optVisual = optimizedShot?.visual_changes;
-                            const visualVal = mode === 'revision' ? baseVisual : (shot.visual_changes ?? optVisual ?? '');
-
-                            const baseAudio = shot.audio ?? '';
-                            const optAudio = optimizedShot?.audio;
-                            const audioVal = mode === 'revision' ? baseAudio : (shot.audio ?? optAudio ?? '');
-
-                            const baseCamera = shot.camera ?? '';
-                            const optCamera = optimizedShot?.camera;
-                            const cameraVal = mode === 'revision' ? baseCamera : (shot.camera ?? optCamera ?? '');
-
-                            const baseBeat = shot.beat ?? '';
-                            const optBeat = optimizedShot?.beat ?? '';
-                            const beatVal = mode === 'revision' ? baseBeat : (shot.beat ?? optBeat ?? '');
-
-                            const baseViral = shot.viral_element ?? '';
-                            const optViral = optimizedShot?.viral_element ?? '';
-                            const viralVal = mode === 'revision' ? baseViral : (shot.viral_element ?? optViral ?? '');
-
-                            const baseEmotion = shot.emotion ?? '';
-                            const optEmotion = optimizedShot?.emotion ?? '';
-                            const emotionVal = mode === 'revision' ? baseEmotion : (shot.emotion ?? optEmotion ?? '');
-
-                            const baseLogic = shot.logic_mapping ?? '';
-                            const optLogic = optimizedShot?.logic_mapping ?? '';
-                            const logicVal = mode === 'revision' ? baseLogic : (shot.logic_mapping ?? optLogic ?? '');
-
-                            const originalModificationInfo = shot.modification_info;
-                            const optimizedModificationInfo = optimizedShot?.modification_info;
-                            const modificationInfo = originalModificationInfo ?? optimizedModificationInfo;
-                            const hasOriginalMod = !!originalModificationInfo;
-                            const hasOptimizedMod = !!optimizedModificationInfo;
-                            const modIsDiff = hasOriginalMod && hasOptimizedMod && JSON.stringify(originalModificationInfo) !== JSON.stringify(optimizedModificationInfo);
-                            let modBadgeClass = 'border-amber-400/50 bg-amber-500/10';
-                            if (!hasOriginalMod && hasOptimizedMod) {
-                                modBadgeClass = 'border-blue-400/50 bg-blue-500/10';
-                            } else if (modIsDiff) {
-                                modBadgeClass = 'border-red-400/50 bg-red-500/10';
-                            }
-                            const alternatives = (shot as { alternatives?: ShotAlternative[] }).alternatives || [];
-                            const densityScore = (shot as { density_score?: number }).density_score;
-
-                            // Determine border color based on modification
-                            let borderColor = "border-white/10";
-                            let glowColor = "";
-
-                            if (mode === 'revision') {
-                                if (modType === 'delete') {
-                                    borderColor = "border-red-500/30";
-                                    glowColor = "shadow-red-500/5";
-                                } else if (modType === 'add') {
-                                    borderColor = "border-green-500/30";
-                                    glowColor = "shadow-green-500/5";
-                                } else if (modType === 'modify') {
-                                    borderColor = "border-amber-500/30";
-                                    glowColor = "shadow-amber-500/5";
-                                }
-                            }
 
                             const preferredKeyframe = shot.keyframe && frameNameSet.has(shot.keyframe) ? shot.keyframe : null;
                             const frameName =
@@ -1564,544 +1121,25 @@ export default function Step3_DeconstructionReview() {
                                     : null;
 
                             return (
-                                <div
+                                <ShotCard
                                     key={index}
-                                    id={`shot-${index}`}
-                                    className={`relative group p-8 rounded-[2.5rem] border ${borderColor} bg-white/5 backdrop-blur-2xl transition-all duration-500 hover:border-white/20 shadow-2xl ${glowColor}`}
-                                >
-                                    {/* Glass Reflection Effect */}
-                                    <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent opacity-50 rounded-[2.5rem] pointer-events-none" />
-
-                                    {/* Header: Shot Number & Duration */}
-                                    <div className="relative z-10 flex items-center justify-between mb-8">
-                                        <div className="flex items-center gap-3 flex-wrap">
-                                            <div className="px-4 py-1.5 rounded-full text-sm font-semibold bg-gradient-to-r from-blue-500/25 via-cyan-500/20 to-purple-500/25 text-white/90 border border-white/20 shadow-sm">
-                                                SHOT {shotId}
-                                            </div>
-                                            <div className="relative">
-                                                <span className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-white/10 tracking-tighter">
-                                                    {String(index + 1).padStart(2, '0')}
-                                                </span>
-                                                <div className="absolute -bottom-2 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full opacity-50 blur-sm" />
-                                            </div>
-                                        </div>
-
-                                        {shot.timestamp && (
-                                            <div className="flex items-center gap-2 text-slate-400 text-sm">
-                                                <Clock size={14} />
-                                                <span className="font-mono">{shot.timestamp}</span>
-                                                {shot.end_time && <span className="font-mono">— {shot.end_time}</span>}
-                                                {shot.duration && <span className="ml-2 px-2 py-0.5 rounded-full bg-white/5 text-xs">({shot.duration}s)</span>}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Grid Layout for Shot Details */}
-                                    <div className="relative z-10 grid grid-cols-1 md:grid-cols-4 gap-6">
-                                        {/* Left Column: Video/Frame Display (1/4 width = 25%) */}
-                                        <div className="space-y-3">
-                                            {clipUrl ? (
-                                                <VideoPlayer
-                                                    src={clipUrl}
-                                                    volume={globalVolume}
-                                                    muted={isGlobalMuted}
-                                                    className="w-full"
-                                                    aspectRatio="aspect-[9/16]"
-                                                />
-                                            ) : frameUrl ? (
-                                                <div className="relative aspect-[9/16] bg-slate-900 rounded-xl overflow-hidden border border-[var(--glass-border)] shadow-lg">
-                                                    <img
-                                                        src={frameUrl}
-                                                        alt={`Shot ${index + 1} frame`}
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                </div>
-                                            ) : (
-                                                <div className="relative aspect-[9/16] bg-slate-900/50 rounded-xl border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-sm">
-                                                    No media
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Right Column: All Content Fields (3/4 width = 75%) */}
-                                        <div className="md:col-span-3 space-y-6">
-                                            {modificationInfo && (
-                                                <div className={`p-4 rounded-2xl text-sm border ${modBadgeClass} space-y-2 bg-gradient-to-br from-blue-50/50 to-indigo-50/30`}>
-                                                    <div className="flex items-center gap-2 flex-wrap">
-                                                        <Sparkles size={16} className="text-blue-500" />
-                                                        <span className="text-blue-700 font-semibold text-xs uppercase">优化概述</span>
-                                                        {modificationInfo.type && (
-                                                            <span className={`px-2 py-0.5 rounded-full border ${modTypeClass(modificationInfo.type)}`}>
-                                                                {modificationInfo.type}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    {modificationInfo.reason && (
-                                                        <div className="text-slate-600 leading-relaxed whitespace-pre-wrap">
-                                                            {modificationInfo.reason}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                            {/* Mission */}
-                                            <div className="space-y-2">
-                                                <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-blue-400/80 pl-1">
-                                                    <span>任务 / 目标</span>
-                                                    {renderAnnotationControl(`shot-${shot.id ?? index}-mission`, `Shot #${shot.id ?? index + 1} Mission`)}
-                                                </div>
-                                                {renderFieldWithRevision(
-                                                    <AutoTextArea
-                                                        value={missionVal}
-                                                        onChange={(e) =>
-                                                            mutateRound2((draft) => {
-                                                                const list = draft.shots ? [...draft.shots] : [];
-                                                                list[index] = { ...(list[index] || {}), mission: e.target.value };
-                                                                draft.shots = list;
-                                                            })
-                                                        }
-                                                        readOnly={!canEdit}
-                                                        minRows={1}
-                                                        maxRows={12}
-                                                        className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-blue-500/30 resize-none placeholder:text-slate-400"
-                                                        placeholder="未定义任务"
-                                                    />,
-                                                    '任务 / 目标',
-                                                    baseMission,
-                                                    optMission,
-                                                )}
-                                            </div>
-
-                                            {/* Initial Frame Details */}
-                                            {structuredFrameOriginal || structuredFrameOptimized ? (
-                                                <div className="space-y-3 pb-4 border-b border-white/5">
-                                                    <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-slate-600 pl-1">
-                                                        <span>初始帧设定 / Initial Frame</span>
-                                                        {renderAnnotationControl(`shot-${shot.id ?? index}-initial`, `Shot #${shot.id ?? index + 1} Initial Frame`)}
-                                                    </div>
-                                                    {structuredFrameOriginal && (
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 rounded-2xl bg-black/5 border border-black/10 text-base text-slate-800 leading-relaxed">
-                                                            {/* Foreground */}
-                                                            <div className="space-y-3">
-                                                                <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
-                                                                    <Users size={16} className="text-blue-500" />
-                                                                    前景 / Foreground
-                                                                </div>
-                                                                <div className="space-y-2 pl-3 border-l-2 border-blue-500/30">
-                                                                    {Array.isArray(structuredFrameOriginal.foreground?.characters) && structuredFrameOriginal.foreground.characters.length > 0 ? (
-                                                                        structuredFrameOriginal.foreground.characters.map((char, idx) => (
-                                                                            <div key={idx} className="text-sm leading-relaxed">
-                                                                                {typeof char === 'string' ? (
-                                                                                    <span className="text-slate-800">{char}</span>
-                                                                                ) : (
-                                                                                    <>
-                                                                                        <span className="font-medium text-slate-800">{char.tag}</span>
-                                                                                        {char.pose && ` · ${char.pose}`}
-                                                                                        {char.expression && ` · ${char.expression}`}
-                                                                                    </>
-                                                                                )}
-                                                                            </div>
-                                                                        ))
-                                                                    ) : (
-                                                                        <div className="text-sm text-slate-500 italic">无角色</div>
-                                                                    )}
-                                                                    {Array.isArray(structuredFrameOriginal.foreground?.objects) && structuredFrameOriginal.foreground.objects.length > 0 ? (
-                                                                        structuredFrameOriginal.foreground.objects.map((obj, idx) => (
-                                                                            <div key={idx} className="text-sm text-slate-700">• {obj}</div>
-                                                                        ))
-                                                                    ) : (
-                                                                        <div className="text-sm text-slate-500 italic">无道具</div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Midground */}
-                                                            <div className="space-y-3">
-                                                                <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
-                                                                    <Layers size={16} className="text-purple-500" />
-                                                                    中景 / Midground
-                                                                </div>
-                                                                <div className="space-y-2 pl-3 border-l-2 border-purple-500/30">
-                                                                    {Array.isArray(structuredFrameOriginal.midground?.characters) && structuredFrameOriginal.midground.characters.length > 0 ? (
-                                                                        structuredFrameOriginal.midground.characters.map((char, idx) => (
-                                                                            <div key={idx} className="text-sm">
-                                                                                {typeof char === 'string' ? char : char.tag || '-'}
-                                                                            </div>
-                                                                        ))
-                                                                    ) : (
-                                                                        <div className="text-sm text-slate-500 italic">无角色</div>
-                                                                    )}
-                                                                    {Array.isArray(structuredFrameOriginal.midground?.objects) && structuredFrameOriginal.midground.objects.length > 0 ? (
-                                                                        structuredFrameOriginal.midground.objects.map((obj, idx) => (
-                                                                            <div key={idx} className="text-sm text-slate-600">• {obj}</div>
-                                                                        ))
-                                                                    ) : (
-                                                                        <div className="text-sm text-slate-500 italic">无道具</div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Background */}
-                                                            <div className="space-y-3">
-                                                                <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
-                                                                    <ImageIcon size={16} className="text-pink-500" />
-                                                                    背景 / Background
-                                                                </div>
-                                                                <div className="space-y-1 pl-3 border-l-2 border-pink-500/30">
-                                                                    <div className="text-sm"><span className="text-slate-500">环境:</span> {structuredFrameOriginal.background?.environment || '-'}</div>
-                                                                    <div className="text-sm"><span className="text-slate-500">景深:</span> {structuredFrameOriginal.background?.depth || '-'}</div>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Lighting & Palette */}
-                                                            <div className="space-y-3">
-                                                                <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
-                                                                    <Sun size={16} className="text-amber-500" />
-                                                                    光影与色调 / Lighting & Palette
-                                                                </div>
-                                                                <div className="space-y-1 pl-3 border-l-2 border-amber-500/30">
-                                                                    <div className="flex items-center gap-1 text-sm leading-relaxed">
-                                                                        <span className="text-slate-500">光照:</span>
-                                                                        <span>{structuredFrameOriginal.lighting || '-'}</span>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-1 text-sm leading-relaxed">
-                                                                        <Palette size={10} className="text-slate-400" />
-                                                                        <span className="text-slate-500">色调:</span>
-                                                                        <span>{structuredFrameOriginal.color_palette || '-'}</span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                    {structuredFrameOptimized && (!structuredFrameOriginal || JSON.stringify(structuredFrameOriginal) !== JSON.stringify(structuredFrameOptimized)) && (
-                                                        <div className="space-y-3 group/revision mt-4">
-                                                            <div className="relative z-10 border rounded-2xl p-7 text-base shadow-sm backdrop-blur-sm transition-all duration-300 hover:shadow-md border-amber-500/30 bg-amber-500/5 text-slate-800 leading-relaxed">
-                                                                <div className="flex items-center justify-between mb-4">
-                                                                    <div className="flex items-center gap-2 text-base uppercase font-bold tracking-wider text-amber-600">
-                                                                        <Sparkles size={16} />
-                                                                        <span>初始帧设定 (优化后)</span>
-                                                                    </div>
-                                                                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full shadow-sm bg-amber-500 text-white border-transparent">
-                                                                        NEW
-                                                                    </span>
-                                                                </div>
-
-                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                                                    {/* Foreground */}
-                                                                    <div className="space-y-3">
-                                                                        <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
-                                                                            <Users size={16} className="text-blue-400" />
-                                                                            优化前景
-                                                                        </div>
-                                                                        <div className="space-y-2 pl-3 border-l-2 border-blue-400/30">
-                                                                            {Array.isArray(structuredFrameOptimized.foreground?.characters) && structuredFrameOptimized.foreground.characters.length > 0 ? (
-                                                                                structuredFrameOptimized.foreground.characters.map((char, idx) => (
-                                                                                    <div key={idx} className="text-sm text-slate-800 leading-relaxed">
-                                                                                        {typeof char === 'string' ? char : [char.tag, char.pose, char.expression].filter(Boolean).join(' · ')}
-                                                                                    </div>
-                                                                                ))
-                                                                            ) : (
-                                                                                <div className="text-sm text-slate-500 italic">无角色</div>
-                                                                            )}
-                                                                            {Array.isArray(structuredFrameOptimized.foreground?.objects) && structuredFrameOptimized.foreground.objects.length > 0 ? (
-                                                                                structuredFrameOptimized.foreground.objects.map((obj, idx) => (
-                                                                                    <div key={idx} className="text-sm text-slate-700">• {obj}</div>
-                                                                                ))
-                                                                            ) : (
-                                                                                <div className="text-sm text-slate-500 italic">无道具</div>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {/* Midground */}
-                                                                    <div className="space-y-3">
-                                                                        <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
-                                                                            <Layers size={16} className="text-purple-400" />
-                                                                            优化中景
-                                                                        </div>
-                                                                        <div className="space-y-2 pl-3 border-l-2 border-purple-400/30">
-                                                                            {Array.isArray(structuredFrameOptimized.midground?.characters) && structuredFrameOptimized.midground.characters.length > 0 ? (
-                                                                                structuredFrameOptimized.midground.characters.map((char, idx) => (
-                                                                                    <div key={idx} className="text-sm text-slate-800">
-                                                                                        {typeof char === 'string' ? char : char.tag || '-'}
-                                                                                    </div>
-                                                                                ))
-                                                                            ) : (
-                                                                                <div className="text-sm text-slate-500 italic">无角色</div>
-                                                                            )}
-                                                                            {Array.isArray(structuredFrameOptimized.midground?.objects) && structuredFrameOptimized.midground.objects.length > 0 ? (
-                                                                                structuredFrameOptimized.midground.objects.map((obj, idx) => (
-                                                                                    <div key={idx} className="text-sm text-slate-700">• {obj}</div>
-                                                                                ))
-                                                                            ) : (
-                                                                                <div className="text-sm text-slate-500 italic">无道具</div>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {/* Background */}
-                                                                    <div className="space-y-3">
-                                                                        <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
-                                                                            <ImageIcon size={16} className="text-pink-400" />
-                                                                            优化背景
-                                                                        </div>
-                                                                        <div className="space-y-1 pl-3 border-l-2 border-pink-400/30">
-                                                                            <div className="text-sm text-slate-800"><span className="text-slate-500">环境:</span> {structuredFrameOptimized.background?.environment || '-'}</div>
-                                                                            <div className="text-sm text-slate-800"><span className="text-slate-500">景深:</span> {structuredFrameOptimized.background?.depth || '-'}</div>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {/* Lighting & Palette */}
-                                                                    <div className="space-y-3">
-                                                                        <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
-                                                                            <Sun size={16} className="text-amber-400" />
-                                                                            优化光影/色调
-                                                                        </div>
-                                                                        <div className="space-y-1 pl-3 border-l-2 border-amber-400/30">
-                                                                            <div className="flex items-center gap-1 text-sm text-slate-800">
-                                                                                <span className="text-slate-500">光照:</span>
-                                                                                <span>{structuredFrameOptimized.lighting || '-'}</span>
-                                                                            </div>
-                                                                            <div className="flex items-center gap-1 text-sm text-slate-800">
-                                                                                <Palette size={10} className="text-slate-400" />
-                                                                                <span className="text-slate-500">色调:</span>
-                                                                                <span>{structuredFrameOptimized.color_palette || '-'}</span>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : initialFrameText || initialFrameTextOptimized ? (
-                                                <div className="space-y-2">
-                                                    <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
-                                                        <ImageIcon size={12} className="text-blue-500" />
-                                                        <span>首帧描述</span>
-                                                        {renderAnnotationControl(`shot-${shot.id ?? index}-initial`, `Shot #${shot.id ?? index + 1} Initial Frame`)}
-                                                    </div>
-                                                    {renderFieldWithRevision(
-                                                        <AutoTextArea
-                                                            value={initialFrameText}
-                                                            onChange={(e) =>
-                                                                mutateRound2((draft) => {
-                                                                    const list = draft.shots ? [...draft.shots] : [];
-                                                                    list[index] = { ...(list[index] || {}), initial_frame: e.target.value };
-                                                                    draft.shots = list;
-                                                                })
-                                                            }
-                                                            readOnly={!canEdit}
-                                                            minRows={1}
-                                                            maxRows={16}
-                                                            className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-blue-500/30 resize-none placeholder:text-slate-400"
-                                                            placeholder="首帧描述..."
-                                                        />,
-                                                        '首帧描述',
-                                                        initialFrameText,
-                                                        initialFrameTextOptimized,
-                                                    )}
-                                                </div>
-                                            ) : null}
-
-                                            {/* Visual - Full Width */}
-                                            <div className="space-y-2">
-                                                <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-purple-400/80 pl-1">
-                                                    <span>视频描述</span>
-                                                    {renderAnnotationControl(`shot-${shot.id ?? index}-visual`, `Shot #${shot.id ?? index + 1} Visual`)}
-                                                </div>
-                                                {renderFieldWithRevision(
-                                                    <AutoTextArea
-                                                        value={visualVal}
-                                                        onChange={(e) =>
-                                                            mutateRound2((draft) => {
-                                                                const list = draft.shots ? [...draft.shots] : [];
-                                                                list[index] = { ...(list[index] || {}), visual_changes: e.target.value };
-                                                                draft.shots = list;
-                                                            })
-                                                        }
-                                                        readOnly={!canEdit}
-                                                        minRows={1}
-                                                        maxRows={16}
-                                                        className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-purple-500/30 resize-none placeholder:text-slate-400"
-                                                        placeholder="画面描述..."
-                                                    />,
-                                                    '视频描述',
-                                                    baseVisual,
-                                                    optVisual
-                                                )}
-                                            </div>
-
-                                            {/* Audio & Camera side by side on desktop */}
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div className="space-y-2">
-                                                    <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-pink-400/80 pl-1">
-                                                        <span>音频 / 对白</span>
-                                                        {renderAnnotationControl(`shot-${shot.id ?? index}-audio`, `Shot #${shot.id ?? index + 1} Audio`)}
-                                                    </div>
-                                                    {renderFieldWithRevision(
-                                                        <AutoTextArea
-                                                            value={audioVal}
-                                                            onChange={(e) =>
-                                                                mutateRound2((draft) => {
-                                                                    const list = draft.shots ? [...draft.shots] : [];
-                                                                    list[index] = { ...(list[index] || {}), audio: e.target.value };
-                                                                    draft.shots = list;
-                                                                })
-                                                            }
-                                                            readOnly={!canEdit}
-                                                            minRows={1}
-                                                            maxRows={12}
-                                                            className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-pink-500/30 placeholder:text-slate-400"
-                                                            placeholder="音频..."
-                                                        />,
-                                                        '音频 / 对白',
-                                                        baseAudio,
-                                                        optAudio
-                                                    )}
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-cyan-400/80 pl-1">
-                                                        <span>运镜 / 动作</span>
-                                                        {renderAnnotationControl(`shot-${shot.id ?? index}-camera`, `Shot #${shot.id ?? index + 1} Camera`)}
-                                                    </div>
-                                                    {renderFieldWithRevision(
-                                                        <AutoTextArea
-                                                            value={cameraVal}
-                                                            onChange={(e) =>
-                                                                mutateRound2((draft) => {
-                                                                    const list = draft.shots ? [...draft.shots] : [];
-                                                                    list[index] = { ...(list[index] || {}), camera: e.target.value };
-                                                                    draft.shots = list;
-                                                                })
-                                                            }
-                                                            readOnly={!canEdit}
-                                                            minRows={1}
-                                                            maxRows={12}
-                                                            className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-cyan-500/30 placeholder:text-slate-400"
-                                                            placeholder="运镜..."
-                                                        />,
-                                                        '运镜 / 动作',
-                                                        baseCamera,
-                                                        optCamera
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Additional Info Grid */}
-                                            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
-                                                {/* Beat */}
-                                                <div className="space-y-1">
-                                                    <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
-                                                        <Music size={12} className="text-green-500" />
-                                                        节拍 / Beat
-                                                    </div>
-                                                    {renderFieldWithRevision(
-                                                        <div className="p-3 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm">
-                                                            {beatVal || '-'}
-                                                        </div>,
-                                                        '节拍 / Beat',
-                                                        baseBeat,
-                                                        optBeat,
-                                                    )}
-                                                </div>
-
-                                                {/* Viral Element */}
-                                                <div className="space-y-1">
-                                                    <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
-                                                        <Sparkles size={12} className="text-amber-500" />
-                                                        病毒元素 / Viral Element
-                                                    </div>
-                                                    {renderFieldWithRevision(
-                                                        <div className="p-3 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm">
-                                                            {viralVal || '-'}
-                                                        </div>,
-                                                        '病毒元素 / Viral Element',
-                                                        baseViral,
-                                                        optViral,
-                                                    )}
-                                                </div>
-
-                                                {/* Emotion */}
-                                                <div className="space-y-1">
-                                                    <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
-                                                        <Heart size={12} className="text-red-500" />
-                                                        情绪 / Emotion
-                                                    </div>
-                                                    {renderFieldWithRevision(
-                                                        <div className="p-3 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm">
-                                                            {emotionVal || '-'}
-                                                        </div>,
-                                                        '情绪 / Emotion',
-                                                        baseEmotion,
-                                                        optEmotion,
-                                                    )}
-                                                </div>
-
-                                                {/* Logic Mapping */}
-                                                <div className="space-y-1">
-                                                    <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
-                                                        <GitFork size={12} className="text-blue-500" />
-                                                        逻辑映射 / Logic Mapping
-                                                    </div>
-                                                    {renderFieldWithRevision(
-                                                        <div className="p-3 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm">
-                                                            {logicVal || '-'}
-                                                        </div>,
-                                                        '逻辑映射 / Logic Mapping',
-                                                        baseLogic,
-                                                        optLogic,
-                                                    )}
-                                                </div>
-
-                                                {/* Density Score */}
-                                                {densityScore !== undefined && (
-                                                    <div className="space-y-1">
-                                                        <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
-                                                            <Zap size={12} className="text-yellow-400" />
-                                                            密度评分
-                                                        </div>
-                                                        <div className="p-3 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm">
-                                                            {densityScore}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Alternatives */}
-                                            {Array.isArray(alternatives) && alternatives.length > 0 && (
-                                                <div className="space-y-2">
-                                                    <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
-                                                        <Sparkles size={12} className="text-amber-400" />
-                                                        备选方案
-                                                    </div>
-                                                    <div className="grid gap-3 md:grid-cols-2">
-                                                        {alternatives.map((alt: ShotAlternative, altIdx: number) => (
-                                                            <div key={`alt-${altIdx}`} className="p-3 rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg-light)]/60 text-sm space-y-1">
-                                                                <div className="flex items-center justify-between">
-                                                                    <span className="font-semibold text-[var(--color-text-primary)]">{alt.type || `方案 ${altIdx + 1}`}</span>
-                                                                    {alt.viral_score !== undefined && (
-                                                                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/40">Viral {alt.viral_score}</span>
-                                                                    )}
-                                                                </div>
-                                                                {alt.description && <div className="text-[var(--color-text-secondary)] leading-relaxed">{alt.description}</div>}
-                                                                {alt.visual_changes && (
-                                                                    <div className="text-[var(--color-text-primary)] leading-relaxed whitespace-pre-wrap">
-                                                                        {alt.visual_changes}
-                                                                    </div>
-                                                                )}
-                                                                {alt.reason && <div className="text-xs text-[var(--color-text-tertiary)]">理由: {alt.reason}</div>}
-                                                                {Array.isArray(alt.affected_shots_change) && alt.affected_shots_change.length > 0 && (
-                                                                    <div className="text-xs text-[var(--color-text-tertiary)]">影响镜头: {alt.affected_shots_change.join(', ')}</div>
-                                                                )}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
+                                    shot={shot}
+                                    index={index}
+                                    mode={mode}
+                                    optimizedShot={optimizedShot}
+                                    onUpdate={(updatedShot) => {
+                                        mutateRound2((draft) => {
+                                            if (draft.shots) {
+                                                draft.shots[index] = updatedShot;
+                                            }
+                                        });
+                                    }}
+                                    renderAnnotationControl={renderAnnotationControl}
+                                    globalVolume={globalVolume}
+                                    isGlobalMuted={isGlobalMuted}
+                                    clipUrl={clipUrl}
+                                    frameUrl={frameUrl}
+                                />
                             );
                         })}
                         {typeof round2Data === 'string' && (

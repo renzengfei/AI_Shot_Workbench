@@ -101,6 +101,282 @@ const CONFIG = {
 
 ---
 
+## 🔧 用户修改模式 (User Edit Mode)
+
+**触发条件**: 当用户提供格式为 \`Shot #X [字段]：[内容]\` 的指令时，自动进入此模式。
+
+**核心原则**: 
+- **精确修改**：只修改用户明确指定的镜头和字段
+- **智能关联**：自动检测并同步相关镜头（如道具/角色名称变更）
+- **原样保留**：未提及的镜头/字段完全不修改（包括可能的错误或风格差异）
+- **透明报告**：明确告知哪些镜头被修改了，以及修改原因
+
+---
+
+### Step U.1: 指令解析 (Instruction Parsing)
+
+**执行逻辑**:
+
+\`\`\`typescript
+// 解析用户指令
+function parseUserInstructions(userMessage) {
+  const instructions = [];
+  const regex = /Shot\\s*#?(\\d+)\\s+(initial|visual|镜头|initial_frame|visual_changes|camera|audio)\\s*[：:](.*)/gi;
+  
+  let match;
+  while ((match = regex.exec(userMessage)) !== null) {
+    const shotId = parseInt(match[1]);
+    let field = match[2].toLowerCase();
+    const newContent = match[3].trim();
+    
+    // 字段名标准化
+    if (field === 'visual' || field === 'visual_changes') field = 'visual_changes';
+    if (field === 'initial' || field === 'initial_frame') field = 'initial_frame';
+    if (field === '镜头') field = 'camera';
+    
+    instructions.push({
+      shotId,
+      field,
+      newContent,
+      originalValue: null // 稍后填充
+    });
+  }
+  
+  return instructions;
+}
+\`\`\`
+
+**输出确认**:
+\`\`\`
+🔍 检测到用户修改指令：
+- Shot #1, 字段: visual_changes
+- Shot #3, 字段: initial_frame
+- Shot #5, 字段: visual_changes
+...
+共 14 条修改指令
+\`\`\`
+
+---
+
+### Step U.2: 精确字段替换 (Precise Field Replacement)
+
+**执行逻辑**:
+
+\`\`\`typescript
+for (const instruction of instructions) {
+  const shot = shots.find(s => s.id === instruction.shotId);
+  if (!shot) {
+    errors.push(\`⚠️ 镜头 #\${instruction.shotId} 不存在\`);
+    continue;
+  }
+  
+  // 记录原始值
+  instruction.originalValue = shot[instruction.field];
+  
+  // === 核心规则：只替换指定字段 ===
+  if (instruction.field === 'visual_changes') {
+    // 完全替换 visual_changes
+    shot.visual_changes = instruction.newContent;
+    
+  } else if (instruction.field === 'initial_frame') {
+    // ⚠️ initial_frame 是结构化对象，需要智能合并
+    // 用户可能只提供部分内容（如"多名身穿各式Cosplay服装的男女..."）
+    // 需要保留原有的结构化格式
+    
+    // 策略：将用户的文本内容智能解析到结构化字段
+    shot.initial_frame = parseInitialFrameText(
+      instruction.newContent,
+      shot.initial_frame // 保留原有结构作为模板
+    );
+    
+  } else if (instruction.field === 'camera' || instruction.field === 'audio') {
+    // 直接替换
+    shot[instruction.field] = instruction.newContent;
+    
+  } else {
+    errors.push(\`⚠️ 不支持的字段: \${instruction.field}\`);
+  }
+  
+  // 记录修改
+  userEdits.push({
+    shotId: instruction.shotId,
+    field: instruction.field,
+    before: instruction.originalValue,
+    after: shot[instruction.field]
+  });
+}
+\`\`\`
+
+**特殊处理：initial_frame 文本转结构化**:
+
+\`\`\`typescript
+function parseInitialFrameText(userText, originalFrame) {
+  // 如果用户提供的是简化文本（非JSON），需要智能填充到结构化对象
+  
+  // 策略1：保留原有结构，只更新描述性内容
+  if (typeof userText === 'string' && !userText.startsWith('{')) {
+    return {
+      foreground: {
+        characters: originalFrame.foreground?.characters || [],
+        objects: [] // 从文本中提取
+      },
+      midground: originalFrame.midground || null,
+      background: {
+        environment: userText, // 将用户文本放入environment
+        depth: originalFrame.background?.depth || "未知景深"
+      },
+      lighting: originalFrame.lighting || "光线未指定",
+      color_palette: originalFrame.color_palette || "色彩未指定"
+    };
+  }
+  
+  // 策略2：如果用户提供的是完整JSON对象，直接使用
+  if (typeof userText === 'object') {
+    return userText;
+  }
+  
+  return originalFrame; // 保持原样
+}
+\`\`\`
+
+---
+
+### Step U.3: 智能关联检测 (Smart Dependency Detection)
+
+**目标**: 检测修改是否涉及道具/角色名称，如果是，自动同步到其他镜头
+
+**执行逻辑**:
+
+\`\`\`typescript
+const relatedChanges = [];
+
+for (const edit of userEdits) {
+  // === 检测是否为道具/角色名称变更 ===
+  const isNameChange = detectNameChange(edit.before, edit.after);
+  
+  if (isNameChange) {
+    const { oldName, newName } = extractNames(edit.before, edit.after);
+    
+    // 扫描所有其他镜头，查找包含 oldName 的镜头
+    for (const shot of shots) {
+      if (shot.id === edit.shotId) continue; // 跳过已修改的镜头
+      
+      // 检查是否包含旧名称
+      const shotText = JSON.stringify(shot);
+      if (shotText.includes(oldName)) {
+        relatedChanges.push({
+          triggerEdit: edit,
+          affectedShot: shot.id,
+          oldName,
+          newName,
+          reason: "道具/角色名称关联同步"
+        });
+      }
+    }
+  }
+}
+
+// === 生成关联影响报告 ===
+if (relatedChanges.length > 0) {
+  console.log(\`
+📊 检测到关联影响：
+\${relatedChanges.map(c => \`
+- Shot #\${c.affectedShot}: "\${c.oldName}" → "\${c.newName}"
+  原因: \${c.reason}
+  触发源: Shot #\${c.triggerEdit.shotId} 的 \${c.triggerEdit.field} 修改
+\`).join('\\n')}
+
+是否同步这些关联修改？（默认：是）
+  \`);
+}
+
+// === 执行关联同步 ===
+for (const change of relatedChanges) {
+  const shot = shots.find(s => s.id === change.affectedShot);
+  
+  // 使用 replaceInInitialFrame 递归替换
+  shot.initial_frame = replaceInInitialFrame(
+    shot.initial_frame,
+    change.oldName,
+    change.newName
+  );
+  
+  shot.visual_changes = shot.visual_changes.replace(
+    new RegExp(change.oldName, 'g'),
+    change.newName
+  );
+}
+\`\`\`
+
+**辅助函数**:
+
+\`\`\`typescript
+function detectNameChange(before, after) {
+  // 简单启发式：如果新旧内容只有少量词汇不同，可能是名称变更
+  const beforeWords = before.split(/[\\s，。；、]/);
+  const afterWords = after.split(/[\\s，。；、]/);
+  
+  const diff = beforeWords.filter(w => !afterWords.includes(w));
+  
+  // 如果差异词汇≤3个，且包含【】标记，视为名称变更
+  return diff.length <= 3 && (before.includes('【') || after.includes('【'));
+}
+
+function extractNames(before, after) {
+  // 提取【】中的名称
+  const beforeMatch = before.match(/【(.+?)】/);
+  const afterMatch = after.match(/【(.+?)】/);
+  
+  return {
+    oldName: beforeMatch ? beforeMatch[1] : null,
+    newName: afterMatch ? afterMatch[1] : null
+  };
+}
+\`\`\`
+
+---
+
+### Step U.4: 输出修改报告 (Change Report)
+
+**输出格式**:
+
+\`\`\`markdown
+## ✅ 用户修改已完成
+
+### 直接修改 (用户明确指定)
+- Shot #1 [visual_changes]: ✅ 已更新
+- Shot #3 [initial_frame]: ✅ 已更新
+- Shot #5 [visual_changes]: ✅ 已更新
+...
+
+### 关联同步 (自动检测)
+- Shot #2 [initial_frame, visual_changes]: ✅ 已同步"格纹衬衫男"名称
+- Shot #4 [visual_changes]: ✅ 已同步"黑发格纹男"名称
+
+### 保持原样 (未修改)
+- Shot #6, #7, #10, #11, #12, #13, #14: 完全保持原样
+
+### ⚠️ 注意事项
+如发现任何意外修改，请指出具体镜头编号，我将立即回退。
+\`\`\`
+
+---
+
+### Step U.5: 验证与输出 (Validation \u0026 Output)
+
+**最终检查清单**:
+
+- [ ] **范围准确性**: 所有用户指定的镜头是否都已修改？
+- [ ] **字段精确性**: 是否只修改了指定字段（没有"顺便优化"其他字段）？
+- [ ] **关联合理性**: 关联同步的镜头是否确实包含被修改的道具/角色？
+- [ ] **原样保留**: 未提及的镜头是否完全保持原样（包括可能的表述差异）？
+
+**输出**:
+- 完整的 \`optimized_storyboard.json\`（所有镜头，包括未修改的）
+- 修改日志（明确列出哪些镜头被修改，哪些保持原样）
+
+---
+
 ## 🧠 PHASE 1-6: Tree-of-Thoughts 创作执行流程
 
 采用 **Tree-of-Thoughts (ToT)** 推理框架,在关键决策点生成多个候选方案并评估。
