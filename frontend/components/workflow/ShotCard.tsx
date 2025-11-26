@@ -1,5 +1,5 @@
-import { Music, Clock, Zap, Image as ImageIcon, Layers, Heart, Sparkles, GitFork, Users, Sun, Palette, CheckCircle2, RefreshCw, Box, Layout, Trash2 } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { Clock, Zap, Image as ImageIcon, Layers, Sparkles, Users, Sun, Palette, CheckCircle2, RefreshCw, Box, Layout, Trash2 } from 'lucide-react';
+import { type ReactNode, useState, useEffect } from 'react';
 import { AutoTextArea } from '@/components/ui/AutoTextArea';
 import { PreviewVideoPlayer } from '@/components/ui/PreviewVideoPlayer';
 import { Round2Shot, ReviewMode, StructuredInitialFrame, ShotAlternative } from '@/types/deconstruction';
@@ -24,6 +24,20 @@ interface ShotCardProps {
     // Diff comparison props
     diffMap?: Map<string, DiffInfo>;
     onAcceptDiff?: (fieldKey: string) => void;
+    // Character library for reference detection
+    characterLibrary?: Record<string, string>;
+    generatedImageUrls?: string[];
+    generatedImageIndex?: number;
+    onPrevGenerated?: (shot: Round2Shot, index: number) => void;
+    onNextGenerated?: (shot: Round2Shot, index: number) => void;
+    onGenerateImage?: (shot: Round2Shot, index: number) => void;
+    isGenerating?: boolean;
+    highlightGenerated?: boolean;
+    newImages?: string[];
+    onImageSeen?: (shot: Round2Shot, index: number, url: string) => void;
+    generateError?: string | null;
+    canPrevGenerated?: boolean;
+    canNextGenerated?: boolean;
 }
 
 export const ShotCard = ({
@@ -39,10 +53,23 @@ export const ShotCard = ({
     frameUrl,
     diffMap,
     onAcceptDiff,
+    characterLibrary = {},
+    generatedImageUrls = [],
+    generatedImageIndex = undefined,
+    onPrevGenerated,
+    onNextGenerated,
+    onGenerateImage,
+    isGenerating = false,
+    highlightGenerated = false,
+    newImages = [],
+    onImageSeen,
+    generateError = null,
+    canPrevGenerated = true,
+    canNextGenerated = true,
 }: ShotCardProps) => {
     const shotId = shot.id ?? index + 1;
     const canEdit = mode === 'review';
-    
+
     // Delete confirmation state: { type: 'fg_char' | 'fg_obj' | 'mg_char' | 'mg_obj', index: number } | null
     const [deleteConfirm, setDeleteConfirm] = useState<{ type: string; index: number; label: string } | null>(null);
 
@@ -53,14 +80,23 @@ export const ShotCard = ({
             const obj = item as Record<string, unknown>;
             const parts: string[] = [];
             if (obj.tag) parts.push(String(obj.tag));
-            if (obj.pose) parts.push(`姿态: ${obj.pose}`);
+            if (obj.pose) parts.push(`姿势: ${obj.pose}`);
             if (obj.expression) parts.push(`表情: ${obj.expression}`);
-            if (obj.clothing) parts.push(`服装: ${obj.clothing}`);
             if (obj.name) parts.push(String(obj.name));
             if (obj.description) parts.push(String(obj.description));
             return parts.length > 0 ? parts.join(' · ') : JSON.stringify(item);
         }
         return String(item);
+    };
+
+    // Helper to check if a character tag is from the character library
+    const isCharacterFromLibrary = (char: unknown): boolean => {
+        if (typeof char === 'object' && char !== null) {
+            const obj = char as Record<string, unknown>;
+            const tag = obj.tag as string;
+            return !!tag && tag in characterLibrary;
+        }
+        return false;
     };
 
     // Helper to render structured Initial Frame diff content
@@ -236,9 +272,9 @@ export const ShotCard = ({
     // Handler to delete character or object from initial frame
     const handleDeleteItem = (type: string, idx: number) => {
         if (!structuredFrameOriginal) return;
-        
+
         let newFrame = { ...structuredFrameOriginal };
-        
+
         switch (type) {
             case 'fg_char':
                 if (newFrame.foreground?.characters) {
@@ -269,7 +305,7 @@ export const ShotCard = ({
                 }
                 break;
         }
-        
+
         updateField('initial_frame', newFrame);
         setDeleteConfirm(null);
     };
@@ -358,40 +394,20 @@ export const ShotCard = ({
     }
 
     // Prepare values
-    const baseMission = shot.mission ?? '';
-    const optMission = optimizedShot?.mission;
-    const missionVal = mode === 'revision' ? baseMission : (shot.mission ?? optMission ?? '');
-
     const baseVisual = shot.visual_changes ?? '';
     const optVisual = optimizedShot?.visual_changes;
     const visualVal = mode === 'revision' ? baseVisual : (shot.visual_changes ?? optVisual ?? '');
 
-    const baseAudio = shot.audio ?? '';
-    const optAudio = optimizedShot?.audio;
-    const audioVal = mode === 'revision' ? baseAudio : (shot.audio ?? optAudio ?? '');
-
-    const baseCamera = shot.camera ?? '';
-    const optCamera = optimizedShot?.camera;
-    const cameraVal = mode === 'revision' ? baseCamera : (shot.camera ?? optCamera ?? '');
-
-    const baseBeat = shot.beat ?? '';
-    const optBeat = optimizedShot?.beat ?? '';
-    const beatVal = mode === 'revision' ? baseBeat : (shot.beat ?? optBeat ?? '');
-
-    const baseViral = shot.viral_element ?? '';
-    const optViral = optimizedShot?.viral_element ?? '';
-    const viralVal = mode === 'revision' ? baseViral : (shot.viral_element ?? optViral ?? '');
-
-    const baseEmotion = shot.emotion ?? '';
-    const optEmotion = optimizedShot?.emotion ?? '';
-    const emotionVal = mode === 'revision' ? baseEmotion : (shot.emotion ?? optEmotion ?? '');
-
-    const baseLogic = shot.logic_mapping ?? '';
-    const optLogic = optimizedShot?.logic_mapping ?? '';
-    const logicVal = mode === 'revision' ? baseLogic : (shot.logic_mapping ?? optLogic ?? '');
-
     const alternatives = shot.alternatives || [];
-    const densityScore = shot.density_score;
+    const showGeneration = !!onGenerateImage;
+    const hasGeneratedImages = Array.isArray(generatedImageUrls) && generatedImageUrls.length > 0;
+    const activeIndex = generatedImageIndex !== undefined ? generatedImageIndex : (hasGeneratedImages ? generatedImageUrls.length - 1 : 0);
+    const activeImage = hasGeneratedImages ? generatedImageUrls[Math.min(activeIndex, generatedImageUrls.length - 1)] : null;
+    useEffect(() => {
+        if (activeImage && newImages.includes(activeImage)) {
+            onImageSeen?.(shot, index, activeImage);
+        }
+    }, [activeImage, newImages, onImageSeen, shot, index]);
 
     // Initial Frame Logic
     const originalInitialFrame = shot.initial_frame;
@@ -419,814 +435,828 @@ export const ShotCard = ({
 
     return (
         <>
-        <div
-            id={`shot-${index}`}
-            className={`relative group p-8 rounded-[2.5rem] border ${borderColor} bg-white/5 backdrop-blur-2xl transition-all duration-500 hover:border-white/20 shadow-2xl ${glowColor}`}
-        >
-            {/* Glass Reflection Effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent opacity-50 rounded-[2.5rem] pointer-events-none" />
+            <div
+                id={`shot-${index}`}
+                className={`relative group p-8 rounded-[2.5rem] border ${borderColor} bg-white/5 backdrop-blur-2xl transition-all duration-500 hover:border-white/20 shadow-2xl ${glowColor}`}
+            >
+                {/* Glass Reflection Effect */}
+                <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent opacity-50 rounded-[2.5rem] pointer-events-none" />
 
-            {/* Header: Shot Number & Duration */}
-            <div className="relative z-10 flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3 flex-wrap">
-                    <div className="px-4 py-1.5 rounded-full text-sm font-semibold bg-gradient-to-r from-blue-500/25 via-cyan-500/20 to-purple-500/25 text-white/90 border border-white/20 shadow-sm">
-                        SHOT {shotId}
-                    </div>
-                    <div className="relative">
-                        <span className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-white/10 tracking-tighter">
-                            {String(index + 1).padStart(2, '0')}
-                        </span>
-                        <div className="absolute -bottom-2 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full opacity-50 blur-sm" />
-                    </div>
-                </div>
-
-                {shot.timestamp && (
-                    <div className="flex items-center gap-2 text-slate-400 text-sm">
-                        <Clock size={14} />
-                        <span className="font-mono">{shot.timestamp}</span>
-                        {shot.end_time && <span className="font-mono">— {shot.end_time}</span>}
-                        {shot.duration && <span className="ml-2 px-2 py-0.5 rounded-full bg-white/5 text-xs">({shot.duration}s)</span>}
-                    </div>
-                )}
-            </div>
-
-            {/* Grid Layout for Shot Details */}
-            <div className="relative z-10 grid grid-cols-1 md:grid-cols-4 gap-6">
-                {/* Left Column: Video/Frame Display (1/4 width = 25%) */}
-                <div className="space-y-3">
-                    {clipUrl ? (
-                        <PreviewVideoPlayer
-                            src={clipUrl}
-                            volume={globalVolume}
-                            muted={isGlobalMuted}
-                            className="w-full"
-                            aspectRatio="aspect-[9/16]"
-                        />
-                    ) : frameUrl ? (
-                        <div className="relative aspect-[9/16] bg-slate-900 rounded-xl overflow-hidden border border-[var(--glass-border)] shadow-lg">
-                            <img
-                                src={frameUrl}
-                                alt={`Shot ${index + 1} frame`}
-                                className="w-full h-full object-cover"
-                            />
+                {/* Header: Shot Number & Duration */}
+                <div className="relative z-10 flex items-center justify-between mb-8">
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <div className="px-4 py-1.5 rounded-full text-sm font-semibold bg-gradient-to-r from-blue-500/25 via-cyan-500/20 to-purple-500/25 text-white/90 border border-white/20 shadow-sm">
+                            SHOT {shotId}
                         </div>
-                    ) : (
-                        <div className="relative aspect-[9/16] bg-slate-900/50 rounded-xl border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-sm">
-                            No media
+                        <div className="relative">
+                            <span className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-white/10 tracking-tighter">
+                                {String(index + 1).padStart(2, '0')}
+                            </span>
+                            <div className="absolute -bottom-2 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full opacity-50 blur-sm" />
+                        </div>
+                    </div>
+
+                    {shot.timestamp && (
+                        <div className="flex items-center gap-2 text-slate-400 text-sm">
+                            <Clock size={14} />
+                            <span className="font-mono">{shot.timestamp}</span>
+                            {shot.end_time && <span className="font-mono">— {shot.end_time}</span>}
+                            {shot.duration && <span className="ml-2 px-2 py-0.5 rounded-full bg-white/5 text-xs">({shot.duration}s)</span>}
                         </div>
                     )}
                 </div>
 
-                {/* Right Column: All Content Fields (3/4 width = 75%) */}
-                <div className="md:col-span-3 space-y-6">
-                    {modificationInfo && (
-                        <div className={`p-4 rounded-2xl text-sm border ${modBadgeClass} space-y-2 bg-gradient-to-br from-blue-50/50 to-indigo-50/30`}>
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <Sparkles size={16} className="text-blue-500" />
-                                <span className="text-blue-700 font-semibold text-xs uppercase">优化概述</span>
-                                {modificationInfo.type && (
-                                    <span className={`px-2 py-0.5 rounded-full border ${modTypeClass(modificationInfo.type)}`}>
-                                        {modificationInfo.type}
-                                    </span>
+                {/* Grid Layout for Shot Details */}
+                <div className={`relative z-10 grid grid-cols-1 ${showGeneration ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-6`}>
+                    {/* Left Column: Video/Frame Display + Generated Placeholders */}
+                    <div className={showGeneration ? 'md:col-span-3' : ''}>
+                        <div className={showGeneration ? 'grid grid-cols-3 gap-4' : ''}>
+                            {/* Original Video/Frame */}
+                            <div className="space-y-3">
+                                {clipUrl ? (
+                                    <PreviewVideoPlayer
+                                        src={clipUrl}
+                                        volume={globalVolume}
+                                        muted={isGlobalMuted}
+                                        className="w-full"
+                                        aspectRatio="aspect-[9/16]"
+                                    />
+                                ) : frameUrl ? (
+                                    <div className="relative aspect-[9/16] bg-slate-900 rounded-xl overflow-hidden border border-[var(--glass-border)] shadow-lg">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            src={frameUrl}
+                                            alt={`Shot ${index + 1} frame`}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="relative aspect-[9/16] bg-slate-900/50 rounded-xl border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-sm">
+                                        No media
+                                    </div>
                                 )}
                             </div>
-                            {modificationInfo.reason && (
-                                <div className="text-slate-600 leading-relaxed whitespace-pre-wrap">
-                                    {modificationInfo.reason}
-                                </div>
-                            )}
-                        </div>
-                    )}
-                    {/* Mission */}
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-blue-400/80 pl-1">
-                            <span>任务 / 目标</span>
-                            {renderAnnotationControl?.(`shot-${shot.id ?? index}-mission`, `Shot #${shot.id ?? index + 1} Mission`)}
-                        </div>
-                        {renderFieldWithRevision(
-                            <AutoTextArea
-                                value={missionVal}
-                                onChange={(e) => updateField('mission', e.target.value)}
-                                readOnly={!canEdit}
-                                minRows={1}
-                                maxRows={12}
-                                className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-blue-500/30 resize-none placeholder:text-slate-400"
-                                placeholder="未定义任务"
-                            />,
-                            '任务 / 目标',
-                            baseMission,
-                            optMission,
-                        )}
-                        {renderDiffPanel(`shot-${shot.id ?? index}-mission`)}
-                    </div>
-
-                    {/* Initial Frame Details */}
-                    {structuredFrameOriginal || structuredFrameOptimized ? (
-                        <div className="space-y-3 pb-4 border-b border-white/5">
-                            <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-slate-600 pl-1">
-                                <span>初始帧设定 / Initial Frame</span>
-                                {renderAnnotationControl?.(`shot-${shot.id ?? index}-initial`, `Shot #${shot.id ?? index + 1} Initial Frame`)}
-                            </div>
-                            {structuredFrameOriginal && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 rounded-2xl bg-black/5 border border-black/10 text-base text-slate-800 leading-relaxed">
-                                    {/* Foreground */}
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
-                                            <Users size={16} className="text-blue-500" />
-                                            前景 / Foreground
-                                        </div>
-                                        <div className="space-y-3 pl-3 border-l-2 border-blue-500/30">
-                                            <div className="space-y-1">
-                                                <span className="text-xs text-slate-500">角色:</span>
-                                                {Array.isArray(structuredFrameOriginal.foreground?.characters) && structuredFrameOriginal.foreground.characters.length > 0 ? (
-                                                    structuredFrameOriginal.foreground.characters.map((char, idx) => (
-                                                        <div key={idx} className="flex items-start gap-2">
-                                                            <AutoTextArea
-                                                                value={typeof char === 'string' ? char : [char.tag, char.pose, char.expression].filter(Boolean).join(' · ')}
-                                                                onChange={(e) => {
-                                                                    const newChars = [...(structuredFrameOriginal.foreground?.characters || [])];
-                                                                    newChars[idx] = e.target.value;
-                                                                    const newFrame = {
-                                                                        ...structuredFrameOriginal,
-                                                                        foreground: { ...structuredFrameOriginal.foreground, characters: newChars }
-                                                                    };
-                                                                    updateField('initial_frame', newFrame);
-                                                                }}
-                                                                readOnly={!canEdit}
-                                                                minRows={1}
-                                                                maxRows={3}
-                                                                className="flex-1 p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-blue-500/30 placeholder:text-slate-400"
-                                                                placeholder="角色描述..."
-                                                            />
-                                                            {canEdit && (
-                                                                <button
-                                                                    onClick={() => setDeleteConfirm({ type: 'fg_char', index: idx, label: `前景角色 #${idx + 1}` })}
-                                                                    className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                                                                    title="删除角色"
-                                                                >
-                                                                    <Trash2 size={14} />
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    ))
-                                                ) : (
-                                                    <AutoTextArea
-                                                        value=""
-                                                        onChange={(e) => {
-                                                            if (e.target.value) {
-                                                                const newFrame = {
-                                                                    ...structuredFrameOriginal,
-                                                                    foreground: { ...structuredFrameOriginal.foreground, characters: [e.target.value] }
-                                                                };
-                                                                updateField('initial_frame', newFrame);
-                                                            }
-                                                        }}
-                                                        readOnly={!canEdit}
-                                                        minRows={1}
-                                                        maxRows={3}
-                                                        className="w-full p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-blue-500/30 placeholder:text-slate-400"
-                                                        placeholder="添加角色..."
-                                                    />
-                                                )}
-                                                {renderDiffPanel(`shot-${shot.id ?? index}-initial_fg_chars`, 'array')}
-                                            </div>
-                                            <div className="space-y-1">
-                                                <span className="text-xs text-slate-500">道具:</span>
-                                                {Array.isArray(structuredFrameOriginal.foreground?.objects) && structuredFrameOriginal.foreground.objects.length > 0 ? (
-                                                    structuredFrameOriginal.foreground.objects.map((obj, idx) => (
-                                                        <div key={idx} className="flex items-start gap-2">
-                                                            <AutoTextArea
-                                                                value={obj}
-                                                                onChange={(e) => {
-                                                                    const newObjs = [...(structuredFrameOriginal.foreground?.objects || [])];
-                                                                    newObjs[idx] = e.target.value;
-                                                                    const newFrame = {
-                                                                        ...structuredFrameOriginal,
-                                                                        foreground: { ...structuredFrameOriginal.foreground, objects: newObjs }
-                                                                    };
-                                                                    updateField('initial_frame', newFrame);
-                                                                }}
-                                                                readOnly={!canEdit}
-                                                                minRows={1}
-                                                                maxRows={3}
-                                                                className="flex-1 p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-blue-500/30 placeholder:text-slate-400"
-                                                                placeholder="道具描述..."
-                                                            />
-                                                            {canEdit && (
-                                                                <button
-                                                                    onClick={() => setDeleteConfirm({ type: 'fg_obj', index: idx, label: `前景道具 #${idx + 1}` })}
-                                                                    className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                                                                    title="删除道具"
-                                                                >
-                                                                    <Trash2 size={14} />
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    ))
-                                                ) : (
-                                                    <AutoTextArea
-                                                        value=""
-                                                        onChange={(e) => {
-                                                            if (e.target.value) {
-                                                                const newFrame = {
-                                                                    ...structuredFrameOriginal,
-                                                                    foreground: { ...structuredFrameOriginal.foreground, objects: [e.target.value] }
-                                                                };
-                                                                updateField('initial_frame', newFrame);
-                                                            }
-                                                        }}
-                                                        readOnly={!canEdit}
-                                                        minRows={1}
-                                                        maxRows={3}
-                                                        className="w-full p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-blue-500/30 placeholder:text-slate-400"
-                                                        placeholder="添加道具..."
-                                                    />
-                                                )}
-                                                {renderDiffPanel(`shot-${shot.id ?? index}-initial_fg_objects`, 'array')}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Midground */}
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
-                                            <Layers size={16} className="text-purple-500" />
-                                            中景 / Midground
-                                        </div>
-                                        <div className="space-y-3 pl-3 border-l-2 border-purple-500/30">
-                                            <div className="space-y-1">
-                                                <span className="text-xs text-slate-500">角色:</span>
-                                                {Array.isArray(structuredFrameOriginal.midground?.characters) && structuredFrameOriginal.midground.characters.length > 0 ? (
-                                                    structuredFrameOriginal.midground.characters.map((char, idx) => (
-                                                        <div key={idx} className="flex items-start gap-2">
-                                                            <AutoTextArea
-                                                                value={typeof char === 'string' ? char : [char.tag, char.pose, char.expression].filter(Boolean).join(' · ')}
-                                                                onChange={(e) => {
-                                                                    const newChars = [...(structuredFrameOriginal.midground?.characters || [])];
-                                                                    newChars[idx] = e.target.value;
-                                                                    const newFrame = {
-                                                                        ...structuredFrameOriginal,
-                                                                        midground: { ...structuredFrameOriginal.midground, characters: newChars }
-                                                                    };
-                                                                    updateField('initial_frame', newFrame);
-                                                                }}
-                                                                readOnly={!canEdit}
-                                                                minRows={1}
-                                                                maxRows={3}
-                                                                className="flex-1 p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-purple-500/30 placeholder:text-slate-400"
-                                                                placeholder="角色描述..."
-                                                            />
-                                                            {canEdit && (
-                                                                <button
-                                                                    onClick={() => setDeleteConfirm({ type: 'mg_char', index: idx, label: `中景角色 #${idx + 1}` })}
-                                                                    className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                                                                    title="删除角色"
-                                                                >
-                                                                    <Trash2 size={14} />
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    ))
-                                                ) : (
-                                                    <AutoTextArea
-                                                        value=""
-                                                        onChange={(e) => {
-                                                            if (e.target.value) {
-                                                                const newFrame = {
-                                                                    ...structuredFrameOriginal,
-                                                                    midground: { ...structuredFrameOriginal.midground, characters: [e.target.value] }
-                                                                };
-                                                                updateField('initial_frame', newFrame);
-                                                            }
-                                                        }}
-                                                        readOnly={!canEdit}
-                                                        minRows={1}
-                                                        maxRows={3}
-                                                        className="w-full p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-purple-500/30 placeholder:text-slate-400"
-                                                        placeholder="添加角色..."
-                                                    />
-                                                )}
-                                                {renderDiffPanel(`shot-${shot.id ?? index}-initial_mg_chars`, 'array')}
-                                            </div>
-                                            <div className="space-y-1">
-                                                <span className="text-xs text-slate-500">道具:</span>
-                                                {Array.isArray(structuredFrameOriginal.midground?.objects) && structuredFrameOriginal.midground.objects.length > 0 ? (
-                                                    structuredFrameOriginal.midground.objects.map((obj, idx) => (
-                                                        <div key={idx} className="flex items-start gap-2">
-                                                            <AutoTextArea
-                                                                value={obj}
-                                                                onChange={(e) => {
-                                                                    const newObjs = [...(structuredFrameOriginal.midground?.objects || [])];
-                                                                    newObjs[idx] = e.target.value;
-                                                                    const newFrame = {
-                                                                        ...structuredFrameOriginal,
-                                                                        midground: { ...structuredFrameOriginal.midground, objects: newObjs }
-                                                                    };
-                                                                    updateField('initial_frame', newFrame);
-                                                                }}
-                                                                readOnly={!canEdit}
-                                                                minRows={1}
-                                                                maxRows={3}
-                                                                className="flex-1 p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-purple-500/30 placeholder:text-slate-400"
-                                                                placeholder="道具描述..."
-                                                            />
-                                                            {canEdit && (
-                                                                <button
-                                                                    onClick={() => setDeleteConfirm({ type: 'mg_obj', index: idx, label: `中景道具 #${idx + 1}` })}
-                                                                    className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                                                                    title="删除道具"
-                                                                >
-                                                                    <Trash2 size={14} />
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    ))
-                                                ) : (
-                                                    <AutoTextArea
-                                                        value=""
-                                                        onChange={(e) => {
-                                                            if (e.target.value) {
-                                                                const newFrame = {
-                                                                    ...structuredFrameOriginal,
-                                                                    midground: { ...structuredFrameOriginal.midground, objects: [e.target.value] }
-                                                                };
-                                                                updateField('initial_frame', newFrame);
-                                                            }
-                                                        }}
-                                                        readOnly={!canEdit}
-                                                        minRows={1}
-                                                        maxRows={3}
-                                                        className="w-full p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-purple-500/30 placeholder:text-slate-400"
-                                                        placeholder="添加道具..."
-                                                    />
-                                                )}
-                                                {renderDiffPanel(`shot-${shot.id ?? index}-initial_mg_objects`, 'array')}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Background */}
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
-                                            <ImageIcon size={16} className="text-pink-500" />
-                                            背景 / Background
-                                        </div>
-                                        <div className="space-y-2 pl-3 border-l-2 border-pink-500/30">
-                                            <div className="space-y-1">
-                                                <span className="text-xs text-slate-500">环境:</span>
-                                                <AutoTextArea
-                                                    value={structuredFrameOriginal.background?.environment || ''}
-                                                    onChange={(e) => {
-                                                        const newFrame = {
-                                                            ...structuredFrameOriginal,
-                                                            background: { ...structuredFrameOriginal.background, environment: e.target.value }
-                                                        };
-                                                        updateField('initial_frame', newFrame);
-                                                    }}
-                                                    readOnly={!canEdit}
-                                                    minRows={1}
-                                                    maxRows={4}
-                                                    className="w-full p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-pink-500/30 placeholder:text-slate-400"
-                                                    placeholder="环境..."
-                                                />
-                                                {renderDiffPanel(`shot-${shot.id ?? index}-initial_bg_env`)}
-                                            </div>
-                                            <div className="space-y-1">
-                                                <span className="text-xs text-slate-500">景深:</span>
-                                                <AutoTextArea
-                                                    value={structuredFrameOriginal.background?.depth || ''}
-                                                    onChange={(e) => {
-                                                        const newFrame = {
-                                                            ...structuredFrameOriginal,
-                                                            background: { ...structuredFrameOriginal.background, depth: e.target.value }
-                                                        };
-                                                        updateField('initial_frame', newFrame);
-                                                    }}
-                                                    readOnly={!canEdit}
-                                                    minRows={1}
-                                                    maxRows={4}
-                                                    className="w-full p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-pink-500/30 placeholder:text-slate-400"
-                                                    placeholder="景深..."
-                                                />
-                                                {renderDiffPanel(`shot-${shot.id ?? index}-initial_bg_depth`)}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Lighting & Palette */}
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
-                                            <Sun size={16} className="text-amber-500" />
-                                            光影与色调 / Lighting & Palette
-                                        </div>
-                                        <div className="space-y-2 pl-3 border-l-2 border-amber-500/30">
-                                            <div className="space-y-1">
-                                                <span className="text-xs text-slate-500">光照:</span>
-                                                <AutoTextArea
-                                                    value={structuredFrameOriginal.lighting || ''}
-                                                    onChange={(e) => {
-                                                        const newFrame = { ...structuredFrameOriginal, lighting: e.target.value };
-                                                        updateField('initial_frame', newFrame);
-                                                    }}
-                                                    readOnly={!canEdit}
-                                                    minRows={1}
-                                                    maxRows={4}
-                                                    className="w-full p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-amber-500/30 placeholder:text-slate-400"
-                                                    placeholder="光照..."
-                                                />
-                                                {renderDiffPanel(`shot-${shot.id ?? index}-initial_lighting`)}
-                                            </div>
-                                            <div className="space-y-1">
-                                                <div className="flex items-center gap-1">
-                                                    <Palette size={10} className="text-slate-400" />
-                                                    <span className="text-xs text-slate-500">色调:</span>
-                                                </div>
-                                                <AutoTextArea
-                                                    value={structuredFrameOriginal.color_palette || ''}
-                                                    onChange={(e) => {
-                                                        const newFrame = { ...structuredFrameOriginal, color_palette: e.target.value };
-                                                        updateField('initial_frame', newFrame);
-                                                    }}
-                                                    readOnly={!canEdit}
-                                                    minRows={1}
-                                                    maxRows={4}
-                                                    className="w-full p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-amber-500/30 placeholder:text-slate-400"
-                                                    placeholder="色调..."
-                                                />
-                                                {renderDiffPanel(`shot-${shot.id ?? index}-initial_palette`)}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                            {structuredFrameOptimized && (!structuredFrameOriginal || JSON.stringify(structuredFrameOriginal) !== JSON.stringify(structuredFrameOptimized)) && (
-                                <div className="space-y-3 group/revision mt-4">
-                                    <div className="relative z-10 border rounded-2xl p-7 text-base shadow-sm backdrop-blur-sm transition-all duration-300 hover:shadow-md border-amber-500/30 bg-amber-500/5 text-slate-800 leading-relaxed">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div className="flex items-center gap-2 text-base uppercase font-bold tracking-wider text-amber-600">
-                                                <Sparkles size={16} />
-                                                <span>初始帧设定 (优化后)</span>
-                                            </div>
-                                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full shadow-sm bg-amber-500 text-white border-transparent">
+                            {/* Generated Image Placeholder */}
+                            {showGeneration && (
+                                <div className="space-y-2">
+                                    <div className={`relative aspect-[9/16] rounded-xl overflow-hidden border ${highlightGenerated || (activeImage && newImages.includes(activeImage)) ? 'border-red-400' : 'border-[var(--glass-border)]'} shadow-lg bg-slate-900 flex items-center justify-center text-xs text-blue-300`}>
+                                        {(activeImage && newImages.includes(activeImage)) && (
+                                            <span className="absolute top-2 right-2 px-2 py-1 rounded-full text-[10px] font-semibold bg-red-500 text-white shadow">
                                                 NEW
                                             </span>
+                                        )}
+                                        {activeImage ? (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img src={activeImage} alt="生成图片" className="w-full h-full object-cover" />
+                                        ) : (
+                                            '生成图片'
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => onPrevGenerated?.(shot, index)}
+                                            disabled={!hasGeneratedImages || isGenerating || !canPrevGenerated}
+                                            className="flex-1 py-2 rounded-lg bg-slate-200 text-slate-700 text-xs font-medium border border-slate-300 hover:bg-slate-300 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                                        >
+                                            上一张
+                                        </button>
+                                        <button
+                                            onClick={() => onGenerateImage?.(shot, index)}
+                                            disabled={isGenerating}
+                                            className="flex-1 py-2 rounded-lg bg-blue-500 text-white text-xs font-medium shadow hover:bg-blue-600 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                                        >
+                                            {isGenerating ? '生成中...' : '生成图片'}
+                                        </button>
+                                        <button
+                                            onClick={() => onNextGenerated?.(shot, index)}
+                                            disabled={!hasGeneratedImages || isGenerating || !canNextGenerated}
+                                            className="flex-1 py-2 rounded-lg bg-slate-200 text-slate-700 text-xs font-medium border border-slate-300 hover:bg-slate-300 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                                        >
+                                            下一张
+                                        </button>
+                                    </div>
+                                    {generateError && (
+                                        <button
+                                            onClick={() => alert(generateError)}
+                                            className="w-full text-[11px] text-red-500 underline underline-offset-2 text-left"
+                                        >
+                                            生成失败，点击查看原因
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                            {/* Generated Video Placeholder */}
+                            {showGeneration && (
+                                <div className="relative aspect-[9/16] bg-slate-900 rounded-xl overflow-hidden border border-[var(--glass-border)] shadow-lg flex items-center justify-center text-xs text-purple-300">
+                                    生成视频（占位）
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Right Column: All Content Fields */}
+                    <div className={`${showGeneration ? 'md:col-span-2' : 'md:col-span-3'} space-y-6`}>
+
+                        {modificationInfo && (
+                            <div className={`p-4 rounded-2xl text-sm border ${modBadgeClass} space-y-2 bg-gradient-to-br from-blue-50/50 to-indigo-50/30`}>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <Sparkles size={16} className="text-blue-500" />
+                                    <span className="text-blue-700 font-semibold text-xs uppercase">优化概述</span>
+                                    {modificationInfo.type && (
+                                        <span className={`px-2 py-0.5 rounded-full border ${modTypeClass(modificationInfo.type)}`}>
+                                            {modificationInfo.type}
+                                        </span>
+                                    )}
+                                </div>
+                                {modificationInfo.reason && (
+                                    <div className="text-slate-600 leading-relaxed whitespace-pre-wrap">
+                                        {modificationInfo.reason}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {/* Initial Frame Details */}
+                        {structuredFrameOriginal || structuredFrameOptimized ? (
+                            <div className="space-y-3 pb-4 border-b border-white/5">
+                                <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-slate-600 pl-1">
+                                    <span>初始帧设定 / Initial Frame</span>
+                                    {renderAnnotationControl?.(`shot-${shot.id ?? index}-initial`, `Shot #${shot.id ?? index + 1} Initial Frame`)}
+                                </div>
+                                {structuredFrameOriginal && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 rounded-2xl bg-black/5 border border-black/10 text-base text-slate-800 leading-relaxed">
+                                        {/* Foreground */}
+                                        <div className="space-y-3">
+                                            <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
+                                                <Users size={16} className="text-blue-500" />
+                                                前景 / Foreground
+                                            </div>
+                                            <div className="space-y-3 pl-3 border-l-2 border-blue-500/30">
+                                                <div className="space-y-1">
+                                                    <span className="text-xs text-slate-500">角色:</span>
+                                                    {Array.isArray(structuredFrameOriginal.foreground?.characters) && structuredFrameOriginal.foreground.characters.length > 0 ? (
+                                                        structuredFrameOriginal.foreground.characters.map((char, idx) => {
+                                                            const isFromLibrary = isCharacterFromLibrary(char);
+                                                            const charObj = typeof char === 'object' && char !== null ? char as Record<string, unknown> : null;
+
+                                                            return (
+                                                                <div key={idx} className="flex items-start gap-2">
+                                                                    {isFromLibrary && charObj ? (
+                                                                        // Character from library: tag is read-only badge, other fields editable
+                                                                        <div className="flex-1 space-y-2">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="px-2 py-1 rounded-md bg-blue-500/10 text-blue-600 text-xs font-semibold border border-blue-500/20">
+                                                                                    {charObj.tag as string}
+                                                                                </span>
+                                                                                <span className="text-xs text-slate-400">(引用角色库)</span>
+                                                                            </div>
+                                                                            <div className="space-y-1">
+                                                                                {charObj.pose !== undefined && (
+                                                                                    <div className="flex items-start gap-2">
+                                                                                        <span className="text-[10px] text-slate-500 pt-2 shrink-0">姿势</span>
+                                                                                        <AutoTextArea
+                                                                                            value={String(charObj.pose || '')}
+                                                                                            onChange={(e) => {
+                                                                                                const newChars = [...(structuredFrameOriginal.foreground?.characters || [])];
+                                                                                                newChars[idx] = { ...charObj, pose: e.target.value };
+                                                                                                const newFrame = {
+                                                                                                    ...structuredFrameOriginal,
+                                                                                                    foreground: { ...structuredFrameOriginal.foreground, characters: newChars }
+                                                                                                };
+                                                                                                updateField('initial_frame', newFrame);
+                                                                                            }}
+                                                                                            readOnly={!canEdit}
+                                                                                            minRows={1}
+                                                                                            maxRows={3}
+                                                                                            className="flex-1 p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-xs leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-blue-500/30 placeholder:text-slate-400"
+                                                                                            placeholder="姿势..."
+                                                                                        />
+                                                                                    </div>
+                                                                                )}
+                                                                                {charObj.expression !== undefined && (
+                                                                                    <div className="flex items-start gap-2">
+                                                                                        <span className="text-[10px] text-slate-500 pt-2 shrink-0">表情</span>
+                                                                                        <AutoTextArea
+                                                                                            value={String(charObj.expression || '')}
+                                                                                            onChange={(e) => {
+                                                                                                const newChars = [...(structuredFrameOriginal.foreground?.characters || [])];
+                                                                                                newChars[idx] = { ...charObj, expression: e.target.value };
+                                                                                                const newFrame = {
+                                                                                                    ...structuredFrameOriginal,
+                                                                                                    foreground: { ...structuredFrameOriginal.foreground, characters: newChars }
+                                                                                                };
+                                                                                                updateField('initial_frame', newFrame);
+                                                                                            }}
+                                                                                            readOnly={!canEdit}
+                                                                                            minRows={1}
+                                                                                            maxRows={2}
+                                                                                            className="flex-1 p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-xs leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-blue-500/30 placeholder:text-slate-400"
+                                                                                            placeholder="表情..."
+                                                                                        />
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        // Not from library: editable as before
+                                                                        <AutoTextArea
+                                                                            value={typeof char === 'string' ? char : [charObj?.tag, charObj?.pose, charObj?.expression].filter(Boolean).join(' · ')}
+                                                                            onChange={(e) => {
+                                                                                const newChars = [...(structuredFrameOriginal.foreground?.characters || [])];
+                                                                                newChars[idx] = e.target.value;
+                                                                                const newFrame = {
+                                                                                    ...structuredFrameOriginal,
+                                                                                    foreground: { ...structuredFrameOriginal.foreground, characters: newChars }
+                                                                                };
+                                                                                updateField('initial_frame', newFrame);
+                                                                            }}
+                                                                            readOnly={!canEdit}
+                                                                            minRows={1}
+                                                                            maxRows={3}
+                                                                            className="flex-1 p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-blue-500/30 placeholder:text-slate-400"
+                                                                            placeholder="角色描述..."
+                                                                        />
+                                                                    )}
+                                                                    {canEdit && (
+                                                                        <button
+                                                                            onClick={() => setDeleteConfirm({ type: 'fg_char', index: idx, label: `前景角色 #${idx + 1}` })}
+                                                                            className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                                                            title="删除角色"
+                                                                        >
+                                                                            <Trash2 size={14} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })
+                                                    ) : (
+                                                        <AutoTextArea
+                                                            value=""
+                                                            onChange={(e) => {
+                                                                if (e.target.value) {
+                                                                    const newFrame = {
+                                                                        ...structuredFrameOriginal,
+                                                                        foreground: { ...structuredFrameOriginal.foreground, characters: [e.target.value] }
+                                                                    };
+                                                                    updateField('initial_frame', newFrame);
+                                                                }
+                                                            }}
+                                                            readOnly={!canEdit}
+                                                            minRows={1}
+                                                            maxRows={3}
+                                                            className="w-full p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-blue-500/30 placeholder:text-slate-400"
+                                                            placeholder="添加角色..."
+                                                        />
+                                                    )}
+                                                    {renderDiffPanel(`shot-${shot.id ?? index}-initial_fg_chars`, 'array')}
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <span className="text-xs text-slate-500">道具:</span>
+                                                    {Array.isArray(structuredFrameOriginal.foreground?.objects) && structuredFrameOriginal.foreground.objects.length > 0 ? (
+                                                        structuredFrameOriginal.foreground.objects.map((obj, idx) => (
+                                                            <div key={idx} className="flex items-start gap-2">
+                                                                <AutoTextArea
+                                                                    value={obj}
+                                                                    onChange={(e) => {
+                                                                        const newObjs = [...(structuredFrameOriginal.foreground?.objects || [])];
+                                                                        newObjs[idx] = e.target.value;
+                                                                        const newFrame = {
+                                                                            ...structuredFrameOriginal,
+                                                                            foreground: { ...structuredFrameOriginal.foreground, objects: newObjs }
+                                                                        };
+                                                                        updateField('initial_frame', newFrame);
+                                                                    }}
+                                                                    readOnly={!canEdit}
+                                                                    minRows={1}
+                                                                    maxRows={3}
+                                                                    className="flex-1 p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-blue-500/30 placeholder:text-slate-400"
+                                                                    placeholder="道具描述..."
+                                                                />
+                                                                {canEdit && (
+                                                                    <button
+                                                                        onClick={() => setDeleteConfirm({ type: 'fg_obj', index: idx, label: `前景道具 #${idx + 1}` })}
+                                                                        className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                                                        title="删除道具"
+                                                                    >
+                                                                        <Trash2 size={14} />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        ))
+                                                    ) : (
+                                                        <AutoTextArea
+                                                            value=""
+                                                            onChange={(e) => {
+                                                                if (e.target.value) {
+                                                                    const newFrame = {
+                                                                        ...structuredFrameOriginal,
+                                                                        foreground: { ...structuredFrameOriginal.foreground, objects: [e.target.value] }
+                                                                    };
+                                                                    updateField('initial_frame', newFrame);
+                                                                }
+                                                            }}
+                                                            readOnly={!canEdit}
+                                                            minRows={1}
+                                                            maxRows={3}
+                                                            className="w-full p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-blue-500/30 placeholder:text-slate-400"
+                                                            placeholder="添加道具..."
+                                                        />
+                                                    )}
+                                                    {renderDiffPanel(`shot-${shot.id ?? index}-initial_fg_objects`, 'array')}
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                            {/* Foreground */}
-                                            <div className="space-y-3">
-                                                <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
-                                                    <Users size={16} className="text-blue-400" />
-                                                    优化前景
+                                        {/* Midground */}
+                                        <div className="space-y-3">
+                                            <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
+                                                <Layers size={16} className="text-purple-500" />
+                                                中景 / Midground
+                                            </div>
+                                            <div className="space-y-3 pl-3 border-l-2 border-purple-500/30">
+                                                <div className="space-y-1">
+                                                    <span className="text-xs text-slate-500">角色:</span>
+                                                    {Array.isArray(structuredFrameOriginal.midground?.characters) && structuredFrameOriginal.midground.characters.length > 0 ? (
+                                                        structuredFrameOriginal.midground.characters.map((char, idx) => {
+                                                            const isFromLibrary = isCharacterFromLibrary(char);
+                                                            const charObj = typeof char === 'object' && char !== null ? char as Record<string, unknown> : null;
+
+                                                            return (
+                                                                <div key={idx} className="flex items-start gap-2">
+                                                                    {isFromLibrary && charObj ? (
+                                                                        // Character from library: tag is read-only badge, other fields editable
+                                                                        <div className="flex-1 space-y-2">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="px-2 py-1 rounded-md bg-purple-500/10 text-purple-600 text-xs font-semibold border border-purple-500/20">
+                                                                                    {charObj.tag as string}
+                                                                                </span>
+                                                                                <span className="text-xs text-slate-400">(引用角色库)</span>
+                                                                            </div>
+                                                                            <div className="space-y-1">
+                                                                                {charObj.pose !== undefined && (
+                                                                                    <div className="flex items-start gap-2">
+                                                                                        <span className="text-[10px] text-slate-500 pt-2 shrink-0">姿势</span>
+                                                                                        <AutoTextArea
+                                                                                            value={String(charObj.pose || '')}
+                                                                                            onChange={(e) => {
+                                                                                                const newChars = [...(structuredFrameOriginal.midground?.characters || [])];
+                                                                                                newChars[idx] = { ...charObj, pose: e.target.value };
+                                                                                                const newFrame = {
+                                                                                                    ...structuredFrameOriginal,
+                                                                                                    midground: { ...structuredFrameOriginal.midground, characters: newChars }
+                                                                                                };
+                                                                                                updateField('initial_frame', newFrame);
+                                                                                            }}
+                                                                                            readOnly={!canEdit}
+                                                                                            minRows={1}
+                                                                                            maxRows={3}
+                                                                                            className="flex-1 p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-xs leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-purple-500/30 placeholder:text-slate-400"
+                                                                                            placeholder="姿势..."
+                                                                                        />
+                                                                                    </div>
+                                                                                )}
+                                                                                {charObj.expression !== undefined && (
+                                                                                    <div className="flex items-start gap-2">
+                                                                                        <span className="text-[10px] text-slate-500 pt-2 shrink-0">表情</span>
+                                                                                        <AutoTextArea
+                                                                                            value={String(charObj.expression || '')}
+                                                                                            onChange={(e) => {
+                                                                                                const newChars = [...(structuredFrameOriginal.midground?.characters || [])];
+                                                                                                newChars[idx] = { ...charObj, expression: e.target.value };
+                                                                                                const newFrame = {
+                                                                                                    ...structuredFrameOriginal,
+                                                                                                    midground: { ...structuredFrameOriginal.midground, characters: newChars }
+                                                                                                };
+                                                                                                updateField('initial_frame', newFrame);
+                                                                                            }}
+                                                                                            readOnly={!canEdit}
+                                                                                            minRows={1}
+                                                                                            maxRows={2}
+                                                                                            className="flex-1 p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-xs leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-purple-500/30 placeholder:text-slate-400"
+                                                                                            placeholder="表情..."
+                                                                                        />
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        // Not from library: editable as before
+                                                                        <AutoTextArea
+                                                                            value={typeof char === 'string' ? char : [charObj?.tag, charObj?.pose, charObj?.expression].filter(Boolean).join(' · ')}
+                                                                            onChange={(e) => {
+                                                                                const newChars = [...(structuredFrameOriginal.midground?.characters || [])];
+                                                                                newChars[idx] = e.target.value;
+                                                                                const newFrame = {
+                                                                                    ...structuredFrameOriginal,
+                                                                                    midground: { ...structuredFrameOriginal.midground, characters: newChars }
+                                                                                };
+                                                                                updateField('initial_frame', newFrame);
+                                                                            }}
+                                                                            readOnly={!canEdit}
+                                                                            minRows={1}
+                                                                            maxRows={3}
+                                                                            className="flex-1 p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-purple-500/30 placeholder:text-slate-400"
+                                                                            placeholder="角色描述..."
+                                                                        />
+                                                                    )}
+                                                                    {canEdit && (
+                                                                        <button
+                                                                            onClick={() => setDeleteConfirm({ type: 'mg_char', index: idx, label: `中景角色 #${idx + 1}` })}
+                                                                            className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                                                            title="删除角色"
+                                                                        >
+                                                                            <Trash2 size={14} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })
+                                                    ) : (
+                                                        <AutoTextArea
+                                                            value=""
+                                                            onChange={(e) => {
+                                                                if (e.target.value) {
+                                                                    const newFrame = {
+                                                                        ...structuredFrameOriginal,
+                                                                        midground: { ...structuredFrameOriginal.midground, characters: [e.target.value] }
+                                                                    };
+                                                                    updateField('initial_frame', newFrame);
+                                                                }
+                                                            }}
+                                                            readOnly={!canEdit}
+                                                            minRows={1}
+                                                            maxRows={3}
+                                                            className="w-full p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-purple-500/30 placeholder:text-slate-400"
+                                                            placeholder="添加角色..."
+                                                        />
+                                                    )}
+                                                    {renderDiffPanel(`shot-${shot.id ?? index}-initial_mg_chars`, 'array')}
                                                 </div>
-                                                <div className="space-y-2 pl-3 border-l-2 border-blue-400/30">
-                                                    {Array.isArray(structuredFrameOptimized.foreground?.characters) && structuredFrameOptimized.foreground.characters.length > 0 ? (
-                                                        structuredFrameOptimized.foreground.characters.map((char, idx) => (
-                                                            <div key={idx} className="text-sm text-slate-800 leading-relaxed">
-                                                                {typeof char === 'string' ? char : [char.tag, char.pose, char.expression].filter(Boolean).join(' · ')}
+                                                <div className="space-y-1">
+                                                    <span className="text-xs text-slate-500">道具:</span>
+                                                    {Array.isArray(structuredFrameOriginal.midground?.objects) && structuredFrameOriginal.midground.objects.length > 0 ? (
+                                                        structuredFrameOriginal.midground.objects.map((obj, idx) => (
+                                                            <div key={idx} className="flex items-start gap-2">
+                                                                <AutoTextArea
+                                                                    value={obj}
+                                                                    onChange={(e) => {
+                                                                        const newObjs = [...(structuredFrameOriginal.midground?.objects || [])];
+                                                                        newObjs[idx] = e.target.value;
+                                                                        const newFrame = {
+                                                                            ...structuredFrameOriginal,
+                                                                            midground: { ...structuredFrameOriginal.midground, objects: newObjs }
+                                                                        };
+                                                                        updateField('initial_frame', newFrame);
+                                                                    }}
+                                                                    readOnly={!canEdit}
+                                                                    minRows={1}
+                                                                    maxRows={3}
+                                                                    className="flex-1 p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-purple-500/30 placeholder:text-slate-400"
+                                                                    placeholder="道具描述..."
+                                                                />
+                                                                {canEdit && (
+                                                                    <button
+                                                                        onClick={() => setDeleteConfirm({ type: 'mg_obj', index: idx, label: `中景道具 #${idx + 1}` })}
+                                                                        className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                                                        title="删除道具"
+                                                                    >
+                                                                        <Trash2 size={14} />
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         ))
                                                     ) : (
-                                                        <div className="text-sm text-slate-500 italic">无角色</div>
+                                                        <AutoTextArea
+                                                            value=""
+                                                            onChange={(e) => {
+                                                                if (e.target.value) {
+                                                                    const newFrame = {
+                                                                        ...structuredFrameOriginal,
+                                                                        midground: { ...structuredFrameOriginal.midground, objects: [e.target.value] }
+                                                                    };
+                                                                    updateField('initial_frame', newFrame);
+                                                                }
+                                                            }}
+                                                            readOnly={!canEdit}
+                                                            minRows={1}
+                                                            maxRows={3}
+                                                            className="w-full p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-purple-500/30 placeholder:text-slate-400"
+                                                            placeholder="添加道具..."
+                                                        />
                                                     )}
-                                                    {Array.isArray(structuredFrameOptimized.foreground?.objects) && structuredFrameOptimized.foreground.objects.length > 0 ? (
-                                                        structuredFrameOptimized.foreground.objects.map((obj, idx) => (
-                                                            <div key={idx} className="text-sm text-slate-700">• {obj}</div>
-                                                        ))
-                                                    ) : (
-                                                        <div className="text-sm text-slate-500 italic">无道具</div>
-                                                    )}
+                                                    {renderDiffPanel(`shot-${shot.id ?? index}-initial_mg_objects`, 'array')}
                                                 </div>
                                             </div>
+                                        </div>
 
-                                            {/* Midground */}
-                                            <div className="space-y-3">
-                                                <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
-                                                    <Layers size={16} className="text-purple-400" />
-                                                    优化中景
+                                        {/* Background */}
+                                        <div className="space-y-3">
+                                            <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
+                                                <ImageIcon size={16} className="text-pink-500" />
+                                                背景 / Background
+                                            </div>
+                                            <div className="space-y-2 pl-3 border-l-2 border-pink-500/30">
+                                                <div className="space-y-1">
+                                                    <span className="text-xs text-slate-500">环境:</span>
+                                                    <AutoTextArea
+                                                        value={structuredFrameOriginal.background?.environment || ''}
+                                                        onChange={(e) => {
+                                                            const newFrame = {
+                                                                ...structuredFrameOriginal,
+                                                                background: { ...structuredFrameOriginal.background, environment: e.target.value }
+                                                            };
+                                                            updateField('initial_frame', newFrame);
+                                                        }}
+                                                        readOnly={!canEdit}
+                                                        minRows={1}
+                                                        maxRows={4}
+                                                        className="w-full p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-pink-500/30 placeholder:text-slate-400"
+                                                        placeholder="环境..."
+                                                    />
+                                                    {renderDiffPanel(`shot-${shot.id ?? index}-initial_bg_env`)}
                                                 </div>
-                                                <div className="space-y-2 pl-3 border-l-2 border-purple-400/30">
-                                                    {Array.isArray(structuredFrameOptimized.midground?.characters) && structuredFrameOptimized.midground.characters.length > 0 ? (
-                                                        structuredFrameOptimized.midground.characters.map((char, idx) => (
-                                                            <div key={idx} className="text-sm text-slate-800">
-                                                                {typeof char === 'string' ? char : char.tag || '-'}
-                                                            </div>
-                                                        ))
-                                                    ) : (
-                                                        <div className="text-sm text-slate-500 italic">无角色</div>
-                                                    )}
-                                                    {Array.isArray(structuredFrameOptimized.midground?.objects) && structuredFrameOptimized.midground.objects.length > 0 ? (
-                                                        structuredFrameOptimized.midground.objects.map((obj, idx) => (
-                                                            <div key={idx} className="text-sm text-slate-700">• {obj}</div>
-                                                        ))
-                                                    ) : (
-                                                        <div className="text-sm text-slate-500 italic">无道具</div>
-                                                    )}
+                                                <div className="space-y-1">
+                                                    <span className="text-xs text-slate-500">景深:</span>
+                                                    <AutoTextArea
+                                                        value={structuredFrameOriginal.background?.depth || ''}
+                                                        onChange={(e) => {
+                                                            const newFrame = {
+                                                                ...structuredFrameOriginal,
+                                                                background: { ...structuredFrameOriginal.background, depth: e.target.value }
+                                                            };
+                                                            updateField('initial_frame', newFrame);
+                                                        }}
+                                                        readOnly={!canEdit}
+                                                        minRows={1}
+                                                        maxRows={4}
+                                                        className="w-full p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-pink-500/30 placeholder:text-slate-400"
+                                                        placeholder="景深..."
+                                                    />
+                                                    {renderDiffPanel(`shot-${shot.id ?? index}-initial_bg_depth`)}
                                                 </div>
                                             </div>
+                                        </div>
 
-                                            {/* Background */}
-                                            <div className="space-y-3">
-                                                <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
-                                                    <ImageIcon size={16} className="text-pink-400" />
-                                                    优化背景
-                                                </div>
-                                                <div className="space-y-1 pl-3 border-l-2 border-pink-400/30">
-                                                    <div className="text-sm text-slate-800"><span className="text-slate-500">环境:</span> {structuredFrameOptimized.background?.environment || '-'}</div>
-                                                    <div className="text-sm text-slate-800"><span className="text-slate-500">景深:</span> {structuredFrameOptimized.background?.depth || '-'}</div>
-                                                </div>
+                                        {/* Lighting & Palette */}
+                                        <div className="space-y-3">
+                                            <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
+                                                <Sun size={16} className="text-amber-500" />
+                                                光影与色调 / Lighting & Palette
                                             </div>
-
-                                            {/* Lighting & Palette */}
-                                            <div className="space-y-3">
-                                                <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
-                                                    <Sun size={16} className="text-amber-400" />
-                                                    优化光影/色调
+                                            <div className="space-y-2 pl-3 border-l-2 border-amber-500/30">
+                                                <div className="space-y-1">
+                                                    <span className="text-xs text-slate-500">光照:</span>
+                                                    <AutoTextArea
+                                                        value={structuredFrameOriginal.lighting || ''}
+                                                        onChange={(e) => {
+                                                            const newFrame = { ...structuredFrameOriginal, lighting: e.target.value };
+                                                            updateField('initial_frame', newFrame);
+                                                        }}
+                                                        readOnly={!canEdit}
+                                                        minRows={1}
+                                                        maxRows={4}
+                                                        className="w-full p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-amber-500/30 placeholder:text-slate-400"
+                                                        placeholder="光照..."
+                                                    />
+                                                    {renderDiffPanel(`shot-${shot.id ?? index}-initial_lighting`)}
                                                 </div>
-                                                <div className="space-y-1 pl-3 border-l-2 border-amber-400/30">
-                                                    <div className="flex items-center gap-1 text-sm text-slate-800">
-                                                        <span className="text-slate-500">光照:</span>
-                                                        <span>{structuredFrameOptimized.lighting || '-'}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-1 text-sm text-slate-800">
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center gap-1">
                                                         <Palette size={10} className="text-slate-400" />
-                                                        <span className="text-slate-500">色调:</span>
-                                                        <span>{structuredFrameOptimized.color_palette || '-'}</span>
+                                                        <span className="text-xs text-slate-500">色调:</span>
+                                                    </div>
+                                                    <AutoTextArea
+                                                        value={structuredFrameOriginal.color_palette || ''}
+                                                        onChange={(e) => {
+                                                            const newFrame = { ...structuredFrameOriginal, color_palette: e.target.value };
+                                                            updateField('initial_frame', newFrame);
+                                                        }}
+                                                        readOnly={!canEdit}
+                                                        minRows={1}
+                                                        maxRows={4}
+                                                        className="w-full p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-amber-500/30 placeholder:text-slate-400"
+                                                        placeholder="色调..."
+                                                    />
+                                                    {renderDiffPanel(`shot-${shot.id ?? index}-initial_palette`)}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                                {structuredFrameOptimized && (!structuredFrameOriginal || JSON.stringify(structuredFrameOriginal) !== JSON.stringify(structuredFrameOptimized)) && (
+                                    <div className="space-y-3 group/revision mt-4">
+                                        <div className="relative z-10 border rounded-2xl p-7 text-base shadow-sm backdrop-blur-sm transition-all duration-300 hover:shadow-md border-amber-500/30 bg-amber-500/5 text-slate-800 leading-relaxed">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className="flex items-center gap-2 text-base uppercase font-bold tracking-wider text-amber-600">
+                                                    <Sparkles size={16} />
+                                                    <span>初始帧设定 (优化后)</span>
+                                                </div>
+                                                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full shadow-sm bg-amber-500 text-white border-transparent">
+                                                    NEW
+                                                </span>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                                {/* Foreground */}
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
+                                                        <Users size={16} className="text-blue-400" />
+                                                        优化前景
+                                                    </div>
+                                                    <div className="space-y-2 pl-3 border-l-2 border-blue-400/30">
+                                                        {Array.isArray(structuredFrameOptimized.foreground?.characters) && structuredFrameOptimized.foreground.characters.length > 0 ? (
+                                                            structuredFrameOptimized.foreground.characters.map((char, idx) => (
+                                                                <div key={idx} className="text-sm text-slate-800 leading-relaxed">
+                                                                    {typeof char === 'string' ? char : [char.tag, char.pose, char.expression].filter(Boolean).join(' · ')}
+                                                                </div>
+                                                            ))
+                                                        ) : (
+                                                            <div className="text-sm text-slate-500 italic">无角色</div>
+                                                        )}
+                                                        {Array.isArray(structuredFrameOptimized.foreground?.objects) && structuredFrameOptimized.foreground.objects.length > 0 ? (
+                                                            structuredFrameOptimized.foreground.objects.map((obj, idx) => (
+                                                                <div key={idx} className="text-sm text-slate-700">• {obj}</div>
+                                                            ))
+                                                        ) : (
+                                                            <div className="text-sm text-slate-500 italic">无道具</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Midground */}
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
+                                                        <Layers size={16} className="text-purple-400" />
+                                                        优化中景
+                                                    </div>
+                                                    <div className="space-y-2 pl-3 border-l-2 border-purple-400/30">
+                                                        {Array.isArray(structuredFrameOptimized.midground?.characters) && structuredFrameOptimized.midground.characters.length > 0 ? (
+                                                            structuredFrameOptimized.midground.characters.map((char, idx) => (
+                                                                <div key={idx} className="text-sm text-slate-800">
+                                                                    {typeof char === 'string' ? char : char.tag || '-'}
+                                                                </div>
+                                                            ))
+                                                        ) : (
+                                                            <div className="text-sm text-slate-500 italic">无角色</div>
+                                                        )}
+                                                        {Array.isArray(structuredFrameOptimized.midground?.objects) && structuredFrameOptimized.midground.objects.length > 0 ? (
+                                                            structuredFrameOptimized.midground.objects.map((obj, idx) => (
+                                                                <div key={idx} className="text-sm text-slate-700">• {obj}</div>
+                                                            ))
+                                                        ) : (
+                                                            <div className="text-sm text-slate-500 italic">无道具</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Background */}
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
+                                                        <ImageIcon size={16} className="text-pink-400" />
+                                                        优化背景
+                                                    </div>
+                                                    <div className="space-y-1 pl-3 border-l-2 border-pink-400/30">
+                                                        <div className="text-sm text-slate-800"><span className="text-slate-500">环境:</span> {structuredFrameOptimized.background?.environment || '-'}</div>
+                                                        <div className="text-sm text-slate-800"><span className="text-slate-500">景深:</span> {structuredFrameOptimized.background?.depth || '-'}</div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Lighting & Palette */}
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
+                                                        <Sun size={16} className="text-amber-400" />
+                                                        优化光影/色调
+                                                    </div>
+                                                    <div className="space-y-1 pl-3 border-l-2 border-amber-400/30">
+                                                        <div className="flex items-center gap-1 text-sm text-slate-800">
+                                                            <span className="text-slate-500">光照:</span>
+                                                            <span>{structuredFrameOptimized.lighting || '-'}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 text-sm text-slate-800">
+                                                            <Palette size={10} className="text-slate-400" />
+                                                            <span className="text-slate-500">色调:</span>
+                                                            <span>{structuredFrameOptimized.color_palette || '-'}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
+                                )}
+                            </div>
+                        ) : initialFrameText || initialFrameTextOptimized ? (
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
+                                    <ImageIcon size={12} className="text-blue-500" />
+                                    <span>首帧描述</span>
+                                    {renderAnnotationControl?.(`shot-${shot.id ?? index}-initial`, `Shot #${shot.id ?? index + 1} Initial Frame`)}
                                 </div>
-                            )}
-                        </div>
-                    ) : initialFrameText || initialFrameTextOptimized ? (
+                                {renderFieldWithRevision(
+                                    <AutoTextArea
+                                        value={initialFrameText}
+                                        onChange={(e) => updateField('initial_frame', e.target.value)}
+                                        readOnly={!canEdit}
+                                        minRows={1}
+                                        maxRows={16}
+                                        className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-blue-500/30 resize-none placeholder:text-slate-400"
+                                        placeholder="首帧描述..."
+                                    />,
+                                    '首帧描述',
+                                    initialFrameText,
+                                    initialFrameTextOptimized,
+                                )}
+                            </div>
+                        ) : null}
+
+                        {/* Visual - Full Width */}
                         <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
-                                <ImageIcon size={12} className="text-blue-500" />
-                                <span>首帧描述</span>
-                                {renderAnnotationControl?.(`shot-${shot.id ?? index}-initial`, `Shot #${shot.id ?? index + 1} Initial Frame`)}
+                            <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-purple-400/80 pl-1">
+                                <span>视频描述</span>
+                                {renderAnnotationControl?.(`shot-${shot.id ?? index}-visual`, `Shot #${shot.id ?? index + 1} Visual`)}
                             </div>
                             {renderFieldWithRevision(
                                 <AutoTextArea
-                                    value={initialFrameText}
-                                    onChange={(e) => updateField('initial_frame', e.target.value)}
+                                    value={visualVal}
+                                    onChange={(e) => updateField('visual_changes', e.target.value)}
                                     readOnly={!canEdit}
                                     minRows={1}
                                     maxRows={16}
-                                    className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-blue-500/30 resize-none placeholder:text-slate-400"
-                                    placeholder="首帧描述..."
+                                    className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-purple-500/30 resize-none placeholder:text-slate-400"
+                                    placeholder="画面描述..."
                                 />,
-                                '首帧描述',
-                                initialFrameText,
-                                initialFrameTextOptimized,
+                                '视频描述',
+                                baseVisual,
+                                optVisual
                             )}
-                        </div>
-                    ) : null}
-
-                    {/* Visual - Full Width */}
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-purple-400/80 pl-1">
-                            <span>视频描述</span>
-                            {renderAnnotationControl?.(`shot-${shot.id ?? index}-visual`, `Shot #${shot.id ?? index + 1} Visual`)}
-                        </div>
-                        {renderFieldWithRevision(
-                            <AutoTextArea
-                                value={visualVal}
-                                onChange={(e) => updateField('visual_changes', e.target.value)}
-                                readOnly={!canEdit}
-                                minRows={1}
-                                maxRows={16}
-                                className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-purple-500/30 resize-none placeholder:text-slate-400"
-                                placeholder="画面描述..."
-                            />,
-                            '视频描述',
-                            baseVisual,
-                            optVisual
-                        )}
-                        {renderDiffPanel(`shot-${shot.id ?? index}-visual_changes`)}
-                    </div>
-
-                    {/* Audio & Camera side by side on desktop */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-pink-400/80 pl-1">
-                                <span>音频 / 对白</span>
-                                {renderAnnotationControl?.(`shot-${shot.id ?? index}-audio`, `Shot #${shot.id ?? index + 1} Audio`)}
-                            </div>
-                            {renderFieldWithRevision(
-                                <AutoTextArea
-                                    value={audioVal}
-                                    onChange={(e) => updateField('audio', e.target.value)}
-                                    readOnly={!canEdit}
-                                    minRows={1}
-                                    maxRows={12}
-                                    className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-pink-500/30 placeholder:text-slate-400"
-                                    placeholder="音频..."
-                                />,
-                                '音频 / 对白',
-                                baseAudio,
-                                optAudio
-                            )}
-                            {renderDiffPanel(`shot-${shot.id ?? index}-audio`)}
+                            {renderDiffPanel(`shot-${shot.id ?? index}-visual_changes`)}
                         </div>
 
-                        <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-cyan-400/80 pl-1">
-                                <span>运镜 / 动作</span>
-                                {renderAnnotationControl?.(`shot-${shot.id ?? index}-camera`, `Shot #${shot.id ?? index + 1} Camera`)}
-                            </div>
-                            {renderFieldWithRevision(
-                                <AutoTextArea
-                                    value={cameraVal}
-                                    onChange={(e) => updateField('camera', e.target.value)}
-                                    readOnly={!canEdit}
-                                    minRows={1}
-                                    maxRows={12}
-                                    className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-cyan-500/30 placeholder:text-slate-400"
-                                    placeholder="运镜..."
-                                />,
-                                '运镜 / 动作',
-                                baseCamera,
-                                optCamera
-                            )}
-                            {renderDiffPanel(`shot-${shot.id ?? index}-camera`)}
-                        </div>
-                    </div>
+                        {/* Camera, Beat, Viral, Logic, Mission hidden per requirement */}
 
-                    {/* Additional Info Grid */}
-                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
-                        {/* Beat */}
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
-                                <Music size={12} className="text-green-500" />
-                                节拍 / Beat
-                            </div>
-                            {renderFieldWithRevision(
-                                <AutoTextArea
-                                    value={beatVal}
-                                    onChange={(e) => updateField('beat', e.target.value)}
-                                    readOnly={!canEdit}
-                                    minRows={1}
-                                    maxRows={6}
-                                    className="w-full p-3 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-green-500/30 placeholder:text-slate-400"
-                                    placeholder="节拍..."
-                                />,
-                                '节拍 / Beat',
-                                baseBeat,
-                                optBeat,
-                            )}
-                            {renderDiffPanel(`shot-${shot.id ?? index}-beat`)}
-                        </div>
-
-                        {/* Viral Element */}
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
-                                <Sparkles size={12} className="text-amber-500" />
-                                病毒元素 / Viral Element
-                            </div>
-                            {renderFieldWithRevision(
-                                <AutoTextArea
-                                    value={viralVal}
-                                    onChange={(e) => updateField('viral_element', e.target.value)}
-                                    readOnly={!canEdit}
-                                    minRows={1}
-                                    maxRows={6}
-                                    className="w-full p-3 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-amber-500/30 placeholder:text-slate-400"
-                                    placeholder="病毒元素..."
-                                />,
-                                '病毒元素 / Viral Element',
-                                baseViral,
-                                optViral,
-                            )}
-                            {renderDiffPanel(`shot-${shot.id ?? index}-viral_element`)}
-                        </div>
-
-                        {/* Emotion */}
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
-                                <Heart size={12} className="text-red-500" />
-                                情绪 / Emotion
-                            </div>
-                            {renderFieldWithRevision(
-                                <AutoTextArea
-                                    value={emotionVal}
-                                    onChange={(e) => updateField('emotion', e.target.value)}
-                                    readOnly={!canEdit}
-                                    minRows={1}
-                                    maxRows={6}
-                                    className="w-full p-3 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-red-500/30 placeholder:text-slate-400"
-                                    placeholder="情绪..."
-                                />,
-                                '情绪 / Emotion',
-                                baseEmotion,
-                                optEmotion,
-                            )}
-                            {renderDiffPanel(`shot-${shot.id ?? index}-emotion`)}
-                        </div>
-
-                        {/* Logic Mapping */}
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
-                                <GitFork size={12} className="text-blue-500" />
-                                逻辑映射 / Logic Mapping
-                            </div>
-                            {renderFieldWithRevision(
-                                <AutoTextArea
-                                    value={logicVal}
-                                    onChange={(e) => updateField('logic_mapping', e.target.value)}
-                                    readOnly={!canEdit}
-                                    minRows={1}
-                                    maxRows={6}
-                                    className="w-full p-3 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-blue-500/30 placeholder:text-slate-400"
-                                    placeholder="逻辑映射..."
-                                />,
-                                '逻辑映射 / Logic Mapping',
-                                baseLogic,
-                                optLogic,
-                            )}
-                            {renderDiffPanel(`shot-${shot.id ?? index}-logic_mapping`)}
-                        </div>
-
-                        {/* Density Score */}
-                        {densityScore !== undefined && (
-                            <div className="space-y-1">
+                        {/* Alternatives */}
+                        {Array.isArray(alternatives) && alternatives.length > 0 && (
+                            <div className="space-y-2">
                                 <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
-                                    <Zap size={12} className="text-yellow-400" />
-                                    密度评分
+                                    <Sparkles size={12} className="text-amber-400" />
+                                    备选方案
                                 </div>
-                                <div className="p-3 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm">
-                                    {densityScore}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Alternatives */}
-                    {Array.isArray(alternatives) && alternatives.length > 0 && (
-                        <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
-                                <Sparkles size={12} className="text-amber-400" />
-                                备选方案
-                            </div>
-                            <div className="grid gap-3 md:grid-cols-2">
-                                {alternatives.map((alt: ShotAlternative, altIdx: number) => (
-                                    <div key={`alt-${altIdx}`} className="p-3 rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg-light)]/60 text-sm space-y-1">
-                                        <div className="flex items-center justify-between">
-                                            <span className="font-semibold text-[var(--color-text-primary)]">{alt.type || `方案 ${altIdx + 1}`}</span>
-                                            {alt.viral_score !== undefined && (
-                                                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/40">Viral {alt.viral_score}</span>
+                                <div className="grid gap-3 md:grid-cols-2">
+                                    {alternatives.map((alt: ShotAlternative, altIdx: number) => (
+                                        <div key={`alt-${altIdx}`} className="p-3 rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg-light)]/60 text-sm space-y-1">
+                                            <div className="flex items-center justify-between">
+                                                <span className="font-semibold text-[var(--color-text-primary)]">{alt.type || `方案 ${altIdx + 1}`}</span>
+                                                {alt.viral_score !== undefined && (
+                                                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/40">Viral {alt.viral_score}</span>
+                                                )}
+                                            </div>
+                                            {alt.description && <div className="text-[var(--color-text-secondary)] leading-relaxed">{alt.description}</div>}
+                                            {alt.visual_changes && (
+                                                <div className="text-[var(--color-text-primary)] leading-relaxed whitespace-pre-wrap">
+                                                    {alt.visual_changes}
+                                                </div>
+                                            )}
+                                            {alt.reason && <div className="text-xs text-[var(--color-text-tertiary)]">理由: {alt.reason}</div>}
+                                            {Array.isArray(alt.affected_shots_change) && alt.affected_shots_change.length > 0 && (
+                                                <div className="text-xs text-[var(--color-text-tertiary)]">影响镜头: {alt.affected_shots_change.join(', ')}</div>
                                             )}
                                         </div>
-                                        {alt.description && <div className="text-[var(--color-text-secondary)] leading-relaxed">{alt.description}</div>}
-                                        {alt.visual_changes && (
-                                            <div className="text-[var(--color-text-primary)] leading-relaxed whitespace-pre-wrap">
-                                                {alt.visual_changes}
-                                            </div>
-                                        )}
-                                        {alt.reason && <div className="text-xs text-[var(--color-text-tertiary)]">理由: {alt.reason}</div>}
-                                        {Array.isArray(alt.affected_shots_change) && alt.affected_shots_change.length > 0 && (
-                                            <div className="text-xs text-[var(--color-text-tertiary)]">影响镜头: {alt.affected_shots_change.join(', ')}</div>
-                                        )}
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             </div>
-        </div>
 
-        {/* Delete Confirmation Modal */}
-        {deleteConfirm && (
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-slate-200">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 rounded-full bg-red-100">
-                            <Trash2 size={20} className="text-red-500" />
+            {/* Delete Confirmation Modal */}
+            {deleteConfirm && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-slate-200">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 rounded-full bg-red-100">
+                                <Trash2 size={20} className="text-red-500" />
+                            </div>
+                            <h3 className="text-lg font-semibold text-slate-800">确认删除</h3>
                         </div>
-                        <h3 className="text-lg font-semibold text-slate-800">确认删除</h3>
-                    </div>
-                    <p className="text-slate-600 mb-6">
-                        确定要删除 <span className="font-medium text-slate-800">{deleteConfirm.label}</span> 吗？此操作无法撤销。
-                    </p>
-                    <div className="flex gap-3">
-                        <button
-                            onClick={() => setDeleteConfirm(null)}
-                            className="flex-1 px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 transition font-medium"
-                        >
-                            取消
-                        </button>
-                        <button
-                            onClick={() => handleDeleteItem(deleteConfirm.type, deleteConfirm.index)}
-                            className="flex-1 px-4 py-2 rounded-xl bg-red-500 text-white hover:bg-red-600 transition font-medium shadow-lg shadow-red-500/20"
-                        >
-                            确认删除
-                        </button>
+                        <p className="text-slate-600 mb-6">
+                            确定要删除 <span className="font-medium text-slate-800">{deleteConfirm.label}</span> 吗？此操作无法撤销。
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setDeleteConfirm(null)}
+                                className="flex-1 px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 transition font-medium"
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={() => handleDeleteItem(deleteConfirm.type, deleteConfirm.index)}
+                                className="flex-1 px-4 py-2 rounded-xl bg-red-500 text-white hover:bg-red-600 transition font-medium shadow-lg shadow-red-500/20"
+                            >
+                                确认删除
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        )}
+            )}
         </>
     );
 };

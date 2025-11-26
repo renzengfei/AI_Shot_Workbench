@@ -12,7 +12,6 @@ export interface AssetItem {
 }
 
 export interface Round1Skeleton {
-    story_summary?: string;
     logic_chain?: string;
     skeleton_nodes?: string[];
     viral_elements_found?: {
@@ -39,6 +38,7 @@ export interface FrameCharacter {
     tag?: string;
     pose?: string;
     expression?: string;
+    clothing?: string;
 }
 
 export interface FrameLayer {

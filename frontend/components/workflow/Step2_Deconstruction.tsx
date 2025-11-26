@@ -36,8 +36,8 @@ export default function Step2_Deconstruction() {
 
         const payload = JSON.stringify(
             {
-                round1: round1Parsed.data ?? (nextRound1.trim() ? nextRound1 : undefined),
-                round2: round2Parsed.data ?? (nextRound2.trim() ? nextRound2 : undefined),
+                round1: round1Parsed.data ?? undefined,
+                round2: round2Parsed.data ?? undefined,
             },
             null,
             2,
@@ -67,12 +67,8 @@ export default function Step2_Deconstruction() {
     const handleRound2Change = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const value = e.target.value;
         setRound2Text(value);
-        try {
-            if (value.trim()) JSON.parse(value);
-            setRound2Error(null);
-        } catch {
-            setRound2Error('JSON 格式无效，请检查逗号/引号/括号');
-        }
+        const parsed = parseRound2(value);
+        setRound2Error(parsed.error);
         scheduleSave(round1Text, value);
     };
 
@@ -107,14 +103,14 @@ export default function Step2_Deconstruction() {
         // hydrate from existing stored text
         const stored = project?.deconstructionText;
         if (!stored) return;
-        const { round1, round2, errorsRound1, errorsRound2, errorsGeneral } = parseStoredDeconstruction(stored);
+        const { round1, round2, rawRound1Text, rawRound2Text, errorsRound1, errorsRound2, errorsGeneral } = parseStoredDeconstruction(stored);
         setRound1Error(errorsRound1[0] || errorsGeneral[0] || null);
         setRound2Error(errorsRound2[0] || errorsGeneral[0] || null);
-        if (round1) {
-            setRound1Text(typeof round1 === 'string' ? round1 : JSON.stringify(round1, null, 2));
+        if (rawRound1Text || round1) {
+            setRound1Text(rawRound1Text ?? (typeof round1 === 'string' ? round1 : JSON.stringify(round1, null, 2)));
         }
-        if (round2) {
-            setRound2Text(typeof round2 === 'string' ? round2 : JSON.stringify(round2, null, 2));
+        if (rawRound2Text || round2) {
+            setRound2Text(rawRound2Text ?? (typeof round2 === 'string' ? round2 : JSON.stringify(round2, null, 2)));
         }
     }, [project?.deconstructionText]);
 
@@ -197,7 +193,7 @@ export default function Step2_Deconstruction() {
                         AI 原片拆解
                     </h2>
                     <p className="text-xs text-[var(--color-text-secondary)]">
-                        使用 Gemini 获取 AI 拆解结果，将 JSON 输出粘贴到下方自动保存。
+                        使用 Gemini 获取 AI 拆解结果，粘贴 Round 1 JSON 与 Round 2 Markdown 到下方自动保存。
                         {!assetsReady && (
                             <span className="ml-2 text-amber-400">分镜资产生成中，请稍候…</span>
                         )}
@@ -339,7 +335,7 @@ export default function Step2_Deconstruction() {
                         </div>
                         <h4 className="font-semibold text-[var(--color-text-primary)]">获取结果</h4>
                         <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-                            等待 AI 完成，分别粘贴 Round 1 和 Round 2 的 JSON，自动保存到工作空间。
+                            等待 AI 完成，粘贴 Round 1 的 JSON 与 Round 2 的 Markdown（角色说明 + 分镜表格），自动保存到工作空间。
                         </p>
                         <div className="glass-card bg-gradient-to-r from-green-500/5 to-emerald-500/5 border border-green-500/10 p-3 text-xs text-green-600/90 dark:text-green-400/90">
                             <p className="flex items-center gap-1.5 font-medium mb-1">
@@ -373,7 +369,7 @@ export default function Step2_Deconstruction() {
                     <textarea
                         value={round1Text}
                         onChange={handleRound1Change}
-                        placeholder={`{\n  \"round1_skeleton\": {\n    \"story_summary\": \"...\",\n    \"logic_chain\": \"...\",\n    \"skeleton_nodes\": [\"...\"],\n    \"viral_elements_found\": [{\"category\": \"暴力\", \"element\": \"...\", \"timestamp\": \"5.267s\", \"description\": \"...\"}]\n  },\n  \"round1_hook\": {\n    \"visual_hook\": \"...\",\n    \"audio_hook\": \"...\",\n    \"retention_strategy\": \"...\",\n    \"beat1_reference\": \"...\"\n  }\n}`}
+                        placeholder={`{\n  \"round1_skeleton\": {\n    \"logic_chain\": \"...\",\n    \"skeleton_nodes\": [\"...\"],\n    \"viral_elements_found\": [{\"category\": \"暴力\", \"element\": \"...\", \"timestamp\": \"5.267s\", \"description\": \"...\"}]\n  },\n  \"round1_hook\": {\n    \"visual_hook\": \"...\",\n    \"audio_hook\": \"...\",\n    \"retention_strategy\": \"...\",\n    \"beat1_reference\": \"...\"\n  }\n}`}
                         className={`flex-1 w-full bg-[var(--color-bg-secondary)]/30 rounded-b-xl p-4 font-mono text-sm resize-none outline-none transition-all text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] leading-relaxed selection:bg-blue-500/20 ${round1Error ? 'border border-amber-500/50' : ''}`}
                         spellCheck={false}
                     />
@@ -392,7 +388,7 @@ export default function Step2_Deconstruction() {
                             <button
                                 onClick={() => copyToClipboard(`${round1Text}\n\n${round2Text}`, 'content')}
                                 className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text-primary)] transition-colors text-xs"
-                                title="复制两段 JSON"
+                                title="复制两段输入"
                             >
                                 {isCopyingContent ? <Check size={14} className="text-green-500" /> : <Clipboard size={14} />}
                                 <span>{isCopyingContent ? '已复制' : '复制'}</span>
@@ -407,7 +403,7 @@ export default function Step2_Deconstruction() {
                     <textarea
                         value={round2Text}
                         onChange={handleRound2Change}
-                        placeholder={`{\n  \"characters\": {\"角色标签\": \"描述...\"},\n  \"shots\": [\n    {\n      \"id\": 1,\n      \"timestamp\": \"0.000s\",\n      \"end_time\": \"1.900s\",\n      \"duration\": \"1.900s\",\n      \"keyframe\": \"frame_001.jpg\",\n      \"initial_frame\": \"...\",\n      \"visual_changes\": \"...\",\n      \"camera\": \"...\",\n      \"audio\": \"...\",\n      \"beat\": \"Hook\",\n      \"viral_element\": \"...\",\n      \"emotion\": \"...\",\n      \"logic_mapping\": \"...\"\n    }\n  ]\n}`}
+                        placeholder={`\u3010\u89d2\u8272\u8bf4\u660e\u3011(\u7528\u4e8e\u89d2\u8272\u5e93)\n\`\`\`text\n\u3010\u9ed1\u53d1\u683c\u7eb9\u7537\u3011 = ...\n\u3010\u7c89\u53d1\u7537\u3011 = ...\n\`\`\`\n\n|\u5e8f\u53f7|\u5f00\u59cb\u65f6\u95f4|\u7ed3\u675f\u65f6\u95f4|\u65f6\u957f|\u9996\u5e27\u6587\u4ef6\u540d|\u753b\u9762\u63d0\u793a\u8bcd (Image Prompt)|\u89c6\u9891\u63d0\u793a\u8bcd (Video Prompt)|\n|:---|:---|:---|:---|:---|:---|:---|\n|1|0.000s|1.900s|1.900s|frame_001_0.000s.jpg|\u753b\u9762...|\u89c6\u9891...|`}
                         className={`flex-1 w-full bg-[var(--color-bg-secondary)]/30 rounded-b-xl p-4 font-mono text-sm resize-none outline-none transition-all text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] leading-relaxed selection:bg-blue-500/20 ${round2Error ? 'border border-amber-500/50' : ''}`}
                         spellCheck={false}
                     />

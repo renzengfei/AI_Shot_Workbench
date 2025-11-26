@@ -1,7 +1,6 @@
 'use client';
-/* eslint-disable @next/next/no-img-element */
 
-import { ChevronLeft, ChevronRight, Edit, Eye, RefreshCw, Plus, Minus, Volume2, VolumeX, Download, AlertCircle, Trash2, X, FileText, Zap, Users, Box, Layout, Film, ArrowRight, Check, Copy, MessageSquare, ClipboardPaste, BookOpen, GitBranch, Anchor } from 'lucide-react';
+import { RefreshCw, Volume2, VolumeX, AlertCircle, Trash2, X, Zap, Users, Box, Layout, Film, ArrowRight, Check, Copy, MessageSquare, ClipboardPaste, GitBranch, Anchor } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useWorkflowStore } from '@/lib/stores/workflowStore';
 import { useWorkspace } from '@/components/WorkspaceContext';
@@ -9,6 +8,23 @@ import { parseRound1, parseRound2, parseStoredDeconstruction } from '@/lib/servi
 import { useStepNavigator } from '@/lib/hooks/useStepNavigator';
 import { AutoTextArea } from '@/components/ui/AutoTextArea';
 import { ShotCard } from '@/components/workflow/ShotCard';
+import {
+    fetchCharacterReferences,
+    fetchReferenceGallery,
+    fetchCategories,
+    fetchCategoryPrompts,
+    saveCharacterReferences,
+    uploadReferenceImage,
+    deleteReferenceImage,
+    renameReferenceImage,
+    createCategory,
+    renameCategory,
+    deleteCategory,
+    saveCategoryPrompt,
+    type ReferenceImage,
+    type CharacterReferenceMap,
+    type CategoryPromptMap,
+} from '@/lib/services/referenceGallery';
 import {
     ReviewMode,
     AssetItem,
@@ -23,7 +39,20 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
 
 type AnnotationMap = Record<string, string>;
 
-export default function Step3_DeconstructionReview() {
+interface Step3Props {
+    /** 隐藏批注功能 */
+    hideAnnotations?: boolean;
+    /** 隐藏 JSON 对比功能 */
+    hideCompare?: boolean;
+    /** 隐藏模式切换（只保持 review 模式） */
+    hideModeSwitcher?: boolean;
+}
+
+export default function Step3_DeconstructionReview({
+    hideAnnotations = false,
+    hideCompare = false,
+    hideModeSwitcher = false,
+}: Step3Props = {}) {
     const { project, updateDeconstruction } = useWorkflowStore();
     const { saveDeconstruction, currentWorkspace } = useWorkspace();
     const { nextStep } = useStepNavigator();
@@ -72,8 +101,42 @@ export default function Step3_DeconstructionReview() {
     // Global Volume State
     const [globalVolume, setGlobalVolume] = useState(1);
     const [isGlobalMuted, setIsGlobalMuted] = useState(false);
+    // Reference gallery
+    const [referenceGallery, setReferenceGallery] = useState<ReferenceImage[]>([]);
+    const [galleryLoading, setGalleryLoading] = useState(false);
+    const [galleryError, setGalleryError] = useState<string | null>(null);
+    const [categories, setCategories] = useState<string[]>([]);
+    const [characterRefs, setCharacterRefs] = useState<CharacterReferenceMap>({});
+    const [refsSaving, setRefsSaving] = useState(false);
+    const [showGalleryModal, setShowGalleryModal] = useState(false);
+    const [activeCharacterForPick, setActiveCharacterForPick] = useState<string | null>(null);
+    const [uploading, setUploading] = useState(false);
+    const [renamingId, setRenamingId] = useState<string | null>(null);
+    const [renameValue, setRenameValue] = useState('');
+    const [renameCategory, setRenameCategory] = useState('');
+    const [activeCategoryTab, setActiveCategoryTab] = useState<string>('all');
+    const [uploadName] = useState('');
+    const [newCategoryName, setNewCategoryName] = useState('');
+    const [renamingCategoryName, setRenamingCategoryName] = useState('');
+    const [categorySaving, setCategorySaving] = useState(false);
+    const [showDeleteCategoryConfirm, setShowDeleteCategoryConfirm] = useState(false);
+    const [deleteCategoryMode, setDeleteCategoryMode] = useState<'move' | 'clear'>('move');
+    const [categoryPrompts, setCategoryPrompts] = useState<CategoryPromptMap>({});
+    const [categoryPromptInput, setCategoryPromptInput] = useState('');
+    const [categoryPromptSaving, setCategoryPromptSaving] = useState(false);
+    const [newCharacterName, setNewCharacterName] = useState('');
+    const [newCharacterDesc, setNewCharacterDesc] = useState('');
+    // Generated images per shot
+    const [generatedImages, setGeneratedImages] = useState<Record<number, string[]>>({});
+    const [generatedIndexes, setGeneratedIndexes] = useState<Record<number, number>>({});
+    const [generatingShots, setGeneratingShots] = useState<Record<number, boolean>>({});
+    const [generateError, setGenerateError] = useState<string | null>(null);
+    const [generateErrors, setGenerateErrors] = useState<Record<number, string | undefined>>({});
+    const [newlyGenerated, setNewlyGenerated] = useState<Record<number, string[]>>({});
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [previewImage, setPreviewImage] = useState<{ url: string; name?: string } | null>(null);
     const canEdit = mode === 'review';
-    const allowAnnotations = mode === 'review';
+    const allowAnnotations = mode === 'review' && !hideAnnotations;
     const modeOptions: { key: ReviewMode; label: string; helper: string }[] = [
         { key: 'review', label: '原片审验', helper: '可编辑 + 批注' },
         { key: 'revision', label: '原片修订', helper: '对比终版改动，只读' },
@@ -101,6 +164,483 @@ export default function Step3_DeconstructionReview() {
         })()
         : null;
     const deconstructionPath = currentWorkspace?.path ? `${currentWorkspace.path}/deconstruction.md` : '';
+    const generatedStorageKey = workspaceSlug ? `generatedImages:${workspaceSlug}` : null;
+
+    const loadReferenceGallery = useCallback(async () => {
+        setGalleryLoading(true);
+        setGalleryError(null);
+        try {
+            const [items, fetchedCategories, prompts] = await Promise.all([
+                fetchReferenceGallery(),
+                fetchCategories().catch(() => null),
+                fetchCategoryPrompts().catch(() => ({} as CategoryPromptMap)),
+            ]);
+            setReferenceGallery(items);
+            const derived = Array.from(
+                new Set([
+                    ...(Array.isArray(fetchedCategories) ? fetchedCategories : []),
+                    ...items
+                        .map((i) => (i.category ?? '').trim())
+                        .filter((c) => c !== ''),
+                ]),
+            );
+            // ensure uncategorized tab exists when needed
+            const hasUncategorized = items.some((i) => !i.category || i.category.trim() === '');
+            const categoriesList = hasUncategorized && !derived.includes('') ? [...derived, ''] : derived;
+            setCategories(categoriesList);
+            setCategoryPrompts(prompts || {});
+            // keep active tab valid
+            const validTabs = new Set(['all', ...categoriesList, '']);
+            setActiveCategoryTab((prev) => (validTabs.has(prev) ? prev : 'all'));
+        } catch (err) {
+            console.error(err);
+            setGalleryError('加载参考图库失败');
+        } finally {
+            setGalleryLoading(false);
+        }
+    }, []);
+
+    const loadCharacterRefs = useCallback(async () => {
+        if (!currentWorkspace?.path) return;
+        try {
+            const data = await fetchCharacterReferences(currentWorkspace.path);
+            setCharacterRefs(data || {});
+        } catch (err) {
+            console.error(err);
+        }
+    }, [currentWorkspace?.path]);
+
+    const persistCharacterRefs = useCallback(
+        async (next: CharacterReferenceMap) => {
+            if (!currentWorkspace?.path) return;
+            setRefsSaving(true);
+            try {
+                await saveCharacterReferences(currentWorkspace.path, next);
+                setCharacterRefs(next);
+            } catch (err) {
+                console.error('保存参考图引用失败', err);
+            } finally {
+                setRefsSaving(false);
+            }
+        },
+        [currentWorkspace?.path],
+    );
+
+    const handleSelectReference = async (charName: string, imageId: string) => {
+        const next = { ...characterRefs, [charName]: imageId };
+        await persistCharacterRefs(next);
+        setShowGalleryModal(false);
+        setActiveCharacterForPick(null);
+    };
+
+    const handleDetachReference = async (charName: string) => {
+        const next = { ...characterRefs };
+        delete next[charName];
+        await persistCharacterRefs(next);
+    };
+
+    const handlePrevImage = (shot: Round2Shot, idx: number) => {
+        const shotId = shot.id ?? idx + 1;
+        let list = generatedImages[shotId] || [];
+        if (!list.length) {
+            void loadExistingImagesForShot(shotId);
+            list = generatedImages[shotId] || [];
+        }
+        if (list.length === 0) return;
+        setGeneratedIndexes((prev) => {
+            const current = prev[shotId] ?? Math.max(0, list.length - 1);
+            if (current <= 0) return prev;
+            const nextIdx = current - 1;
+            return { ...prev, [shotId]: nextIdx };
+        });
+    };
+
+    const handleNextImage = (shot: Round2Shot, idx: number) => {
+        const shotId = shot.id ?? idx + 1;
+        let list = generatedImages[shotId] || [];
+        if (!list.length) {
+            void loadExistingImagesForShot(shotId);
+            list = generatedImages[shotId] || [];
+        }
+        if (list.length === 0) return;
+        setGeneratedIndexes((prev) => {
+            const current = prev[shotId] ?? Math.max(0, list.length - 1);
+            if (current >= list.length - 1) return prev;
+            const nextIdx = current + 1;
+            return { ...prev, [shotId]: nextIdx };
+        });
+    };
+
+    const handleImageSeen = (shot: Round2Shot, idx: number, url: string) => {
+        const shotId = shot.id ?? idx + 1;
+        setNewlyGenerated((prev) => ({ ...prev, [shotId]: (prev[shotId] || []).filter((u) => u !== url) }));
+    };
+
+    const handleUploadReference = async (file?: File) => {
+        if (!file) return;
+        setUploading(true);
+        setGalleryError(null);
+        try {
+            const categoryToUse = activeCategoryTab !== 'all' ? activeCategoryTab : undefined;
+            const item = await uploadReferenceImage(file, uploadName || undefined, categoryToUse);
+            setReferenceGallery((prev) => [...prev, item]);
+        } catch (err) {
+            console.error(err);
+            setGalleryError('上传失败，请重试');
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleDeleteReference = async (id: string) => {
+        try {
+            await deleteReferenceImage(id);
+            setReferenceGallery((prev) => prev.filter((item) => item.id !== id));
+            // Remove from character mappings
+            const next = { ...characterRefs };
+            Object.entries(next).forEach(([k, v]) => {
+                if (v === id) delete next[k];
+            });
+            await persistCharacterRefs(next);
+        } catch (err) {
+            console.error(err);
+            setGalleryError('删除失败，请重试');
+        }
+    };
+
+    const handleSaveCategoryPrompt = async () => {
+        if (activeCategoryTab === 'all') return;
+        setCategoryPromptSaving(true);
+        try {
+            const prompts = await saveCategoryPrompt(activeCategoryTab, categoryPromptInput);
+            setCategoryPrompts(prompts);
+            setToast({ message: '分类提示词已保存', type: 'success' });
+        } catch (err) {
+            console.error(err);
+            setGalleryError('保存分类提示词失败');
+            setToast({ message: '保存分类提示词失败', type: 'error' });
+        } finally {
+            setCategoryPromptSaving(false);
+            setTimeout(() => setToast(null), 3000);
+        }
+    };
+
+    const handleAddCharacter = () => {
+        if (typeof round2Data === 'string') return;
+        const name = newCharacterName.trim();
+        if (!name) {
+            setToast({ message: '请输入角色名称', type: 'error' });
+            setTimeout(() => setToast(null), 3000);
+            return;
+        }
+        if (round2Data?.characters && round2Data.characters[name]) {
+            setToast({ message: '角色已存在', type: 'error' });
+            setTimeout(() => setToast(null), 3000);
+            return;
+        }
+        mutateRound2((draft) => {
+            if (!draft.characters) draft.characters = {};
+            draft.characters[name] = newCharacterDesc.trim();
+        });
+        setNewCharacterName('');
+        setNewCharacterDesc('');
+        setToast({ message: '角色已添加', type: 'success' });
+        setTimeout(() => setToast(null), 3000);
+    };
+
+    const handleCreateCategory = async () => {
+        const name = newCategoryName.trim();
+        if (!name) return;
+        setCategorySaving(true);
+        try {
+            const cats = await createCategory(name);
+            setCategories(cats);
+            setActiveCategoryTab(name);
+            setNewCategoryName('');
+            setToast({ message: '分类已创建', type: 'success' });
+        } catch (err) {
+            console.error(err);
+            setGalleryError('创建分类失败');
+            setToast({ message: '创建分类失败', type: 'error' });
+        } finally {
+            setCategorySaving(false);
+            setTimeout(() => setToast(null), 3000);
+        }
+    };
+
+    const handleRenameCategoryAction = async () => {
+        if (activeCategoryTab === 'all' || activeCategoryTab === '') return;
+        const nextName = renamingCategoryName.trim();
+        if (!nextName || nextName === activeCategoryTab) {
+            setRenamingCategoryName('');
+            return;
+        }
+        setCategorySaving(true);
+        try {
+            const cats = await renameCategory(activeCategoryTab, nextName);
+            // update images locally
+            setReferenceGallery((prev) =>
+                prev.map((item) => (item.category === activeCategoryTab ? { ...item, category: nextName } : item)),
+            );
+            // update prompts
+            const nextPrompts = (() => {
+                const next = { ...categoryPrompts };
+                if (categoryPrompts[activeCategoryTab]) {
+                    next[nextName] = categoryPrompts[activeCategoryTab];
+                    delete next[activeCategoryTab];
+                }
+                return next;
+            })();
+            setCategoryPrompts(nextPrompts);
+            setCategories(cats);
+            setActiveCategoryTab(nextName);
+            setRenamingCategoryName('');
+            setCategoryPromptInput(nextPrompts[nextName] || '');
+            setToast({ message: '分类已重命名', type: 'success' });
+        } catch (err) {
+            console.error(err);
+            setGalleryError('重命名分类失败');
+            setToast({ message: '重命名分类失败', type: 'error' });
+        } finally {
+            setCategorySaving(false);
+            setTimeout(() => setToast(null), 3000);
+        }
+    };
+
+    const handleDeleteCategoryAction = async () => {
+        if (activeCategoryTab === 'all' || activeCategoryTab === '') return;
+        setCategorySaving(true);
+        try {
+            const cats = await deleteCategory(activeCategoryTab, deleteCategoryMode);
+            setCategories(cats);
+            // clear category on images
+            setReferenceGallery((prev) =>
+                prev.map((item) =>
+                    item.category === activeCategoryTab
+                        ? deleteCategoryMode === 'clear'
+                            ? (() => {
+                                  const clone = { ...item };
+                                  delete clone.category;
+                                  return clone;
+                              })()
+                            : { ...item, category: '' }
+                        : item,
+                ),
+            );
+            // remove prompt
+            setCategoryPrompts((prev) => {
+                const next = { ...prev };
+                delete next[activeCategoryTab];
+                return next;
+            });
+            setActiveCategoryTab('all');
+            setShowDeleteCategoryConfirm(false);
+            setToast({ message: '分类已删除', type: 'success' });
+        } catch (err) {
+            console.error(err);
+            setGalleryError('删除分类失败');
+            setToast({ message: '删除分类失败', type: 'error' });
+        } finally {
+            setCategorySaving(false);
+            setTimeout(() => setToast(null), 3000);
+        }
+    };
+
+    const handleRenameReference = async (id: string, name: string, category?: string) => {
+        try {
+            const updated = await renameReferenceImage(id, name, category);
+            setReferenceGallery((prev) =>
+                prev.map((item) =>
+                    item.id === id
+                        ? { ...item, name, category: category ?? item.category, ...(updated || {}) }
+                        : item,
+                ),
+            );
+            setRenamingId(null);
+            setRenameValue('');
+            setRenameCategory('');
+        } catch (err) {
+            console.error(err);
+            setGalleryError('重命名失败，请重试');
+        }
+    };
+
+    const handleUpdateImageCategory = async (id: string, category: string) => {
+        const item = referenceGallery.find((it) => it.id === id);
+        if (!item) return;
+        try {
+            const updated = await renameReferenceImage(id, item.name, category || undefined);
+            setReferenceGallery((prev) =>
+                prev.map((it) =>
+                    it.id === id
+                        ? { ...it, category, ...(updated || {}) }
+                        : it,
+                ),
+            );
+            if (category && !categories.includes(category)) {
+                setCategories((prev) => [...prev, category]);
+            }
+            // force refresh of gallery data to reflect possible backend changes
+            await loadReferenceGallery();
+            setToast({ message: '图片分类已更新', type: 'success' });
+        } catch (err) {
+            console.error(err);
+            setGalleryError('更新图片分类失败');
+            setToast({ message: '更新图片分类失败', type: 'error' });
+        } finally {
+            setTimeout(() => setToast(null), 3000);
+        }
+    };
+    const categoryOptions = useMemo(() => {
+        const ordered = [...categories];
+        let hasUncategorized = referenceGallery.some((item) => !item.category || item.category.trim() === '');
+        const extras = new Set<string>();
+        referenceGallery.forEach((item) => {
+            const cat = (item.category || '').trim();
+            if (!cat) return;
+            if (!ordered.includes(cat)) extras.add(cat);
+        });
+        const merged = [...ordered, ...Array.from(extras)];
+        if (hasUncategorized && !merged.includes('')) merged.push('');
+        return merged;
+    }, [categories, referenceGallery]);
+
+    useEffect(() => {
+        setCategoryPromptInput(categoryPrompts[activeCategoryTab] || '');
+    }, [activeCategoryTab, categoryPrompts]);
+
+    useEffect(() => {
+        if (activeCategoryTab === '' || activeCategoryTab === 'all') {
+            setRenamingCategoryName('');
+        }
+    }, [activeCategoryTab]);
+
+    useEffect(() => {
+        if (showGalleryModal) {
+            void (async () => {
+                try {
+                    const prompts = await fetchCategoryPrompts();
+                    setCategoryPrompts(prompts);
+                    setCategoryPromptInput(prompts[activeCategoryTab] || '');
+                } catch (err) {
+                    console.error(err);
+                }
+            })();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [showGalleryModal]);
+
+    const extractReferenceIds = (shot: Round2Shot): string[] => {
+        const ids = new Set<string>();
+        const regexMatches = (text?: string) => {
+            if (!text) return;
+            const regex = /【([^】]+)】/g;
+            let m: RegExpExecArray | null;
+            while ((m = regex.exec(text))) {
+                const name = m[1];
+                const id = characterRefs[name];
+                if (id) ids.add(id);
+            }
+        };
+        if (typeof shot.initial_frame === 'string') {
+            regexMatches(shot.initial_frame);
+        } else if (shot.initial_frame && typeof shot.initial_frame === 'object') {
+            const frame = shot.initial_frame as StructuredInitialFrame;
+            const layers = [frame.foreground?.characters, frame.midground?.characters];
+            layers.forEach((layer) => {
+                if (Array.isArray(layer)) {
+                    layer.forEach((c) => {
+                        if (typeof c === 'object' && c && 'tag' in c) {
+                            const tag = (c as Record<string, unknown>).tag as string;
+                            const id = characterRefs[tag];
+                            if (id) ids.add(id);
+                        }
+                    });
+                }
+            });
+        }
+        regexMatches(typeof shot.visual_changes === 'string' ? shot.visual_changes : '');
+        return Array.from(ids);
+    };
+
+    const handleGenerateImage = async (shot: Round2Shot, index: number) => {
+        if (!currentWorkspace?.path || !workspaceSlug) {
+            setGenerateError('请先选择工作空间');
+            return;
+        }
+        const shotId = shot.id ?? index + 1;
+        const prompt = `首帧描述: ${typeof shot.initial_frame === 'string' ? shot.initial_frame : JSON.stringify(shot.initial_frame || {})}`;
+        const refs = extractReferenceIds(shot);
+        setGeneratingShots((prev) => ({ ...prev, [shotId]: true }));
+        setGenerateError(null);
+        const callGenerate = async () => {
+            const resp = await fetch(`${API_BASE}/api/generate-image`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    workspace_path: currentWorkspace.path,
+                    shot_id: shotId,
+                    prompt,
+                    reference_image_ids: refs,
+                }),
+            });
+            if (!resp.ok) {
+                const msg = await resp.text();
+                throw new Error(msg);
+            }
+            const data = await resp.json() as { images?: string[] };
+            const absoluted = (data.images || [])
+                .filter(Boolean)
+                .map((img) => img.startsWith('http')
+                    ? img
+                    : `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/generated/shots/${shotId}/${img.split('/').pop()}`);
+            return absoluted;
+        };
+
+        try {
+            const results = await Promise.allSettled([callGenerate(), callGenerate()]);
+            const successImages = results
+                .filter((r): r is PromiseFulfilledResult<string[]> => r.status === 'fulfilled')
+                .flatMap((r) => r.value);
+            const hadSuccess = successImages.length > 0;
+            if (hadSuccess) {
+                let mergedLength = 0;
+                setGeneratedImages((prev) => {
+                    const merged = Array.from(new Set([...(prev[shotId] || []), ...successImages]));
+                    mergedLength = merged.length;
+                    return { ...prev, [shotId]: merged };
+                });
+                setGeneratedIndexes((prev) => ({ ...prev, [shotId]: Math.max(0, mergedLength - 1) }));
+                setNewlyGenerated((prev) => {
+                    const existing = prev[shotId] || [];
+                    const mergedNew = Array.from(new Set([...existing, ...successImages]));
+                    return { ...prev, [shotId]: mergedNew };
+                });
+                setToast({ message: `生成图片成功（${successImages.length} 张）`, type: 'success' });
+                setTimeout(() => setToast(null), 3000);
+                setGenerateErrors((prev) => ({ ...prev, [shotId]: undefined }));
+            } else {
+                const msg = '生成成功但未返回图片';
+                setGenerateError(msg);
+                setGenerateErrors((prev) => ({ ...prev, [shotId]: msg }));
+                setToast({ message: msg, type: 'error' });
+                setTimeout(() => setToast(null), 3000);
+            }
+        } catch (err) {
+            console.error(err);
+            const msg = '生成失败，请重试';
+            setGenerateError(msg);
+            setGenerateErrors((prev) => ({ ...prev, [shotId]: msg }));
+            setToast({ message: msg, type: 'error' });
+            setTimeout(() => setToast(null), 3000);
+        } finally {
+            setGeneratingShots((prev) => {
+                const next = { ...prev };
+                delete next[shotId];
+                return next;
+            });
+        }
+    };
 
     useEffect(() => {
         const fetchAssets = async () => {
@@ -171,6 +711,91 @@ export default function Step3_DeconstructionReview() {
     useEffect(() => {
         loadOptimized();
     }, [loadOptimized]);
+
+    useEffect(() => {
+        loadReferenceGallery();
+    }, [loadReferenceGallery]);
+
+    useEffect(() => {
+        loadCharacterRefs();
+    }, [loadCharacterRefs]);
+
+    // Load persisted generated images per workspace
+    useEffect(() => {
+        if (!generatedStorageKey) return;
+        try {
+            const raw = localStorage.getItem(generatedStorageKey);
+        if (raw) {
+            const parsed = JSON.parse(raw) as Record<number, string | string[]>;
+            const normalized: Record<number, string[]> = {};
+            Object.entries(parsed).forEach(([k, v]) => {
+                const id = Number(k);
+                if (Array.isArray(v)) {
+                    normalized[id] = v;
+                } else if (typeof v === 'string') {
+                    normalized[id] = [v];
+                }
+            });
+            setGeneratedImages(normalized);
+            const idxMap: Record<number, number> = {};
+            Object.entries(normalized).forEach(([k, arr]) => {
+                idxMap[Number(k)] = Math.max(0, arr.length - 1);
+            });
+            setGeneratedIndexes(idxMap);
+        } else {
+            setGeneratedImages({});
+            setGeneratedIndexes({});
+        }
+    } catch {
+        setGeneratedImages({});
+        setGeneratedIndexes({});
+    }
+}, [generatedStorageKey]);
+
+    // Persist generated images when changed
+    useEffect(() => {
+        if (!generatedStorageKey) return;
+        try {
+            localStorage.setItem(generatedStorageKey, JSON.stringify(generatedImages));
+        } catch {
+            // ignore
+        }
+    }, [generatedImages, generatedStorageKey]);
+
+    // Try to auto-detect existing generated images on disk (fallback: image_url_1.png)
+    const loadExistingImagesForShot = useCallback(async (shotId: number) => {
+        if (!workspaceSlug) return;
+        const found: string[] = [];
+        for (let i = 1; i <= 30; i++) {
+            const candidate = `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/generated/shots/${shotId}/image_url_${i}.png`;
+            try {
+                const resp = await fetch(candidate, { method: 'GET' });
+                if (resp.ok) {
+                    found.push(candidate);
+                }
+            } catch {
+                // ignore
+            }
+        }
+        if (found.length) {
+            let mergedLen = 0;
+            setGeneratedImages((prev) => {
+                const merged = Array.from(new Set([...(prev[shotId] || []), ...found]));
+                mergedLen = merged.length;
+                return { ...prev, [shotId]: merged };
+            });
+            setGeneratedIndexes((prev) => ({ ...prev, [shotId]: Math.max(0, mergedLen - 1) }));
+        }
+    }, [workspaceSlug]);
+
+    useEffect(() => {
+        if (!workspaceSlug) return;
+        if (!round2Data || typeof round2Data === 'string') return;
+        const shotIds = (round2Data.shots || []).map((s, idx) => s.id ?? idx + 1);
+        shotIds.forEach((id) => {
+            void loadExistingImagesForShot(id);
+        });
+    }, [workspaceSlug, round2Data, loadExistingImagesForShot]);
 
     const optimizedMapped = useMemo(() => {
         if (!optimizedStoryboard) return { r1: null as Round1Data | null, r2: null as Round2Data | null };
@@ -275,9 +900,8 @@ export default function Step3_DeconstructionReview() {
             const obj = item as Record<string, unknown>;
             const parts: string[] = [];
             if (obj.tag) parts.push(String(obj.tag));
-            if (obj.pose) parts.push(`姿态: ${obj.pose}`);
+            if (obj.pose) parts.push(`姿势: ${obj.pose}`);
             if (obj.expression) parts.push(`表情: ${obj.expression}`);
-            if (obj.clothing) parts.push(`服装: ${obj.clothing}`);
             if (obj.name) parts.push(String(obj.name));
             if (obj.description) parts.push(String(obj.description));
             return parts.length > 0 ? parts.join(' · ') : JSON.stringify(item);
@@ -286,6 +910,7 @@ export default function Step3_DeconstructionReview() {
     };
 
     // Render structured Initial Frame content for diff popover
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const renderInitialFrameDiff = (jsonStr: string) => {
         try {
             const frame = JSON.parse(jsonStr);
@@ -446,20 +1071,14 @@ export default function Step3_DeconstructionReview() {
 
     const copyAllAnnotations = async () => {
         const labelMap: Record<string, string> = {
-            story_summary: '故事概要',
             logic_chain: '底层逻辑链',
             hooks: '前3秒钩子分析',
             viral: '爆款元素',
             characters: '角色库',
         };
         const shotFieldMap: Record<string, string> = {
-            mission: '使命',
             initial_frame: '首帧描述',
             visual_changes: '画面变化',
-            camera: '镜头',
-            audio: '音频',
-            emotion: '节奏/情绪',
-            beat: 'Beat',
         };
 
         const lines: string[] = [];
@@ -518,10 +1137,6 @@ export default function Step3_DeconstructionReview() {
         if (newR1) {
             const skeleton = newR1.round1_skeleton;
             const oldSkeleton = round1Data.round1_skeleton;
-            // story_summary
-            if (normalizeValue(skeleton?.story_summary) !== normalizeValue(oldSkeleton?.story_summary)) {
-                map.set('story_summary', { oldVal: normalizeValue(oldSkeleton?.story_summary), newVal: normalizeValue(skeleton?.story_summary) });
-            }
             // logic_chain
             if (normalizeValue(skeleton?.logic_chain) !== normalizeValue(oldSkeleton?.logic_chain)) {
                 map.set('logic_chain', { oldVal: normalizeValue(oldSkeleton?.logic_chain), newVal: normalizeValue(skeleton?.logic_chain) });
@@ -563,14 +1178,9 @@ export default function Step3_DeconstructionReview() {
             const newShots = newR2.shots || [];
             // Map of internal field names to diffMap key names (some keys differ from field names for ShotCard compatibility)
             const shotFieldKeyMap: Record<string, string> = {
-                mission: 'mission',
                 visual_changes: 'visual_changes',
                 audio: 'audio',
-                camera: 'camera',
-                beat: 'beat',
-                viral_element: 'viral_element',
                 emotion: 'emotion',
-                logic_mapping: 'logic_mapping',
             };
             const shotFields = Object.keys(shotFieldKeyMap) as (keyof typeof shotFieldKeyMap)[];
             for (let i = 0; i < Math.max(oldShots.length, newShots.length); i++) {
@@ -586,7 +1196,7 @@ export default function Step3_DeconstructionReview() {
                         map.set(`shot-${shotId}-${keyName}`, { oldVal: oldFieldVal, newVal: newFieldVal });
                     }
                 }
-                
+
                 // Handle initial_frame sub-fields separately
                 const oldFrame = os?.initial_frame;
                 const newFrame = ns?.initial_frame;
@@ -599,7 +1209,7 @@ export default function Step3_DeconstructionReview() {
                 };
                 const oldParsed = parseFrame(oldFrame);
                 const newParsed = parseFrame(newFrame);
-                
+
                 // Helper to get nested array as string
                 const getArrayStr = (obj: Record<string, unknown> | null, path: string[]): string => {
                     if (!obj) return '';
@@ -619,7 +1229,7 @@ export default function Step3_DeconstructionReview() {
                     }
                     return typeof val === 'string' ? val : '';
                 };
-                
+
                 // Compare each sub-field of initial_frame
                 const initialSubFields = [
                     { key: 'initial_fg_chars', path: ['foreground', 'characters'], isArray: true },
@@ -671,26 +1281,20 @@ export default function Step3_DeconstructionReview() {
 
         // Parse Round 2
         if (compareRound2Text.trim()) {
-            try {
-                JSON.parse(compareRound2Text);
-                const parsed = parseRound2(compareRound2Text);
-                if (parsed.error) {
-                    setCompareRound2Error(parsed.error);
-                    hasError = true;
-                } else {
-                    r2 = parsed.data as Round2Data;
-                    setCompareRound2Error(null);
-                }
-            } catch (err) {
-                setCompareRound2Error(`JSON 解析失败: ${err instanceof Error ? err.message : '未知错误'}`);
+            const parsed = parseRound2(compareRound2Text);
+            if (parsed.error) {
+                setCompareRound2Error(parsed.error);
                 hasError = true;
+            } else {
+                r2 = parsed.data as Round2Data;
+                setCompareRound2Error(null);
             }
         } else {
             setCompareRound2Error(null);
         }
 
         if (!compareRound1Text.trim() && !compareRound2Text.trim()) {
-            setCompareRound1Error('请至少粘贴 Round 1 或 Round 2 的 JSON');
+            setCompareRound1Error('请至少粘贴 Round 1 JSON 或 Round 2 Markdown');
             return;
         }
 
@@ -706,11 +1310,7 @@ export default function Step3_DeconstructionReview() {
         if (!diff) return;
 
         // Apply the new value based on key pattern
-        if (key === 'story_summary') {
-            mutateRound1((draft) => {
-                draft.round1_skeleton = { ...(draft.round1_skeleton || {}), story_summary: diff.newVal };
-            });
-        } else if (key === 'logic_chain') {
+        if (key === 'logic_chain') {
             mutateRound1((draft) => {
                 draft.round1_skeleton = { ...(draft.round1_skeleton || {}), logic_chain: diff.newVal };
             });
@@ -739,7 +1339,7 @@ export default function Step3_DeconstructionReview() {
             if (match) {
                 const shotId = parseInt(match[1]);
                 const keyName = match[2];
-                
+
                 // Check if this is an initial_frame sub-field
                 const initialSubFieldMap: Record<string, { path: string[]; isArray: boolean }> = {
                     initial_fg_chars: { path: ['foreground', 'characters'], isArray: true },
@@ -751,7 +1351,7 @@ export default function Step3_DeconstructionReview() {
                     initial_lighting: { path: ['lighting'], isArray: false },
                     initial_palette: { path: ['color_palette'], isArray: false },
                 };
-                
+
                 if (keyName in initialSubFieldMap) {
                     // Handle initial_frame sub-field
                     const { path, isArray } = initialSubFieldMap[keyName];
@@ -759,17 +1359,17 @@ export default function Step3_DeconstructionReview() {
                         if (!draft.shots) return;
                         const shotIdx = draft.shots.findIndex((s) => (s.id ?? 0) === shotId);
                         if (shotIdx < 0) return;
-                        
+
                         // Get or create initial_frame object
                         let frame = draft.shots[shotIdx].initial_frame;
                         if (typeof frame === 'string') {
                             try { frame = JSON.parse(frame); } catch { frame = {}; }
                         }
                         if (!frame || typeof frame !== 'object') frame = {};
-                        
+
                         // Parse new value
                         const newVal = isArray ? JSON.parse(diff.newVal || '[]') : diff.newVal;
-                        
+
                         // Set nested value
                         let target = frame as Record<string, unknown>;
                         for (let i = 0; i < path.length - 1; i++) {
@@ -779,7 +1379,7 @@ export default function Step3_DeconstructionReview() {
                             target = target[path[i]] as Record<string, unknown>;
                         }
                         target[path[path.length - 1]] = newVal;
-                        
+
                         draft.shots[shotIdx].initial_frame = frame as Round2Shot['initial_frame'];
                     });
                 } else {
@@ -871,12 +1471,14 @@ export default function Step3_DeconstructionReview() {
         }
 
         const result = parseStoredDeconstruction(project.deconstructionText);
+        const round1TextHydrated = result.rawRound1Text ?? (result.round1 ? (typeof result.round1 === 'string' ? result.round1 : JSON.stringify(result.round1, null, 2)) : '');
+        const round2TextHydrated = result.rawRound2Text ?? (result.round2 ? (typeof result.round2 === 'string' ? result.round2 : JSON.stringify(result.round2, null, 2)) : '');
         setRound1Data(result.round1 as Round1Data);
         setRound2Data(result.round2 as Round2Data);
         setRound1Error(result.errorsRound1.length ? result.errorsRound1.join('；') : null);
         setRound2Error(result.errorsRound2.length ? result.errorsRound2.join('；') : null);
-        setRound1Text(result.round1 ? (typeof result.round1 === 'string' ? result.round1 : JSON.stringify(result.round1, null, 2)) : '');
-        setRound2Text(result.round2 ? (typeof result.round2 === 'string' ? result.round2 : JSON.stringify(result.round2, null, 2)) : '');
+        setRound1Text(round1TextHydrated);
+        setRound2Text(round2TextHydrated);
         if (mode !== 'review') {
             setSavingState('idle');
         }
@@ -902,8 +1504,8 @@ export default function Step3_DeconstructionReview() {
 
             const payload = JSON.stringify(
                 {
-                    round1: parsed1.data ?? (nextRound1.trim() ? nextRound1 : undefined),
-                    round2: parsed2.data ?? (nextRound2.trim() ? nextRound2 : undefined),
+                    round1: parsed1.data ?? undefined,
+                    round2: parsed2.data ?? undefined,
                 },
                 null,
                 2,
@@ -992,13 +1594,14 @@ export default function Step3_DeconstructionReview() {
     }, [assets]);
 
     return (
+        <>
         <div className="space-y-12 pb-32">
             {/* Header */}
             <div className="glass-card p-5 space-y-3">
                 <div className="flex items-center justify-between">
                     <h2 className="text-2xl font-bold text-[var(--color-text-primary)] flex items-center gap-2">
                         <Film size={24} className="text-blue-400" />
-                        剧本重构
+                        人工改写
                     </h2>
                     <button
                         onClick={nextStep}
@@ -1011,7 +1614,7 @@ export default function Step3_DeconstructionReview() {
                     {modeSubtitleMap[mode]}
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
-                    {modeOptions.map(({ key, label, helper }) => (
+                    {!hideModeSwitcher && modeOptions.map(({ key, label, helper }) => (
                         <button
                             key={key}
                             onClick={() => setMode(key)}
@@ -1050,32 +1653,34 @@ export default function Step3_DeconstructionReview() {
                         {promptCopyStatus === 'copied' ? <Check size={14} /> : <Copy size={14} />}
                         <span>{promptCopyStatus === 'loading' ? '加载中...' : promptCopyStatus === 'copied' ? '已复制' : '复制剧本优化提示词'}</span>
                     </button>
-                    <button
-                        onClick={copyAllAnnotations}
-                        className={`
-                            flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
-                            ${copyStatus === 'copied'
-                                ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                                : copyStatus === 'empty'
-                                    ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-                                    : copyStatus === 'error'
-                                        ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                                        : 'bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/20'}
-                        `}
-                    >
-                        {copyStatus === 'copied' ? <Check size={14} /> : <MessageSquare size={14} />}
-                        <span>
-                            {copyStatus === 'copied'
-                                ? '已复制批注'
-                                : copyStatus === 'empty'
-                                    ? '批注为空'
-                                    : copyStatus === 'error'
-                                        ? '复制失败'
-                                        : '复制批注'}
-                        </span>
-                    </button>
+                    {!hideAnnotations && (
+                        <button
+                            onClick={copyAllAnnotations}
+                            className={`
+                                flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+                                ${copyStatus === 'copied'
+                                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                                    : copyStatus === 'empty'
+                                        ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                                        : copyStatus === 'error'
+                                            ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                            : 'bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/20'}
+                            `}
+                        >
+                            {copyStatus === 'copied' ? <Check size={14} /> : <MessageSquare size={14} />}
+                            <span>
+                                {copyStatus === 'copied'
+                                    ? '已复制批注'
+                                    : copyStatus === 'empty'
+                                        ? '批注为空'
+                                        : copyStatus === 'error'
+                                            ? '复制失败'
+                                            : '复制批注'}
+                            </span>
+                        </button>
+                    )}
                     {/* Compare JSON Button - Only in review mode */}
-                    {mode === 'review' && (
+                    {mode === 'review' && !hideCompare && (
                         <button
                             onClick={() => setShowComparePanel(!showComparePanel)}
                             className={`
@@ -1086,18 +1691,18 @@ export default function Step3_DeconstructionReview() {
                             `}
                         >
                             <ClipboardPaste size={14} />
-                            <span>{compareData ? `对比中 (${diffMap.size}处差异)` : '粘贴JSON对比'}</span>
+                            <span>{compareData ? `对比中 (${diffMap.size}处差异)` : '粘贴数据对比'}</span>
                         </button>
                     )}
                 </div>
 
-                {/* Compare JSON Panel - Only visible when showComparePanel is true */}
-                {mode === 'review' && showComparePanel && (
+                {/* Compare Panel - Only visible when showComparePanel is true */}
+                {mode === 'review' && !hideCompare && showComparePanel && (
                     <div className="p-4 rounded-xl bg-[var(--color-bg-secondary)]/50 border border-amber-500/30 space-y-3">
                         <div className="flex items-center justify-between">
                             <h4 className="text-sm font-semibold text-amber-400 flex items-center gap-2">
                                 <ClipboardPaste size={16} />
-                                粘贴新 JSON 进行对比
+                                粘贴 Round 1 JSON / Round 2 Markdown 进行对比
                             </h4>
                             <div className="flex items-center gap-2">
                                 {compareData && (
@@ -1113,7 +1718,7 @@ export default function Step3_DeconstructionReview() {
                                 </button>
                             </div>
                         </div>
-                        {/* Two separate JSON inputs for Round 1 and Round 2 */}
+                        {/* Two separate inputs for Round 1 (JSON) and Round 2 (Markdown) */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* Round 1 Input */}
                             <div className="space-y-2">
@@ -1122,11 +1727,10 @@ export default function Step3_DeconstructionReview() {
                                     value={compareRound1Text}
                                     onChange={(e) => setCompareRound1Text(e.target.value)}
                                     placeholder="粘贴 Round 1 JSON（含 round1_skeleton 和 round1_hook）..."
-                                    className={`w-full h-28 bg-[var(--color-bg-primary)] border rounded-lg p-3 text-xs font-mono text-[var(--color-text-primary)] focus:outline-none focus:ring-1 resize-none ${
-                                        compareRound1Error 
-                                            ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20' 
+                                    className={`w-full h-28 bg-[var(--color-bg-primary)] border rounded-lg p-3 text-xs font-mono text-[var(--color-text-primary)] focus:outline-none focus:ring-1 resize-none ${compareRound1Error
+                                            ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20'
                                             : 'border-[var(--glass-border)] focus:border-blue-500/50 focus:ring-blue-500/20'
-                                    }`}
+                                        }`}
                                 />
                                 {compareRound1Error && (
                                     <div className="text-xs text-red-400 flex items-center gap-1">
@@ -1137,16 +1741,15 @@ export default function Step3_DeconstructionReview() {
                             </div>
                             {/* Round 2 Input */}
                             <div className="space-y-2">
-                                <label className="text-xs font-semibold text-purple-400">Round 2: 分镜头分析</label>
+                                <label className="text-xs font-semibold text-purple-400">Round 2: 分镜头分析（Markdown）</label>
                                 <textarea
                                     value={compareRound2Text}
                                     onChange={(e) => setCompareRound2Text(e.target.value)}
-                                    placeholder="粘贴 Round 2 JSON（含 characters 和 shots）..."
-                                    className={`w-full h-28 bg-[var(--color-bg-primary)] border rounded-lg p-3 text-xs font-mono text-[var(--color-text-primary)] focus:outline-none focus:ring-1 resize-none ${
-                                        compareRound2Error 
-                                            ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20' 
+                                    placeholder="粘贴 Round 2 Markdown（含角色说明 + 分镜表格）..."
+                                    className={`w-full h-28 bg-[var(--color-bg-primary)] border rounded-lg p-3 text-xs font-mono text-[var(--color-text-primary)] focus:outline-none focus:ring-1 resize-none ${compareRound2Error
+                                            ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20'
                                             : 'border-[var(--glass-border)] focus:border-purple-500/50 focus:ring-purple-500/20'
-                                    }`}
+                                        }`}
                                 />
                                 {compareRound2Error && (
                                     <div className="text-xs text-red-400 flex items-center gap-1">
@@ -1208,6 +1811,11 @@ export default function Step3_DeconstructionReview() {
             </div>
 
             <div className="mx-auto px-8 py-6 space-y-8 relative">
+                {generateError && (
+                    <div className="p-3 rounded-lg border border-amber-500/40 bg-amber-500/10 text-sm text-amber-300">
+                        {generateError}
+                    </div>
+                )}
 
                 {/* Final Mode Metadata & Analysis */}
                 {(mode === 'final' || mode === 'revision') && (
@@ -1346,36 +1954,6 @@ export default function Step3_DeconstructionReview() {
                     <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
                         {/* Left Column: Narrative Flow (7/12) */}
                         <div className="xl:col-span-7 space-y-8">
-                            {/* Story Summary */}
-                            <div className="glass-card p-8 rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-
-                                <div className="flex items-center gap-3 text-blue-400 mb-6 relative z-10">
-                                    <div className="p-2 rounded-xl bg-blue-500/10 ring-1 ring-blue-500/20">
-                                        <BookOpen size={20} />
-                                    </div>
-                                    <span className="font-bold text-lg text-slate-700">故事概要</span>
-                                    {renderAnnotationControl('story_summary', '故事概要')}
-                                </div>
-                                {typeof round1Data === 'string' ? (
-                                    <p className="text-sm text-white/40 italic">JSON 解析失败</p>
-                                ) : (
-                                    <AutoTextArea
-                                        value={round1Data?.round1_skeleton?.story_summary || ''}
-                                        onChange={(e) =>
-                                            mutateRound1((draft) => {
-                                                draft.round1_skeleton = { ...(draft.round1_skeleton || {}), story_summary: e.target.value };
-                                            })
-                                        }
-                                        readOnly={!canEdit}
-                                        minRows={1}
-                                        maxRows={24}
-                                        className="w-full bg-black/5 border border-black/10 rounded-2xl p-6 text-base text-slate-700 focus:outline-none focus:border-blue-500/30 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 leading-relaxed resize-none placeholder:text-slate-400 shadow-inner"
-                                        placeholder="输入故事概要..."
-                                    />
-                                )}
-                            </div>
-
                             {/* Logic Chain */}
                             <div className="glass-card p-6 rounded-2xl border border-white/10 bg-gradient-to-br from-blue-500/5 to-purple-500/5 backdrop-blur-xl shadow-xl">
                                 <div className="flex items-center gap-3 text-white/90 mb-4">
@@ -1587,8 +2165,7 @@ export default function Step3_DeconstructionReview() {
                     </div>
 
                     {/* Characters */}
-                    {/* Characters */}
-                    {typeof round2Data !== 'string' && round2Data?.characters && Object.keys(round2Data.characters).length > 0 && (
+                    {typeof round2Data !== 'string' && (
                         <div className="space-y-6">
                             {/* Enhanced Title Section */}
                             <div className="relative">
@@ -1600,68 +2177,158 @@ export default function Step3_DeconstructionReview() {
                                         <h3 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-slate-800 to-slate-600">
                                             角色库
                                         </h3>
-                                        <p className="text-sm text-slate-500 mt-0.5">Character Library · {Object.keys(round2Data.characters).length} 位角色</p>
+                                        <p className="text-sm text-slate-500 mt-0.5">
+                                            Character Library · {round2Data?.characters ? Object.keys(round2Data.characters).length : 0} 位角色
+                                        </p>
                                     </div>
-                                    {renderAnnotationControl('characters', '角色库')}
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => {
+                                                setActiveCharacterForPick(null);
+                                                setShowGalleryModal(true);
+                                            }}
+                                            className="px-3 py-1.5 rounded-lg text-sm bg-blue-500/10 text-blue-500 border border-blue-500/30 hover:bg-blue-500/20 transition"
+                                        >
+                                            参考图库
+                                        </button>
+                                        {renderAnnotationControl('characters', '角色库')}
+                                    </div>
                                 </div>
                                 <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
                             </div>
 
+                            {/* Add Character */}
+                            {canEdit && (
+                                <div className="glass-card p-4 rounded-2xl border border-slate-200/70 bg-white/70">
+                                    <div className="flex flex-col md:flex-row gap-3 items-start md:items-end">
+                                        <div className="flex-1 flex flex-col gap-2 w-full">
+                                            <div className="flex flex-col gap-1">
+                                                <label className="text-xs text-slate-500">角色名称</label>
+                                                <input
+                                                    value={newCharacterName}
+                                                    onChange={(e) => setNewCharacterName(e.target.value)}
+                                                    placeholder="如：格子衬衫男主"
+                                                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+                                                />
+                                            </div>
+                                            <div className="flex flex-col gap-1">
+                                                <label className="text-xs text-slate-500">角色描述</label>
+                                                <AutoTextArea
+                                                    value={newCharacterDesc}
+                                                    onChange={(e) => setNewCharacterDesc(e.target.value)}
+                                                    minRows={2}
+                                                    maxRows={6}
+                                                    placeholder="外观、妆造、性格、标志物..."
+                                                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none"
+                                                />
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={handleAddCharacter}
+                                            className="whitespace-nowrap px-4 py-2.5 rounded-xl bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 transition disabled:opacity-60"
+                                            disabled={!newCharacterName.trim()}
+                                        >
+                                            添加角色
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Enhanced Character Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                {Object.entries(round2Data.characters).map(([name, desc], index) => (
-                                    <div
-                                        key={index}
-                                        className="group relative overflow-hidden rounded-2xl border border-slate-200/60 bg-gradient-to-br from-white to-slate-50/30 backdrop-blur-sm transition-all duration-500 hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1 hover:border-blue-300/50"
-                                    >
-                                        {/* Gradient Overlay on Hover */}
-                                        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                            {round2Data?.characters && Object.keys(round2Data.characters).length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                    {Object.entries(round2Data.characters).map(([name, desc], index) => {
+                                        const refId = characterRefs[name];
+                                        const refImage = referenceGallery.find((item) => item.id === refId);
+                                        return (
+                                            <div
+                                                key={index}
+                                                className="group relative overflow-hidden rounded-2xl border border-slate-200/60 bg-gradient-to-br from-white to-slate-50/30 backdrop-blur-sm transition-all duration-500 hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1 hover:border-blue-300/50"
+                                            >
+                                                {/* Gradient Overlay on Hover */}
+                                                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-                                        {/* Shine Effect */}
-                                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                                                {/* Shine Effect */}
+                                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
 
-                                        <div className="relative z-10 p-6 space-y-4">
-                                            {/* Avatar Circle */}
-                                            <div className="flex items-start justify-between">
-                                                <div className="relative">
-                                                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-pink-500/20 flex items-center justify-center text-3xl font-bold text-slate-700 group-hover:scale-110 transition-all duration-300 shadow-md ring-2 ring-white/50">
-                                                        {name[0]}
-                                                    </div>
-                                                    {/* Badge Decoration */}
-                                                    <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center shadow-lg">
-                                                        <Users size={12} className="text-white" />
+                                                <div className="relative z-10 p-5">
+                                                    <div className="flex gap-4">
+                                                        {/* Left: Reference image (9:16) or Avatar placeholder */}
+                                                        <div className="flex-shrink-0 w-24">
+                                                            {refImage ? (
+                                                                <div
+                                                                    className="relative aspect-[9/16] rounded-xl overflow-hidden border border-blue-200/60 bg-slate-900 shadow-lg cursor-zoom-in"
+                                                                    onClick={() => setPreviewImage({ url: refImage.url, name: refImage.name })}
+                                                                >
+                                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                    <img src={refImage.url} alt={refImage.name} className="w-full h-full object-cover" />
+                                                                </div>
+                                                            ) : (
+                                                                <div className="relative aspect-[9/16] rounded-xl bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 border border-slate-200/60 flex items-center justify-center">
+                                                                    <span className="text-4xl font-bold text-slate-400">{name[0]}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Right: Character info */}
+                                                        <div className="flex-1 flex flex-col min-w-0">
+                                                            {/* Header: Name & Actions */}
+                                                            <div className="flex items-start justify-between gap-2 mb-2">
+                                                                <div>
+                                                                    <h4 className="text-lg font-bold text-slate-800 tracking-tight group-hover:text-blue-600 transition-colors duration-300 truncate">
+                                                                        {name}
+                                                                    </h4>
+                                                                    <div className="h-0.5 w-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mt-1 group-hover:w-16 transition-all duration-500" />
+                                                                </div>
+                                                                <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setActiveCharacterForPick(name);
+                                                                            setShowGalleryModal(true);
+                                                                        }}
+                                                                        className="px-2 py-1 rounded-md text-[11px] bg-blue-500/10 text-blue-600 border border-blue-500/30 hover:bg-blue-500/20 transition whitespace-nowrap"
+                                                                    >
+                                                                        {refImage ? '更换' : '选图'}
+                                                                    </button>
+                                                                    {refImage && (
+                                                                        <button
+                                                                            onClick={() => handleDetachReference(name)}
+                                                                            className="px-2 py-0.5 rounded-md text-[10px] text-slate-400 hover:text-red-500 transition"
+                                                                        >
+                                                                            取消
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Character Description */}
+                                                            <textarea
+                                                                value={typeof desc === 'string' ? desc : JSON.stringify(desc)}
+                                                                onChange={(e) =>
+                                                                    mutateRound2((draft) => {
+                                                                        if (!draft.characters) draft.characters = {};
+                                                                        draft.characters[name] = e.target.value;
+                                                                    })
+                                                                }
+                                                                readOnly={!canEdit}
+                                                                className="flex-1 w-full bg-slate-50/50 border border-slate-200/60 rounded-lg p-2 text-xs text-slate-600 leading-relaxed group-hover:text-slate-800 transition-colors focus:ring-1 focus:ring-blue-500/30 focus:outline-none focus:border-blue-300 resize-none"
+                                                                placeholder="输入角色描述..."
+                                                            />
+                                                        </div>
                                                     </div>
                                                 </div>
+
+                                                {/* Bottom Gradient Bar */}
+                                                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
                                             </div>
-
-                                            {/* Character Name */}
-                                            <div>
-                                                <h4 className="text-xl font-bold text-slate-800 tracking-tight group-hover:text-blue-600 transition-colors duration-300">
-                                                    {name}
-                                                </h4>
-                                                <div className="h-1 w-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mt-2 group-hover:w-full transition-all duration-500" />
-                                            </div>
-
-                                            {/* Character Description */}
-                                            <textarea
-                                                value={typeof desc === 'string' ? desc : JSON.stringify(desc)}
-                                                onChange={(e) =>
-                                                    mutateRound2((draft) => {
-                                                        if (!draft.characters) draft.characters = {};
-                                                        draft.characters[name] = e.target.value;
-                                                    })
-                                                }
-                                                readOnly={!canEdit}
-                                                className="w-full bg-transparent border-none p-0 text-sm text-slate-600 leading-relaxed group-hover:text-slate-800 transition-colors focus:ring-0 focus:outline-none resize-none min-h-[80px]"
-                                                placeholder="输入角色描述..."
-                                            />
-                                        </div>
-
-                                        {/* Bottom Gradient Bar */}
-                                        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
-                                    </div>
-                                ))}
-                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="glass-card p-6 rounded-2xl border border-dashed border-slate-200 text-sm text-slate-500">
+                                    暂无角色，请添加角色信息。
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -1712,13 +2379,32 @@ export default function Step3_DeconstructionReview() {
                                     frameUrl={frameUrl}
                                     diffMap={diffMap}
                                     onAcceptDiff={handleAcceptDiff}
+                                    characterLibrary={typeof round2Data !== 'string' ? round2Data?.characters : undefined}
+                                    generatedImageUrls={generatedImages[shot.id ?? index + 1] || []}
+                                    generatedImageIndex={generatedIndexes[shot.id ?? index + 1]}
+                                    onPrevGenerated={handlePrevImage}
+                                    onNextGenerated={handleNextImage}
+                                    isGenerating={!!generatingShots[shot.id ?? index + 1]}
+                                    onGenerateImage={handleGenerateImage}
+                                    highlightGenerated={!!(newlyGenerated[shot.id ?? index + 1]?.length)}
+                                    newImages={newlyGenerated[shot.id ?? index + 1] || []}
+                                    onImageSeen={handleImageSeen}
+                                    generateError={generateErrors[shot.id ?? index + 1]}
+                                    canPrevGenerated={(generatedIndexes[shot.id ?? index + 1] ?? 0) > 0}
+                                    canNextGenerated={
+                                        (() => {
+                                            const list = generatedImages[shot.id ?? index + 1] || [];
+                                            const current = generatedIndexes[shot.id ?? index + 1] ?? Math.max(0, list.length - 1);
+                                            return current < list.length - 1;
+                                        })()
+                                    }
                                 />
                             );
                         })}
                         {typeof round2Data === 'string' && (
                             <div className="glass-card p-6 border-amber-500/30 bg-amber-500/5">
                                 <div className="text-amber-400 text-base font-medium mb-3 flex items-center gap-2">
-                                    <AlertCircle size={20} /> JSON 解析失败
+                                    <AlertCircle size={20} /> Markdown 解析失败
                                 </div>
                                 <pre className="text-sm text-amber-200/70 whitespace-pre-wrap font-mono overflow-x-auto">
                                     {round2Data}
@@ -1755,5 +2441,382 @@ export default function Step3_DeconstructionReview() {
                 </div>
             </div>
         </div >
+        {toast && (
+            <div
+                className="fixed bottom-4 right-4 z-[9999] px-4 py-3 rounded-lg shadow-lg text-sm border"
+                style={{
+                    background: toast.type === 'success' ? 'rgba(16,185,129,0.15)' : 'rgba(248,113,113,0.15)',
+                    borderColor: toast.type === 'success' ? 'rgba(16,185,129,0.4)' : 'rgba(248,113,113,0.4)',
+                    color: toast.type === 'success' ? '#10b981' : '#f87171',
+                }}
+            >
+                {toast.message}
+            </div>
+        )}
+        {previewImage && (
+            <div
+                className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 md:p-8"
+                onClick={() => setPreviewImage(null)}
+            >
+                <div
+                    className="relative w-full max-w-6xl max-h-[90vh] flex flex-col gap-4 rounded-3xl border border-white/10 bg-black/80 shadow-2xl p-4 md:p-6"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="flex items-center justify-between text-white text-sm">
+                        <span className="truncate">{previewImage.name || '参考图预览'}</span>
+                        <button
+                            onClick={() => setPreviewImage(null)}
+                            className="px-3 py-1 rounded bg-white/10 hover:bg-white/20 transition text-xs"
+                        >
+                            关闭
+                        </button>
+                    </div>
+                    <div className="relative w-full flex-1 overflow-hidden rounded-2xl bg-black/70 border border-white/10 flex items-center justify-center p-2">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src={previewImage.url}
+                            alt={previewImage.name || ''}
+                            className="max-h-[80vh] max-w-full object-contain rounded-xl"
+                        />
+                    </div>
+                </div>
+            </div>
+        )}
+        {showGalleryModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
+                <div className="glass-card w-full max-w-5xl max-h-[85vh] overflow-hidden border border-[var(--glass-border)] shadow-2xl rounded-3xl">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--glass-border)] bg-gradient-to-r from-blue-500/5 to-purple-500/5">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                                <Layout size={24} className="text-white" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-[var(--color-text-primary)]">参考图库</h2>
+                                <p className="text-sm text-[var(--color-text-secondary)]">
+                                    {activeCharacterForPick ? `为「${activeCharacterForPick}」选择参考图` : '管理全局参考图库 · 所有工作空间可见'}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            {refsSaving && <span className="text-xs text-blue-400 animate-pulse">保存中...</span>}
+                            <button
+                                onClick={() => {
+                                    setShowGalleryModal(false);
+                                    setActiveCharacterForPick(null);
+                                }}
+                                className="p-2.5 rounded-xl hover:bg-slate-200/60 transition-all duration-200"
+                            >
+                                <X size={20} className="text-slate-500" />
+                            </button>
+                        </div>
+                    </div>
+                    <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
+                        {/* Category Tabs */}
+                        <div className="flex flex-wrap items-center gap-2 px-1">
+                            {(['all', ...categoryOptions] as string[]).map((cat) => {
+                                const label = cat === 'all' ? '全部' : cat === '' ? '未分类' : cat;
+                                const active = activeCategoryTab === cat;
+                                return (
+                                    <button
+                                        key={cat || 'uncategorized'}
+                                        onClick={() => {
+                                            setActiveCategoryTab(cat);
+                                            setRenamingCategoryName('');
+                                        }}
+                                        className={`px-3 py-1.5 rounded-xl text-sm border transition ${
+                                            active
+                                                ? 'bg-blue-500 text-white border-blue-500 shadow-sm'
+                                                : 'bg-white text-slate-600 border-slate-200 hover:border-blue-200 hover:text-blue-600'
+                                        }`}
+                                    >
+                                        {label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Upload Section (simplified) */}
+                        <div className="flex flex-wrap items-center gap-4 p-4 rounded-2xl bg-slate-50/80 border border-slate-200/60">
+                            <label className="relative cursor-pointer group">
+                                <div className={`px-5 py-2.5 rounded-xl text-sm font-medium shadow-md transition-all duration-200 ${uploading ? 'bg-slate-400 text-white' : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-lg hover:shadow-blue-500/40'}`}>
+                                    {uploading ? '上传中...' : '选择图片'}
+                                </div>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) void handleUploadReference(file);
+                                        e.target.value = '';
+                                    }}
+                                    disabled={uploading}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                />
+                            </label>
+                            <span className="text-xs text-slate-400">支持 PNG / JPG / WebP，默认归入当前标签</span>
+                            {galleryError && <span className="text-xs text-amber-500 font-medium">{galleryError}</span>}
+                        </div>
+
+                        {/* Upload & Search Section */}
+                        <div className="flex flex-wrap items-center gap-4 p-4 rounded-2xl bg-slate-50/80 border border-slate-200/60">
+                            <label className="relative cursor-pointer group">
+                                <div className={`px-5 py-2.5 rounded-xl text-sm font-medium shadow-md transition-all duration-200 ${uploading ? 'bg-slate-400 text-white' : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-lg hover:shadow-blue-500/40'}`}>
+                                    {uploading ? '上传中...' : '选择图片'}
+                                </div>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) void handleUploadReference(file);
+                                        e.target.value = '';
+                                    }}
+                                    disabled={uploading}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                />
+                            </label>
+                            <input
+                                type="text"
+                                value={uploadName}
+                                onChange={(e) => setUploadName(e.target.value)}
+                                placeholder="图片名称（可选）"
+                                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm w-48 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
+                            />
+                            <input
+                                type="text"
+                                value={uploadCategory}
+                                onChange={(e) => setUploadCategory(e.target.value)}
+                                placeholder="分类（默认使用当前标签）"
+                                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm w-48 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
+                            />
+                            <div className="flex items-center gap-2 ml-auto">
+                                <input
+                                    type="text"
+                                    value={gallerySearch}
+                                    onChange={(e) => setGallerySearch(e.target.value)}
+                                    placeholder="搜索当前标签下的图片..."
+                                    className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm w-56 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
+                                />
+                            </div>
+                            <span className="text-xs text-slate-400">支持 PNG / JPG / WebP</span>
+                            {galleryError && <span className="text-xs text-amber-500 font-medium">{galleryError}</span>}
+                        </div>
+                        {/* Gallery Grid */}
+                        {galleryLoading ? (
+                            <div className="flex items-center justify-center py-12 text-slate-400">
+                                <RefreshCw size={20} className="animate-spin mr-2" />
+                                加载中...
+                            </div>
+                        ) : referenceGallery.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                                <Layout size={48} className="mb-4 opacity-30" />
+                                <p className="text-sm">暂无参考图片</p>
+                                <p className="text-xs mt-1">点击上方按钮上传图片</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                {referenceGallery
+                                    .filter((item) => activeCategoryTab === 'all' || (item.category || '') === activeCategoryTab)
+                                    .map((item) => (
+                                    <div key={item.id} className="group relative rounded-2xl overflow-hidden border border-slate-200/60 bg-white shadow-sm hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1 transition-all duration-300">
+                                        {/* 9:16 Image */}
+                                        <div
+                                            className="relative aspect-[9/16] bg-slate-900 cursor-zoom-in"
+                                            onClick={(e) => {
+                                                // avoid opening preview when editing name or clicking action buttons
+                                                if (renamingId === item.id) return;
+                                                if ((e.target as HTMLElement)?.closest('[data-stop-preview]')) return;
+                                                setPreviewImage({ url: item.url, name: item.name });
+                                            }}
+                                        >
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
+                                            {/* Hover Overlay */}
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                            {/* Select Button (when picking for character) */}
+                                            {activeCharacterForPick && (
+                                                <button
+                                                    data-stop-preview
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        void handleSelectReference(activeCharacterForPick, item.id);
+                                                    }}
+                                                    className="absolute top-2 right-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-500 text-white shadow-lg opacity-0 group-hover:opacity-100 hover:bg-blue-600 transition-all duration-200"
+                                                >
+                                                    选择此图
+                                                </button>
+                                            )}
+                                            {/* Action Buttons */}
+                                            <div
+                                                className="absolute bottom-2 left-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                                                data-stop-preview
+                                            >
+                                                {renamingId === item.id ? (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            void handleRenameReference(item.id, renameValue || item.name, renameCategory);
+                                                        }}
+                                                        className="flex-1 px-2 py-1.5 rounded-lg text-xs font-medium bg-emerald-500 text-white hover:bg-emerald-600 transition"
+                                                    >
+                                                        确认
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setRenamingId(item.id);
+                                                            setRenameValue(item.name);
+                                                            setRenameCategory(item.category || '');
+                                                        }}
+                                                        className="flex-1 px-2 py-1.5 rounded-lg text-xs font-medium bg-white/90 text-slate-700 hover:bg-white transition"
+                                                    >
+                                                        重命名
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        void handleDeleteReference(item.id);
+                                                    }}
+                                                    className="px-2 py-1.5 rounded-lg text-xs font-medium bg-red-500/90 text-white hover:bg-red-600 transition"
+                                                >
+                                                    删除
+                                                </button>
+                                            </div>
+                                        </div>
+                                        {/* Name & Category */}
+                                        <div className="p-2.5 space-y-2">
+                                            {renamingId === item.id ? (
+                                                <div className="space-y-2">
+                                                    <input
+                                                        value={renameValue}
+                                                        onChange={(e) => setRenameValue(e.target.value)}
+                                                        className="w-full text-xs px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                                                        autoFocus
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') void handleRenameReference(item.id, renameValue || item.name, renameCategory);
+                                                            if (e.key === 'Escape') {
+                                                                setRenamingId(null);
+                                                                setRenameCategory('');
+                                                            }
+                                                        }}
+                                                        placeholder="名称"
+                                                    />
+                                                    <input
+                                                        value={renameCategory}
+                                                        onChange={(e) => setRenameCategory(e.target.value)}
+                                                        className="w-full text-xs px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') void handleRenameReference(item.id, renameValue || item.name, renameCategory);
+                                                            if (e.key === 'Escape') {
+                                                                setRenamingId(null);
+                                                                setRenameCategory('');
+                                                            }
+                                                        }}
+                                                        placeholder="分类（可选）"
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <p className="text-xs font-medium text-slate-700 truncate" title={item.name}>
+                                                        {item.name}
+                                                    </p>
+                                                    <span className="text-[10px] px-2 py-1 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                                                        {item.category || '未分类'}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {/* Quick category change */}
+                                            {!renamingId && (
+                                                <div className="flex items-center gap-2">
+                                                    <select
+                                                        value={item.category || ''}
+                                                        onChange={(e) => void handleUpdateImageCategory(item.id, e.target.value)}
+                                                        className="flex-1 text-xs px-2 py-1.5 rounded-lg border border-slate-200 bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+                                                    >
+                                                        <option value="">未分类</option>
+                                                        {categoryOptions
+                                                            .filter((c) => c !== 'all' && c !== '')
+                                                            .map((c) => (
+                                                                <option key={c} value={c}>
+                                                                    {c}
+                                                                </option>
+                                                            ))}
+                                                    </select>
+                                                    <span className="text-[11px] text-slate-400 whitespace-nowrap">切换分类</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        )}
+        {showGalleryModal && showDeleteCategoryConfirm && (
+            <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 border border-slate-200 space-y-4">
+                    <div className="flex items-center gap-2">
+                        <div className="p-2 rounded-lg bg-red-50 border border-red-100">
+                            <Trash2 size={18} className="text-red-500" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-semibold text-slate-800">删除分类</h3>
+                            <p className="text-sm text-slate-500 mt-0.5">当前分类：{activeCategoryTab === '' ? '未分类' : activeCategoryTab}</p>
+                        </div>
+                    </div>
+                    <div className="space-y-2 text-sm text-slate-600">
+                        <label className="flex items-start gap-2 p-3 rounded-xl border border-slate-200 hover:border-blue-300 transition cursor-pointer">
+                            <input
+                                type="radio"
+                                name="delete-category-mode"
+                                value="move"
+                                checked={deleteCategoryMode === 'move'}
+                                onChange={() => setDeleteCategoryMode('move')}
+                                className="mt-1"
+                            />
+                            <div>
+                                <div className="font-medium text-slate-800">同时移动到未分类</div>
+                                <div className="text-xs text-slate-500">该分类下的图片将归入“未分类”，分类提示词一并删除。</div>
+                            </div>
+                        </label>
+                        <label className="flex items-start gap-2 p-3 rounded-xl border border-slate-200 hover:border-blue-300 transition cursor-pointer">
+                            <input
+                                type="radio"
+                                name="delete-category-mode"
+                                value="clear"
+                                checked={deleteCategoryMode === 'clear'}
+                                onChange={() => setDeleteCategoryMode('clear')}
+                                className="mt-1"
+                            />
+                            <div>
+                                <div className="font-medium text-slate-800">删除分类及提示词，但保留图片分类为空</div>
+                                <div className="text-xs text-slate-500">分类字段将被清空（无分类），不移动到“未分类”标签。</div>
+                            </div>
+                        </label>
+                    </div>
+                    <div className="flex items-center justify-end gap-3">
+                        <button
+                            onClick={() => setShowDeleteCategoryConfirm(false)}
+                            className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:border-slate-300 transition"
+                        >
+                            取消
+                        </button>
+                        <button
+                            onClick={() => void handleDeleteCategoryAction()}
+                            className="px-4 py-2 rounded-xl bg-red-500 text-white hover:bg-red-600 transition disabled:opacity-60"
+                            disabled={categorySaving}
+                        >
+                            确认删除
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
     );
 }

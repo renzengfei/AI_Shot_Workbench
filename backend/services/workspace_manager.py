@@ -126,6 +126,16 @@ class WorkspaceManager:
         shots_path = os.path.join(workspace_path, "shots.json")
         self._save_json(shots_path, data)
         self._update_timestamp(workspace_path)
+
+    # Reference image mappings (character -> reference image id)
+    def get_reference_links(self, workspace_path: str) -> Dict[str, Any]:
+        links_path = os.path.join(workspace_path, "reference_links.json")
+        return self._load_json(links_path)
+
+    def save_reference_links(self, workspace_path: str, data: Dict[str, Any]):
+        links_path = os.path.join(workspace_path, "reference_links.json")
+        self._save_json(links_path, data)
+        self._update_timestamp(workspace_path)
     
     # Deconstruction operations
     def get_deconstruction(self, workspace_path: str) -> str:

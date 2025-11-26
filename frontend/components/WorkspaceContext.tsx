@@ -47,6 +47,7 @@ export interface GenerateAssetsPayload {
 }
 
 const LAST_WORKSPACE_KEY = 'ai-shot-last-workspace';
+const RECENT_WORKSPACES_KEY = 'ai-shot-recent-workspaces';
 
 interface WorkspaceApiResponse {
     data: {
@@ -81,6 +82,51 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
     const { setProject } = useWorkflowStore();
     const { loadVideo, resetVideo } = useTimelineStore();
+
+    const mergeWorkspaces = (primary: Workspace[], secondary: Workspace[]) => {
+        const map = new Map<string, Workspace>();
+        [...primary, ...secondary].forEach((ws) => {
+            if (!ws?.path) return;
+            const existing = map.get(ws.path);
+            if (!existing) {
+                map.set(ws.path, ws);
+            } else if (!existing.updated_at && ws.updated_at) {
+                map.set(ws.path, ws);
+            }
+        });
+        return Array.from(map.values()).sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
+    };
+
+    const loadStoredRecents = () => {
+        if (typeof window === 'undefined') return [];
+        try {
+            const raw = localStorage.getItem(RECENT_WORKSPACES_KEY);
+            if (!raw) return [];
+            const parsed = JSON.parse(raw) as Workspace[];
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
+            return [];
+        }
+    };
+
+    const persistRecents = (list: Workspace[]) => {
+        if (typeof window === 'undefined') return;
+        try {
+            localStorage.setItem(RECENT_WORKSPACES_KEY, JSON.stringify(list.slice(0, 20)));
+        } catch {
+            // ignore
+        }
+    };
+
+    const updateRecents = (ws: Workspace) => {
+        const nowIso = new Date().toISOString();
+        const next: Workspace = { ...ws, updated_at: ws.updated_at || nowIso };
+        setWorkspaces((prev) => {
+            const merged = mergeWorkspaces([next], prev);
+            persistRecents(merged);
+            return merged;
+        });
+    };
 
     useEffect(() => {
         refreshWorkspaces();
@@ -122,9 +168,14 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     const refreshWorkspaces = async () => {
         try {
             const data = await http.get<Workspace[]>('/api/workspaces');
-            setWorkspaces(Array.isArray(data) ? data : []);
+            const serverList = Array.isArray(data) ? data : [];
+            setWorkspaces(serverList);
+            persistRecents(serverList);
         } catch (error) {
             console.error('Failed to fetch workspaces:', error);
+            // keep previous state on error; optionally use cached list
+            const cached = loadStoredRecents();
+            if (cached.length > 0) setWorkspaces(cached);
         }
     };
 
@@ -148,6 +199,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
                 deconstructionText: '',
                 shots: []
             });
+            updateRecents({ name: data.data.name, path: data.path, updated_at: data.data.updated_at });
             resetVideo();
         } catch (error) {
             console.error(error);
@@ -162,6 +214,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
             if (typeof window !== 'undefined') {
                 localStorage.setItem(LAST_WORKSPACE_KEY, data.path);
             }
+            updateRecents({ name: data.data.name, path: data.path, updated_at: data.data.updated_at });
 
             // Load persisted files
             const [segData, deconData, shotsData] = await Promise.all([

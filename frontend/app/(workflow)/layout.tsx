@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { WorkspaceProvider, useWorkspace } from '@/components/WorkspaceContext';
-import { useWorkflowStore } from '@/lib/stores/workflowStore';
+import { useWorkflowStore, WorkflowStep } from '@/lib/stores/workflowStore';
 import StepNavigation from '@/components/workflow/StepNavigation';
 import WorkspaceSelector from '@/components/WorkspaceSelector';
 import { Folder, ExternalLink } from 'lucide-react';
@@ -14,6 +14,8 @@ function Shell({ children }: { children: React.ReactNode }) {
     const { currentWorkspace, closeWorkspace } = useWorkspace();
     const pathname = usePathname();
     const router = useRouter();
+    const lastSyncedStepRef = useRef<WorkflowStep | null>(null);
+
     const savedSourceUrl = useMemo(() => {
         if (typeof window !== 'undefined') {
             return localStorage.getItem('ai-shot-last-source-url') || '';
@@ -29,21 +31,31 @@ function Shell({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         if (!project) return;
-        // 如果当前 URL 对应的步骤存在，但与 store 不一致，则只同步 store，避免路由来回跳
-        if (currentStepFromPath && project.currentStep !== currentStepFromPath) {
-            goToStep(currentStepFromPath as WorkflowStep);
+
+        const currentStep = project.currentStep;
+
+        // 如果当前 URL 对应的步骤存在，但与 store 不一致，则只同步 store
+        if (currentStepFromPath && currentStep !== currentStepFromPath) {
+            // 只在没有同步过或者步骤确实不同时才同步
+            if (lastSyncedStepRef.current !== currentStepFromPath) {
+                lastSyncedStepRef.current = currentStepFromPath;
+                goToStep(currentStepFromPath);
+            }
             return;
         }
 
-        // 路径未知时，回退到当前步骤对应的路径（默认 step1）
+        // 更新ref以跟踪当前步骤
+        lastSyncedStepRef.current = currentStep;
+
+        // 路径未知时，回退到当前步骤对应的路径
         if (!currentStepFromPath) {
-            const desiredStep = project.currentStep ?? 1;
+            const desiredStep = currentStep ?? 1;
             const desiredPath = stepToPath(desiredStep);
             if (desiredPath && pathname !== desiredPath) {
                 router.replace(desiredPath);
             }
         }
-    }, [project, currentStepFromPath, goToStep, pathname, router]);
+    }, [project, project?.currentStep, currentStepFromPath, pathname, goToStep, router]);
 
     if (!currentWorkspace) return <WorkspaceSelector />;
 

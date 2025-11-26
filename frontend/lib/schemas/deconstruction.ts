@@ -12,7 +12,6 @@ export const ViralElementSchema = z
 
 export const Round1SkeletonSchema = z
     .object({
-        story_summary: z.string().optional(),
         logic_chain: z.string().optional(),
         skeleton_nodes: z.array(z.string()).optional(),
         viral_elements_found: z.array(ViralElementSchema).optional(),
