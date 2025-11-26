@@ -684,7 +684,11 @@ export default function Step3_DeconstructionReview({
         try {
             const resp = await fetch(`${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/optimized_storyboard.json`, { cache: 'no-store' });
             if (!resp.ok) {
-                setOptimizedError(`未找到 optimized_storyboard.json（${resp.status}）`);
+                if (resp.status !== 404) {
+                    setOptimizedError(`未找到 optimized_storyboard.json（${resp.status}）`);
+                } else {
+                    setOptimizedError(null);
+                }
                 setOptimizedStoryboard(null);
                 return;
             }
