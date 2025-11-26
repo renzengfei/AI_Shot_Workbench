@@ -115,7 +115,6 @@ export default function Step3_DeconstructionReview({
     const [renameValue, setRenameValue] = useState('');
     const [renameCategory, setRenameCategory] = useState('');
     const [activeCategoryTab, setActiveCategoryTab] = useState<string>('all');
-    const [uploadName] = useState('');
     const [newCategoryName, setNewCategoryName] = useState('');
     const [renamingCategoryName, setRenamingCategoryName] = useState('');
     const [categorySaving, setCategorySaving] = useState(false);
@@ -282,7 +281,7 @@ export default function Step3_DeconstructionReview({
         setGalleryError(null);
         try {
             const categoryToUse = activeCategoryTab !== 'all' ? activeCategoryTab : undefined;
-            const item = await uploadReferenceImage(file, uploadName || undefined, categoryToUse);
+            const item = await uploadReferenceImage(file, undefined, categoryToUse);
             setReferenceGallery((prev) => [...prev, item]);
         } catch (err) {
             console.error(err);
@@ -2576,30 +2575,7 @@ export default function Step3_DeconstructionReview({
                                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                 />
                             </label>
-                            <input
-                                type="text"
-                                value={uploadName}
-                                onChange={(e) => setUploadName(e.target.value)}
-                                placeholder="图片名称（可选）"
-                                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm w-48 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
-                            />
-                            <input
-                                type="text"
-                                value={uploadCategory}
-                                onChange={(e) => setUploadCategory(e.target.value)}
-                                placeholder="分类（默认使用当前标签）"
-                                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm w-48 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
-                            />
-                            <div className="flex items-center gap-2 ml-auto">
-                                <input
-                                    type="text"
-                                    value={gallerySearch}
-                                    onChange={(e) => setGallerySearch(e.target.value)}
-                                    placeholder="搜索当前标签下的图片..."
-                                    className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm w-56 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
-                                />
-                            </div>
-                            <span className="text-xs text-slate-400">支持 PNG / JPG / WebP</span>
+                            <span className="text-xs text-slate-400">支持 PNG / JPG / WebP，默认归入当前标签</span>
                             {galleryError && <span className="text-xs text-amber-500 font-medium">{galleryError}</span>}
                         </div>
                         {/* Gallery Grid */}
