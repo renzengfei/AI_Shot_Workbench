@@ -29,10 +29,20 @@ if [[ ! -d "$FRONTEND_DIR/node_modules" ]]; then
 fi
 
 echo "Starting backend (uvicorn main:app --reload --port 8000)..."
+# Kill existing backend on port 8000 to avoid Address already in use
+if lsof -i :8000 >/dev/null 2>&1; then
+  echo "Port 8000 busy, terminating existing process..."
+  lsof -ti :8000 | xargs -r kill
+fi
 (cd "$BACKEND_DIR" && source "$BACKEND_VENV_BIN/activate" && uvicorn main:app --reload --port 8000) &
 BACKEND_PID=$!
 
 echo "Starting frontend (npm run dev)..."
+# Kill existing frontend on port 3000 to avoid lock issues
+if lsof -i :3000 >/dev/null 2>&1; then
+  echo "Port 3000 busy, terminating existing process..."
+  lsof -ti :3000 | xargs -r kill
+fi
 (cd "$FRONTEND_DIR" && npm run dev) &
 FRONTEND_PID=$!
 
