@@ -21,6 +21,11 @@ from services.asset_generator import AssetGenerator, AssetGenerationError
 from services.workspace_manager import WorkspaceManager
 from services.file_watcher import FileWatcher
 
+from dotenv import load_dotenv
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BASE_DIR, ".env"))
+
 app = FastAPI(title="AI Shot Workbench API")
 
 # CORS

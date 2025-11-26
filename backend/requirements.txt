@@ -6,3 +6,4 @@ scenedetect[opencv]
 ffmpeg-python
 yt-dlp
 opencv-python-headless
+python-dotenv
