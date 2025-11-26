@@ -2557,27 +2557,6 @@ export default function Step3_DeconstructionReview({
                             {galleryError && <span className="text-xs text-amber-500 font-medium">{galleryError}</span>}
                         </div>
 
-                        {/* Upload & Search Section */}
-                        <div className="flex flex-wrap items-center gap-4 p-4 rounded-2xl bg-slate-50/80 border border-slate-200/60">
-                            <label className="relative cursor-pointer group">
-                                <div className={`px-5 py-2.5 rounded-xl text-sm font-medium shadow-md transition-all duration-200 ${uploading ? 'bg-slate-400 text-white' : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-lg hover:shadow-blue-500/40'}`}>
-                                    {uploading ? '上传中...' : '选择图片'}
-                                </div>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) void handleUploadReference(file);
-                                        e.target.value = '';
-                                    }}
-                                    disabled={uploading}
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                />
-                            </label>
-                            <span className="text-xs text-slate-400">支持 PNG / JPG / WebP，默认归入当前标签</span>
-                            {galleryError && <span className="text-xs text-amber-500 font-medium">{galleryError}</span>}
-                        </div>
                         {/* Gallery Grid */}
                         {galleryLoading ? (
                             <div className="flex items-center justify-center py-12 text-slate-400">
