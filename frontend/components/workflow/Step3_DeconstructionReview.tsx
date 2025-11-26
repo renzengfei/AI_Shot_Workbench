@@ -765,17 +765,21 @@ export default function Step3_DeconstructionReview({
     const loadExistingImagesForShot = useCallback(async (shotId: number) => {
         if (!workspaceSlug) return;
         const found: string[] = [];
-        for (let i = 1; i <= 30; i++) {
+        let consecutiveMisses = 0;
+        for (let i = 1; i <= 40; i++) {
             const candidate = `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/generated/shots/${shotId}/image_url_${i}.png`;
             try {
                 const resp = await fetch(candidate, { method: 'HEAD' });
                 if (resp.ok) {
                     found.push(candidate);
+                    consecutiveMisses = 0; // reset on hit
                 } else {
-                    break; // stop early on first missing to减少404
+                    consecutiveMisses += 1;
                 }
+                if (consecutiveMisses >= 5) break; // avoid flooding 404s
             } catch {
-                // ignore
+                consecutiveMisses += 1;
+                if (consecutiveMisses >= 5) break;
             }
         }
         if (found.length) {
