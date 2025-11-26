@@ -2618,8 +2618,8 @@ export default function Step3_DeconstructionReview({
                                         value={categoryPromptInput}
                                         onChange={(e) => setCategoryPromptInput(e.target.value)}
                                         minRows={2}
-                                        maxRows={6}
-                                        className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none"
+                                        maxRows={10}
+                                        className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none max-h-48 overflow-y-auto"
                                         placeholder="为该分类记录一段提示词..."
                                     />
                                     <button
