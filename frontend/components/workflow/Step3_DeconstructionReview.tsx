@@ -2533,7 +2533,105 @@ export default function Step3_DeconstructionReview({
                                     </button>
                                 );
                             })}
+                            {/* New category */}
+                            <div className="flex items-center gap-2 ml-auto">
+                                <input
+                                    type="text"
+                                    value={newCategoryName}
+                                    onChange={(e) => setNewCategoryName(e.target.value)}
+                                    placeholder="新建分类"
+                                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-sm w-36 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition"
+                                />
+                                <button
+                                    onClick={() => void handleCreateCategory()}
+                                    className="px-3 py-1.5 rounded-xl bg-emerald-500 text-white text-sm hover:bg-emerald-600 transition disabled:opacity-60"
+                                    disabled={categorySaving || !newCategoryName.trim()}
+                                >
+                                    新建
+                                </button>
+                            </div>
                         </div>
+
+                        {/* Category management + prompt */}
+                        {activeCategoryTab !== 'all' && (
+                            <div className="mt-3 px-1 flex flex-col gap-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                                    <div className="flex items-center gap-2">
+                                        <span>当前分类：{activeCategoryTab === '' ? '未分类' : activeCategoryTab}</span>
+                                        <button
+                                            onClick={() => {
+                                                if (activeCategoryTab === '') return;
+                                                setRenamingCategoryName(activeCategoryTab);
+                                            }}
+                                            className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-600 transition text-[11px]"
+                                            disabled={categorySaving || activeCategoryTab === ''}
+                                        >
+                                            重命名
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                if (activeCategoryTab === '') return;
+                                                setShowDeleteCategoryConfirm(true);
+                                            }}
+                                            className="px-2 py-1 rounded-lg border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 transition text-[11px]"
+                                            disabled={categorySaving || activeCategoryTab === ''}
+                                        >
+                                            删除
+                                        </button>
+                                    </div>
+                                    {categoryPromptSaving && <span className="text-blue-500 animate-pulse">保存中...</span>}
+                                </div>
+                                {renamingCategoryName && (
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            value={renamingCategoryName}
+                                            onChange={(e) => setRenamingCategoryName(e.target.value)}
+                                            className="flex-1 text-sm px-3 py-2 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+                                            placeholder="新的分类名称"
+                                            autoFocus
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') void handleRenameCategoryAction();
+                                                if (e.key === 'Escape') setRenamingCategoryName('');
+                                            }}
+                                        />
+                                        <button
+                                            onClick={() => void handleRenameCategoryAction()}
+                                            className="px-3 py-2 rounded-xl bg-blue-500 text-white text-sm hover:bg-blue-600 transition disabled:opacity-60"
+                                            disabled={categorySaving || !renamingCategoryName.trim()}
+                                        >
+                                            保存
+                                        </button>
+                                        <button
+                                            onClick={() => setRenamingCategoryName('')}
+                                            className="px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:border-slate-300 transition"
+                                        >
+                                            取消
+                                        </button>
+                                    </div>
+                                )}
+                                <div className="flex items-center justify-between text-xs text-slate-500">
+                                    <span>分类提示词（仅记录，不参与生成）</span>
+                                    {categoryPromptSaving && <span className="text-blue-500 animate-pulse">保存中...</span>}
+                                </div>
+                                <div className="flex items-start gap-2">
+                                    <AutoTextArea
+                                        value={categoryPromptInput}
+                                        onChange={(e) => setCategoryPromptInput(e.target.value)}
+                                        minRows={2}
+                                        maxRows={6}
+                                        className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none"
+                                        placeholder="为该分类记录一段提示词..."
+                                    />
+                                    <button
+                                        onClick={() => void handleSaveCategoryPrompt()}
+                                        className="px-3 py-2 rounded-xl bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 transition disabled:opacity-60"
+                                        disabled={categoryPromptSaving}
+                                    >
+                                        保存
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Upload Section (simplified) */}
                         <div className="flex flex-wrap items-center gap-4 p-4 rounded-2xl bg-slate-50/80 border border-slate-200/60">
