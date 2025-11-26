@@ -1,4 +1,5 @@
 import type { DeconstructionPayload, Round1, Round2, Round1Parsed, Round2Parsed } from '../types/deconstruction';
+import { Round2Schema } from '../schemas/deconstruction';
 
 export interface ParsedResult<T> {
     data: T | null;
@@ -22,11 +23,11 @@ export function parseRound2(text: string): ParsedResult<Round2> {
     // 尝试 JSON 模式
     try {
         const asJson = JSON.parse(trimmed);
-        if (asJson && typeof asJson === 'object' && (asJson.shots || asJson.characters)) {
-            return { data: asJson as Round2, error: null };
-        }
-    } catch {
-        return { data: null, error: 'Round 2 解析失败，请粘贴合法 JSON（含 shots 或 characters）' };
+        const parsed = Round2Schema.parse(asJson);
+        return { data: parsed as Round2, error: null };
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Round 2 解析失败，请粘贴合法 JSON（含 shots 或 characters）';
+        return { data: null, error: msg };
     }
 
     return { data: null, error: 'Round 2 解析失败，请粘贴合法 JSON（含 shots 或 characters）' };

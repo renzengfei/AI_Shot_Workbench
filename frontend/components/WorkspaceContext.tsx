@@ -143,25 +143,40 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Connect to WebSocket when workspace is active
+    // Connect to WebSocket when workspace is active with simple retry
     useEffect(() => {
         if (!currentWorkspace) return;
 
-        const ws = new WebSocket(`${API_BASE.replace('http', 'ws')}/ws`);
-
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.type === 'file_change') {
-                console.log('File changed:', data.file);
-                // TODO: Trigger specific store updates based on file type
-                if (data.file === 'project.json') {
-                    // Reload project data
+        let ws: WebSocket | null = null;
+        let retryTimer: NodeJS.Timeout | null = null;
+        const connect = () => {
+            ws = new WebSocket(`${API_BASE.replace('http', 'ws')}/ws`);
+            ws.onopen = () => {
+                if (retryTimer) clearTimeout(retryTimer);
+            };
+            ws.onclose = () => {
+                if (retryTimer) clearTimeout(retryTimer);
+                retryTimer = setTimeout(connect, 3000);
+            };
+            ws.onerror = () => {
+                if (ws) ws.close();
+            };
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'file_change') {
+                        console.log('File changed:', data.file);
+                    }
+                } catch {
+                    // ignore
                 }
-            }
+            };
         };
+        connect();
 
         return () => {
-            ws.close();
+            if (retryTimer) clearTimeout(retryTimer);
+            if (ws) ws.close();
         };
     }, [currentWorkspace]);
 
