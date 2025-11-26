@@ -22,7 +22,7 @@ export function useStepNavigator() {
 
     const nextStep = useCallback(() => {
         const current = project?.currentStep ?? 1;
-        const next = Math.min((current + 1) as WorkflowStep, 9 as WorkflowStep);
+        const next = Math.min((current + 1) as WorkflowStep, 3 as WorkflowStep);
         navigateToStep(next);
     }, [navigateToStep, project?.currentStep]);
 

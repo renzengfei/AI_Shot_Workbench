@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
 
-export type WorkflowStep = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+export type WorkflowStep = 1 | 2 | 3;
 
 export interface Shot {
     id: string;
@@ -102,7 +102,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
     nextStep: () => {
         const { project } = get();
-        if (project && project.currentStep < 9) {
+        if (project && project.currentStep < 3) {
             const next = (project.currentStep + 1) as WorkflowStep;
             set({ project: { ...project, currentStep: next } });
             persistStep(project.id, next).catch(() => { });
