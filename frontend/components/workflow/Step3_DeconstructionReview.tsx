@@ -768,9 +768,11 @@ export default function Step3_DeconstructionReview({
         for (let i = 1; i <= 30; i++) {
             const candidate = `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/generated/shots/${shotId}/image_url_${i}.png`;
             try {
-                const resp = await fetch(candidate, { method: 'GET' });
+                const resp = await fetch(candidate, { method: 'HEAD' });
                 if (resp.ok) {
                     found.push(candidate);
+                } else {
+                    break; // stop early on first missing to减少404
                 }
             } catch {
                 // ignore
