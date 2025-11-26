@@ -16,7 +16,19 @@ export function parseRound1(text: string): ParsedResult<Round1> {
 }
 
 export function parseRound2(text: string): ParsedResult<Round2> {
-    if (!text.trim()) return { data: null, error: null };
+    const trimmed = text.trim();
+    if (!trimmed) return { data: null, error: null };
+
+    // 尝试 JSON 模式
+    try {
+        const asJson = JSON.parse(trimmed);
+        if (asJson && typeof asJson === 'object' && (asJson.shots || asJson.characters)) {
+            return { data: asJson as Round2, error: null };
+        }
+    } catch {
+        // ignore json parse error, fallback to markdown
+    }
+
     const mdParsed = parseRound2Markdown(text);
     if (mdParsed) return { data: mdParsed, error: null };
     return { data: null, error: 'Round 2 解析失败，请粘贴包含角色说明与分镜表格的 Markdown（参考示例）' };
