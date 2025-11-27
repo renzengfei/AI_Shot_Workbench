@@ -68,10 +68,16 @@ export default function Step2_Deconstruction() {
 
     const handleRound2Change = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const value = e.target.value;
-        setRound2Text(value);
         const parsed = parseRound2(value);
         setRound2Error(parsed.error);
-        scheduleSave(round1Text, value);
+        if (parsed.data && parsed.source === 'markdown') {
+            const normalized = JSON.stringify(parsed.data, null, 2);
+            setRound2Text(normalized);
+            scheduleSave(round1Text, normalized);
+        } else {
+            setRound2Text(value);
+            scheduleSave(round1Text, value);
+        }
     };
 
     useEffect(() => {

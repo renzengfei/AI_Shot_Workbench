@@ -4,13 +4,14 @@ import { Round2Schema } from '../schemas/deconstruction';
 export interface ParsedResult<T> {
     data: T | null;
     error: string | null;
+    source?: 'json' | 'markdown';
 }
 
 export function parseRound1(text: string): ParsedResult<Round1> {
     if (!text.trim()) return { data: null, error: null };
     try {
         const json = JSON.parse(text);
-        return { data: json as Round1, error: null };
+        return { data: json as Round1, error: null, source: 'json' };
     } catch {
         return { data: null, error: 'Round 1 JSON 解析失败，请检查是否为合法 JSON' };
     }
@@ -24,11 +25,13 @@ export function parseRound2(text: string): ParsedResult<Round2> {
     try {
         const asJson = JSON.parse(trimmed);
         const parsed = Round2Schema.parse(asJson);
-        return { data: parsed as Round2, error: null };
-    } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Round 2 解析失败，请粘贴合法 JSON（含 shots 或 characters）';
-        return { data: null, error: msg };
+        return { data: parsed as Round2, error: null, source: 'json' };
+    } catch {
+        // ignore, fallback to markdown
     }
+
+    const mdParsed = parseRound2Markdown(text);
+    if (mdParsed) return { data: mdParsed, error: null, source: 'markdown' };
 
     return { data: null, error: 'Round 2 解析失败，请粘贴合法 JSON（含 shots 或 characters）' };
 }
@@ -117,4 +120,100 @@ export function buildDeconstructionPayload(round1: Round1 | null, round2: Round2
     if (round1) payload.round1 = round1;
     if (round2) payload.round2 = round2;
     return JSON.stringify(payload, null, 2);
+}
+
+function parseRound2Markdown(markdown: string): Round2 | null {
+    const characters = extractCharacters(markdown);
+    const shots = extractShots(markdown);
+    if ((!characters || Object.keys(characters).length === 0) && (!shots || shots.length === 0)) {
+        return null;
+    }
+    const result: Round2 = {};
+    if (characters && Object.keys(characters).length > 0) result.characters = characters;
+    if (shots && shots.length > 0) result.shots = shots;
+    return result;
+}
+
+function extractCharacters(markdown: string): Record<string, string> | null {
+    const codeBlockMatch = markdown.match(/```(?:text)?\s*([\s\S]*?)```/i);
+    const section = codeBlockMatch ? codeBlockMatch[1] : markdown;
+    const lines = section.split('\n').map((l) => l.trim()).filter(Boolean);
+    const map: Record<string, string> = {};
+    lines.forEach((line) => {
+        const match = line.match(/【(.+?)】\s*[=:]\s*(.+)/);
+        if (match) {
+            const name = match[1].trim();
+            const desc = match[2].trim();
+            if (name) map[name] = desc;
+        }
+    });
+    return Object.keys(map).length ? map : null;
+}
+
+function extractShots(markdown: string): Round2['shots'] | null {
+    const lines = markdown.split('\n');
+    const tableLines: string[] = [];
+    let started = false;
+    let lastIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+        if (!started) {
+            if (trimmed.startsWith('|') && trimmed.includes('序号')) {
+                started = true;
+                tableLines.push(trimmed);
+                lastIdx = tableLines.length - 1;
+            }
+        } else {
+            if (trimmed.startsWith('|')) {
+                tableLines.push(trimmed);
+                lastIdx = tableLines.length - 1;
+            } else if (trimmed.length && lastIdx >= 0) {
+                // continuation of previous row (multi-line cell)
+                tableLines[lastIdx] = `${tableLines[lastIdx]}<br>${trimmed}`;
+            }
+        }
+    }
+    if (tableLines.length < 3) return null;
+    const header = splitRow(tableLines[0]);
+    const dividerIdx = 1;
+    const rows = tableLines.slice(dividerIdx + 1).map(splitRow).filter((r) => r.length > 0);
+
+    const findIndex = (keywords: string[]) =>
+        header.findIndex((h) => keywords.some((k) => h.includes(k)));
+    const idxSeq = findIndex(['序号']);
+    const idxStart = findIndex(['开始']);
+    const idxEnd = findIndex(['结束']);
+    const idxDuration = findIndex(['时长']);
+    const idxKeyframe = findIndex(['首帧', 'frame']);
+    const idxImagePrompt = findIndex(['画面', 'Image']);
+    const idxVideoPrompt = findIndex(['视频', 'Video']);
+
+    const shots: Round2['shots'] = [];
+    rows.forEach((cols, rowIdx) => {
+        const get = (idx: number) => (idx >= 0 && idx < cols.length ? cols[idx] : '');
+        const idRaw = get(idxSeq);
+        const id = idRaw ? parseInt(idRaw, 10) : rowIdx + 1;
+        const shot = {
+            id: Number.isNaN(id) ? rowIdx + 1 : id,
+            timestamp: get(idxStart) || undefined,
+            end_time: get(idxEnd) || undefined,
+            duration: get(idxDuration) || undefined,
+            keyframe: get(idxKeyframe) || undefined,
+            initial_frame: normalizeCell(get(idxImagePrompt)),
+            visual_changes: normalizeCell(get(idxVideoPrompt)),
+        };
+        shots.push(shot);
+    });
+    return shots;
+}
+
+function splitRow(line: string): string[] {
+    const trimmed = line.trim().replace(/^\|/, '').replace(/\|$/, '');
+    return trimmed.split('|').map((cell) => cell.trim()).filter((cell) => cell.length > 0);
+}
+
+function normalizeCell(cell: string): string | undefined {
+    if (!cell) return undefined;
+    return cell.replace(/<br\s*\/?>/gi, '\n').trim();
 }
