@@ -1511,10 +1511,11 @@ export default function Step3_DeconstructionReview({
             setRound1Error(parsed1.error);
             setRound2Error(parsed2.error);
 
+            const fallbackRound2 = typeof round2Data === 'string' ? undefined : round2Data || undefined;
             const payload = JSON.stringify(
                 {
-                    round1: parsed1.data ?? undefined,
-                    round2: parsed2.data ?? undefined,
+                    round1: parsed1.data ?? (typeof round1Data === 'string' ? undefined : round1Data || undefined),
+                    round2: parsed2.data ?? fallbackRound2,
                 },
                 null,
                 2,
