@@ -1508,18 +1508,18 @@ export default function Step3_DeconstructionReview({
         saveTimeoutRef.current = setTimeout(async () => {
             const parsed1 = parseRound1(nextRound1);
             const parsed2 = parseRound2(nextRound2);
-            setRound1Error(parsed1.error);
-            setRound2Error(parsed2.error);
+            setRound1Error(parsed1.data ? null : parsed1.error);
+            setRound2Error(parsed2.data ? null : parsed2.error);
 
             const fallbackRound2 = typeof round2Data === 'string' ? undefined : round2Data || undefined;
             const payload = JSON.stringify(
                 {
-                    round1: parsed1.data ?? (typeof round1Data === 'string' ? undefined : round1Data || undefined),
-                    round2: parsed2.data ?? fallbackRound2,
-                },
-                null,
-                2,
-            );
+                round1: parsed1.data ?? (typeof round1Data === 'string' ? undefined : round1Data || undefined),
+                round2: parsed2.data ?? fallbackRound2,
+            },
+            null,
+            2,
+        );
 
             updateDeconstruction(payload);
             try {
