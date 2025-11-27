@@ -153,31 +153,30 @@ function extractCharacters(markdown: string): Record<string, string> | null {
 function extractShots(markdown: string): Round2['shots'] | null {
     const lines = markdown.split('\n');
     const tableLines: string[] = [];
-    let started = false;
-    let lastIdx = -1;
+    let collecting = false;
     for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const trimmed = line.trim();
-        if (!started) {
-            if (trimmed.startsWith('|') && trimmed.includes('序号')) {
-                started = true;
-                tableLines.push(trimmed);
-                lastIdx = tableLines.length - 1;
-            }
-        } else {
-            if (trimmed.startsWith('|')) {
-                tableLines.push(trimmed);
-                lastIdx = tableLines.length - 1;
-            } else if (trimmed.length && lastIdx >= 0) {
-                // continuation of previous row (multi-line cell)
-                tableLines[lastIdx] = `${tableLines[lastIdx]}<br>${trimmed}`;
-            }
+        const trimmed = lines[i].trim();
+        if (trimmed.startsWith('|') && trimmed.includes('|')) {
+            collecting = true;
+            tableLines.push(trimmed);
+        } else if (collecting && trimmed.length) {
+            // treat as continuation of previous row
+            tableLines[tableLines.length - 1] = `${tableLines[tableLines.length - 1]}<br>${trimmed}`;
+        } else if (collecting && !trimmed.length) {
+            // stop on empty line after table
+            break;
         }
     }
-    if (tableLines.length < 3) return null;
+    if (tableLines.length < 2) return null;
+
     const header = splitRow(tableLines[0]);
-    const dividerIdx = 1;
-    const rows = tableLines.slice(dividerIdx + 1).map(splitRow).filter((r) => r.length > 0);
+    // find divider row if present
+    let dataStart = 1;
+    if (tableLines[1].replace(/\|/g, '').match(/^-+|:+$/)) {
+        dataStart = 2;
+    }
+    const rows = tableLines.slice(dataStart).map(splitRow).filter((r) => r.length > 0);
+    if (!rows.length) return null;
 
     const findIndex = (keywords: string[]) =>
         header.findIndex((h) => keywords.some((k) => h.includes(k)));
@@ -193,7 +192,7 @@ function extractShots(markdown: string): Round2['shots'] | null {
     rows.forEach((cols, rowIdx) => {
         const get = (idx: number) => (idx >= 0 && idx < cols.length ? cols[idx] : '');
         const idRaw = get(idxSeq);
-        const id = idRaw ? parseInt(idRaw, 10) : rowIdx + 1;
+        const id = idRaw ? parseInt(idRaw.replace(/[^\d]/g, ''), 10) : rowIdx + 1;
         const shot = {
             id: Number.isNaN(id) ? rowIdx + 1 : id,
             timestamp: get(idxStart) || undefined,
