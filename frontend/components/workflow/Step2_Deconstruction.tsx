@@ -27,17 +27,19 @@ export default function Step2_Deconstruction() {
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [round1Error, setRound1Error] = useState<string | null>(null);
     const [round2Error, setRound2Error] = useState<string | null>(null);
+    const [lastGoodRound2, setLastGoodRound2] = useState<Round2Parsed>(null);
 
     const scheduleSave = (nextRound1: string, nextRound2: string) => {
         const round1Parsed = parseRound1(nextRound1);
         const round2Parsed = parseRound2(nextRound2);
         setRound1Error(round1Parsed.error);
         setRound2Error(round2Parsed.error);
+        if (round2Parsed.data) setLastGoodRound2(round2Parsed.data);
 
         const payload = JSON.stringify(
             {
                 round1: round1Parsed.data ?? undefined,
-                round2: round2Parsed.data ?? undefined,
+                round2: round2Parsed.data ?? (typeof lastGoodRound2 === 'string' ? undefined : lastGoodRound2 ?? undefined),
             },
             null,
             2,
@@ -111,6 +113,7 @@ export default function Step2_Deconstruction() {
         }
         if (rawRound2Text || round2) {
             setRound2Text(rawRound2Text ?? (typeof round2 === 'string' ? round2 : JSON.stringify(round2, null, 2)));
+            setLastGoodRound2(typeof round2 === 'string' ? null : round2);
         }
     }, [project?.deconstructionText]);
 
