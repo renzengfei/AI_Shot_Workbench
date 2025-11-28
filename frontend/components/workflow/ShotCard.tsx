@@ -403,6 +403,7 @@ export const ShotCard = ({
     const hasGeneratedImages = Array.isArray(generatedImageUrls) && generatedImageUrls.length > 0;
     const activeIndex = generatedImageIndex !== undefined ? generatedImageIndex : (hasGeneratedImages ? generatedImageUrls.length - 1 : 0);
     const activeImage = hasGeneratedImages ? generatedImageUrls[Math.min(activeIndex, generatedImageUrls.length - 1)] : null;
+    const isNewShot = !Number.isInteger(shotId) || shot.timestamp === 'N/A' || shot.end_time === 'N/A';
     useEffect(() => {
         if (activeImage && newImages.includes(activeImage)) {
             onImageSeen?.(shot, index, activeImage);
@@ -501,6 +502,10 @@ export const ShotCard = ({
                                         className="w-full"
                                         aspectRatio="aspect-[9/16]"
                                     />
+                                ) : isNewShot ? (
+                                    <div className="relative aspect-[9/16] bg-slate-900/60 rounded-xl border border-dashed border-slate-700 flex items-center justify-center text-slate-400 text-sm p-4 text-center">
+                                        该镜头为新增镜头，无原片对照
+                                    </div>
                                 ) : frameUrl ? (
                                     <div className="relative aspect-[9/16] bg-slate-900 rounded-xl overflow-hidden border border-[var(--glass-border)] shadow-lg">
                                         {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -251,7 +251,8 @@ class GenerateImageRequest(BaseModel):
     workspace_path: str
     prompt: str
     reference_image_ids: Optional[List[str]] = None
-    shot_id: Optional[int] = None
+    shot_id: Optional[float] = None
+    generated_dir: Optional[str] = None
 
 
 class CategoryPromptRequest(BaseModel):
@@ -712,8 +713,9 @@ async def generate_image(request: GenerateImageRequest):
             saved_images = []
             workspace_path = request.workspace_path
             shot_id = request.shot_id or "unknown"
-            generated_dir = os.path.join(workspace_path, "generated", "shots", str(shot_id))
-            os.makedirs(generated_dir, exist_ok=True)
+            generated_dir_name = request.generated_dir or "generated"
+            generated_root = os.path.join(workspace_path, generated_dir_name, "shots", str(shot_id))
+            os.makedirs(generated_root, exist_ok=True)
 
             # Determine next index to avoid overwrite
             existing_max_idx = 0
@@ -737,7 +739,7 @@ async def generate_image(request: GenerateImageRequest):
                 elif "webp" in header:
                     ext = "webp"
                 filename = f"image_{index}.{ext}"
-                path = os.path.join(generated_dir, filename)
+                path = os.path.join(generated_root, filename)
                 with open(path, "wb") as f:
                     f.write(base64.b64decode(b64data))
                 saved_images.append(filename)
@@ -753,7 +755,7 @@ async def generate_image(request: GenerateImageRequest):
                     elif "webp" in ctype:
                         ext = "webp"
                     filename = f"image_url_{index}.{ext}"
-                    path = os.path.join(generated_dir, filename)
+                    path = os.path.join(generated_root, filename)
                     with open(path, "wb") as f:
                         f.write(r.content)
                     saved_images.append(filename)
@@ -788,7 +790,7 @@ async def generate_image(request: GenerateImageRequest):
                     idx += 1
 
             # Persist text and pick a fallback image (first URL if images empty)
-            text_path = os.path.join(generated_dir, "content.txt")
+            text_path = os.path.join(generated_root, "content.txt")
             with open(text_path, "w", encoding="utf-8") as f:
                 f.write("\n".join(text_parts))
 
@@ -800,7 +802,7 @@ async def generate_image(request: GenerateImageRequest):
                             idx += 1
                             break
 
-            rel_base = os.path.relpath(generated_dir, os.path.abspath(WORKSPACES_DIR))
+            rel_base = os.path.relpath(generated_root, os.path.abspath(WORKSPACES_DIR))
             image_urls = [f"/workspaces/{rel_base}/{fname}" for fname in saved_images]
 
             return {"text": "\n".join(text_parts), "images": image_urls}

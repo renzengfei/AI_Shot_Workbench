@@ -29,6 +29,8 @@ export const AutoTextArea = ({
         const maxHeight = (maxRows || minRows) * lineHeight;
         const next = Math.min(maxHeight, Math.max(minHeight, el.scrollHeight));
         el.style.height = `${next}px`;
+        // 只有内容超出最大高度时才显示滚动条
+        el.style.overflowY = el.scrollHeight > next + 1 ? 'auto' : 'hidden';
     }, [maxRows, minRows]);
 
     useLayoutEffect(() => {

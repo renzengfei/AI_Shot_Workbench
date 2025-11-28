@@ -196,7 +196,14 @@ export default function Step3_DeconstructionReview({
         : currentWorkspace?.path
             ? `${currentWorkspace.path}/deconstruction.json`
             : '';
-    const generatedStorageKey = workspaceSlug ? `generatedImages:${workspaceSlug}` : null;
+    const generatedDir = useMemo(() => {
+        if (!selectedDeconstructionFile) return 'generated';
+        const match = selectedDeconstructionFile.match(/^deconstruction_(.+)\.json$/);
+        return match ? `generated_${match[1]}` : 'generated';
+    }, [selectedDeconstructionFile]);
+    const generatedStorageKey = workspaceSlug
+        ? `generatedImages:${workspaceSlug}:${generatedDir}`
+        : null;
     const activeImagePreset = useMemo(() => {
         return imagePresets.find((p) => p.id === selectedImagePresetId) || workspacePresetSnapshot;
     }, [imagePresets, selectedImagePresetId, workspacePresetSnapshot]);
@@ -740,6 +747,7 @@ export default function Step3_DeconstructionReview({
                     shot_id: shotId,
                     prompt,
                     reference_image_ids: refs,
+                    generated_dir: generatedDir,
                 }),
             });
             if (!resp.ok) {
@@ -751,7 +759,7 @@ export default function Step3_DeconstructionReview({
                 .filter(Boolean)
                 .map((img) => img.startsWith('http')
                     ? img
-                    : `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/generated/shots/${shotId}/${img.split('/').pop()}`);
+                    : `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/${generatedDir}/shots/${shotId}/${img.split('/').pop()}`);
             return absoluted;
         };
 
@@ -898,32 +906,32 @@ export default function Step3_DeconstructionReview({
         if (!generatedStorageKey) return;
         try {
             const raw = localStorage.getItem(generatedStorageKey);
-        if (raw) {
-            const parsed = JSON.parse(raw) as Record<number, string | string[]>;
-            const normalized: Record<number, string[]> = {};
-            Object.entries(parsed).forEach(([k, v]) => {
-                const id = Number(k);
-                if (Array.isArray(v)) {
-                    normalized[id] = v;
-                } else if (typeof v === 'string') {
-                    normalized[id] = [v];
-                }
-            });
-            setGeneratedImages(normalized);
-            const idxMap: Record<number, number> = {};
-            Object.entries(normalized).forEach(([k, arr]) => {
-                idxMap[Number(k)] = Math.max(0, arr.length - 1);
-            });
-            setGeneratedIndexes(idxMap);
-        } else {
+            if (raw) {
+                const parsed = JSON.parse(raw) as Record<number, string | string[]>;
+                const normalized: Record<number, string[]> = {};
+                Object.entries(parsed).forEach(([k, v]) => {
+                    const id = Number(k);
+                    if (Array.isArray(v)) {
+                        normalized[id] = v;
+                    } else if (typeof v === 'string') {
+                        normalized[id] = [v];
+                    }
+                });
+                setGeneratedImages(normalized);
+                const idxMap: Record<number, number> = {};
+                Object.entries(normalized).forEach(([k, arr]) => {
+                    idxMap[Number(k)] = Math.max(0, arr.length - 1);
+                });
+                setGeneratedIndexes(idxMap);
+            } else {
+                setGeneratedImages({});
+                setGeneratedIndexes({});
+            }
+        } catch {
             setGeneratedImages({});
             setGeneratedIndexes({});
         }
-    } catch {
-        setGeneratedImages({});
-        setGeneratedIndexes({});
-    }
-}, [generatedStorageKey]);
+    }, [generatedStorageKey]);
 
     // Persist generated images when changed
     useEffect(() => {
@@ -948,7 +956,7 @@ export default function Step3_DeconstructionReview({
             for (let i = 1; i <= 40; i++) {
                 let hitThisIndex = false;
                 for (const ext of exts) {
-                    const candidate = `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/generated/shots/${shotId}/${prefix}_${i}.${ext}`;
+                    const candidate = `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/${generatedDir}/shots/${shotId}/${prefix}_${i}.${ext}`;
                     try {
                         const resp = await fetch(candidate, { method: 'HEAD' });
                         if (resp.ok) {
@@ -977,7 +985,7 @@ export default function Step3_DeconstructionReview({
             });
             setGeneratedIndexes((prev) => ({ ...prev, [shotId]: Math.max(0, mergedLen - 1) }));
         }
-    }, [workspaceSlug]);
+    }, [workspaceSlug, generatedDir]);
 
     useEffect(() => {
         if (!workspaceSlug) return;
