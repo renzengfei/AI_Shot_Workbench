@@ -3,7 +3,7 @@
 ## 项目结构
 - `frontend/` — Next.js 14 (App Router)；UI 在 `components/`，工作流在 `components/workflow/`，状态在 `lib/stores/`，样式在 `app/timeline.css`。
 - `backend/` — FastAPI；路由在 `main.py`，业务在 `services/`（场景检测、YouTube 下载、帧/资产生成、工作区管理）。
-- `workspaces/` — 每个项目的数据（`segmentation.json`、`deconstruction.md`、assets/frames/videos）。
+- `workspaces/` — 每个项目的数据（`segmentation.json`、`deconstruction.json`、assets/frames/videos）。
 - `backend/uploads/` 原始/YouTube 视频；`backend/transcodes/` 编辑版视频（GOP=1）与帧缓存。
 - 辅助：`STARTUP.md`、`start_dev.sh`。
 
@@ -83,5 +83,5 @@
 **不提交（生成物/缓存/数据）**
 - 构建与缓存：`node_modules`、`.next`、`.turbo`、`__pycache__/`、`*.pyc`。
 - 运行产物/视频帧：`backend/uploads/`、`backend/transcodes/`、`workspaces/*/assets/`（frames/videos/report）、`workspaces/*/export/`。
-- 工作空间元数据：`workspaces/*/project.json`、`workspaces/*/segmentation.json`、`workspaces/*/deconstruction.md`（除非明确需要提交示例数据）。
+- 工作空间元数据：`workspaces/*/project.json`、`workspaces/*/segmentation.json`、`workspaces/*/deconstruction.json`（除非明确需要提交示例数据）。
 - 其他：`.env*`、`.DS_Store`、`.agent/`。

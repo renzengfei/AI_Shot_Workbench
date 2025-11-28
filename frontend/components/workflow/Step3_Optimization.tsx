@@ -19,7 +19,7 @@ export default function Step3_Optimization() {
         const context = `
 Project Path: ${currentWorkspace?.path}
 Files:
-- deconstruction.md
+- deconstruction.json
 - shots.json
 Task: Optimize shots based on deconstruction.
         `;
@@ -49,7 +49,7 @@ Task: Optimize shots based on deconstruction.
                         <h3>AI Agent 协同</h3>
                     </div>
                     <p className="text-sm text-[var(--color-text-secondary)]">
-                        请复制以下上下文给 AI 编程工具，让其读取 `deconstruction.md` 并生成 `shots.json`。
+                        请复制以下上下文给 AI 编程工具，让其读取 `deconstruction.json` 并生成 `shots.json`。
                     </p>
 
                     <div className="bg-[var(--color-bg-secondary)] p-4 rounded-xl font-mono text-xs text-[var(--color-text-tertiary)] border border-[var(--glass-border)]">

@@ -351,7 +351,7 @@ export default function Step2_Deconstruction() {
                                 <MessageSquare size={13} />
                                 提示
                             </p>
-                            <p className="opacity-90 leading-relaxed">粘贴后自动写入 deconstruction.md，可刷新或切换步骤，内容保留。</p>
+                            <p className="opacity-90 leading-relaxed">粘贴后自动写入 deconstruction.json，可刷新或切换步骤，内容保留。</p>
                         </div>
                     </div>
                 </div>

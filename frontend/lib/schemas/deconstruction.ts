@@ -64,13 +64,16 @@ export const Round2ShotSchema = z
         viral_element: z.string().optional(),
         emotion: z.string().optional(),
         logic_mapping: z.string().optional(),
+        discarded: z.boolean().optional(),
+        merge_with_previous: z.boolean().optional(),
     })
     .partial()
     .passthrough();
 
 export const Round2Schema = z
     .object({
-        characters: z.record(z.string()).optional(),
+        // v4 record 需要显式指定键和值类型
+        characters: z.record(z.string(), z.string()).optional(),
         shots: z.array(Round2ShotSchema).optional(),
     })
     .partial()

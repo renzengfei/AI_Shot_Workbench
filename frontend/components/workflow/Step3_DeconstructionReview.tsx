@@ -26,6 +26,15 @@ import {
     type CategoryPromptMap,
 } from '@/lib/services/referenceGallery';
 import {
+    fetchImagePresets,
+    createImagePreset,
+    updateImagePreset,
+    deleteImagePreset,
+    getWorkspaceImagePreset,
+    setWorkspaceImagePreset,
+    type ImagePreset,
+} from '@/lib/services/imagePresets';
+import {
     ReviewMode,
     AssetItem,
     Round1Data,
@@ -54,7 +63,13 @@ export default function Step3_DeconstructionReview({
     hideModeSwitcher = false,
 }: Step3Props = {}) {
     const { project, updateDeconstruction } = useWorkflowStore();
-    const { saveDeconstruction, currentWorkspace } = useWorkspace();
+    const {
+        saveDeconstruction,
+        currentWorkspace,
+        deconstructionFiles,
+        selectedDeconstructionFile,
+        switchDeconstructionFile,
+    } = useWorkspace();
     const { nextStep } = useStepNavigator();
     const [mode, setMode] = useState<ReviewMode>('review');
     const [assets, setAssets] = useState<AssetItem[]>([]);
@@ -125,6 +140,16 @@ export default function Step3_DeconstructionReview({
     const [categoryPromptSaving, setCategoryPromptSaving] = useState(false);
     const [newCharacterName, setNewCharacterName] = useState('');
     const [newCharacterDesc, setNewCharacterDesc] = useState('');
+    // Image preset library
+    const [imagePresets, setImagePresets] = useState<ImagePreset[]>([]);
+    const [imagePresetLoading, setImagePresetLoading] = useState(false);
+    const [imagePresetError, setImagePresetError] = useState<string | null>(null);
+    const [showPresetModal, setShowPresetModal] = useState(false);
+    const [selectedImagePresetId, setSelectedImagePresetId] = useState<string | null>(null);
+    const [workspacePresetSnapshot, setWorkspacePresetSnapshot] = useState<ImagePreset | null>(null);
+    const [presetForm, setPresetForm] = useState<{ content: string }>({ content: '' });
+    const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
+    const [presetSaving, setPresetSaving] = useState(false);
     // Generated images per shot
     const [generatedImages, setGeneratedImages] = useState<Record<number, string[]>>({});
     const [generatedIndexes, setGeneratedIndexes] = useState<Record<number, number>>({});
@@ -135,6 +160,10 @@ export default function Step3_DeconstructionReview({
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const [previewImage, setPreviewImage] = useState<{ url: string; name?: string } | null>(null);
     const canEdit = mode === 'review';
+    const showToast = (message: string, type: 'success' | 'error') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3000);
+    };
     const allowAnnotations = mode === 'review' && !hideAnnotations;
     const modeOptions: { key: ReviewMode; label: string; helper: string }[] = [
         { key: 'review', label: '原片审验', helper: '可编辑 + 批注' },
@@ -162,8 +191,21 @@ export default function Step3_DeconstructionReview({
             return currentWorkspace.path.split('/').pop() || currentWorkspace.path;
         })()
         : null;
-    const deconstructionPath = currentWorkspace?.path ? `${currentWorkspace.path}/deconstruction.md` : '';
+    const deconstructionPath = currentWorkspace?.path && selectedDeconstructionFile
+        ? `${currentWorkspace.path}/${selectedDeconstructionFile}`
+        : currentWorkspace?.path
+            ? `${currentWorkspace.path}/deconstruction.json`
+            : '';
     const generatedStorageKey = workspaceSlug ? `generatedImages:${workspaceSlug}` : null;
+    const activeImagePreset = useMemo(() => {
+        return imagePresets.find((p) => p.id === selectedImagePresetId) || workspacePresetSnapshot;
+    }, [imagePresets, selectedImagePresetId, workspacePresetSnapshot]);
+    const presetLabel = useCallback((p: ImagePreset) => {
+        const text = (p.content || '').trim();
+        if (!text) return '生图设定';
+        const single = text.replace(/\s+/g, ' ');
+        return single.slice(0, 24) || '生图设定';
+    }, []);
 
     const loadReferenceGallery = useCallback(async () => {
         setGalleryLoading(true);
@@ -209,6 +251,42 @@ export default function Step3_DeconstructionReview({
         }
     }, [currentWorkspace?.path]);
 
+    const refreshImagePresets = useCallback(async () => {
+        setImagePresetLoading(true);
+        setImagePresetError(null);
+        try {
+            const presets = await fetchImagePresets();
+            setImagePresets(Array.isArray(presets) ? presets : []);
+        } catch (err) {
+            console.error(err);
+            setImagePresetError('加载生图设定失败');
+        } finally {
+            setImagePresetLoading(false);
+        }
+    }, []);
+
+    const loadWorkspaceImagePreset = useCallback(async () => {
+        if (!currentWorkspace?.path) {
+            setSelectedImagePresetId(null);
+            setWorkspacePresetSnapshot(null);
+            return;
+        }
+        try {
+            const data = await getWorkspaceImagePreset(currentWorkspace.path);
+            const pid = data?.preset_id ?? null;
+            setSelectedImagePresetId(pid || null);
+            setWorkspacePresetSnapshot((data?.preset as ImagePreset | undefined) ?? null);
+            if (data?.preset) {
+                setImagePresets((prev) => {
+                    if (prev.some((p) => p.id === data.preset?.id)) return prev;
+                    return [data.preset as ImagePreset, ...prev];
+                });
+            }
+        } catch (err) {
+            console.error('加载工作空间生图设定失败', err);
+        }
+    }, [currentWorkspace?.path]);
+
     const persistCharacterRefs = useCallback(
         async (next: CharacterReferenceMap) => {
             if (!currentWorkspace?.path) return;
@@ -224,6 +302,85 @@ export default function Step3_DeconstructionReview({
         },
         [currentWorkspace?.path],
     );
+
+    const handleBindPreset = async (presetId: string | null) => {
+        if (!currentWorkspace?.path) {
+            showToast('请先选择工作空间', 'error');
+            return;
+        }
+        try {
+            await setWorkspaceImagePreset(currentWorkspace.path, presetId);
+            setSelectedImagePresetId(presetId);
+            if (!presetId) {
+                setWorkspacePresetSnapshot(null);
+            } else {
+                const found = imagePresets.find((p) => p.id === presetId) || workspacePresetSnapshot;
+                setWorkspacePresetSnapshot(found || null);
+            }
+            showToast(presetId ? '已应用生图设定' : '已清除生图设定', 'success');
+        } catch (err) {
+            console.error('保存生图设定失败', err);
+            showToast('保存生图设定失败', 'error');
+        }
+    };
+
+    const handleEditPreset = (preset: ImagePreset) => {
+        setEditingPresetId(preset.id);
+        setPresetForm({ content: preset.content });
+    };
+
+    const handleResetPresetForm = () => {
+        setEditingPresetId(null);
+        setPresetForm({ content: '' });
+    };
+
+    const handleSavePreset = async () => {
+        if (!presetForm.content.trim()) {
+            showToast('请填写设定内容', 'error');
+            return;
+        }
+        setPresetSaving(true);
+        try {
+            if (editingPresetId) {
+                const updated = await updateImagePreset(editingPresetId, presetForm.content);
+                setImagePresets((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+                if (selectedImagePresetId === updated.id) {
+                    setWorkspacePresetSnapshot(updated);
+                }
+                showToast('设定已更新', 'success');
+            } else {
+                // 自动生成名称（前 24 个字符）
+                const autoName = presetForm.content.trim().split(/\s+/).join(' ').slice(0, 24) || '生图设定';
+                const created = await createImagePreset(presetForm.content, autoName);
+                setImagePresets((prev) => [created, ...prev]);
+                showToast('设定已创建', 'success');
+            }
+            handleResetPresetForm();
+        } catch (err) {
+            console.error('保存生图设定失败', err);
+            showToast('保存生图设定失败', 'error');
+        } finally {
+            setPresetSaving(false);
+        }
+    };
+
+    const handleDeletePresetById = async (presetId: string) => {
+        try {
+            await deleteImagePreset(presetId);
+            setImagePresets((prev) => prev.filter((p) => p.id !== presetId));
+            if (selectedImagePresetId === presetId) {
+                setSelectedImagePresetId(null);
+                setWorkspacePresetSnapshot(null);
+                if (currentWorkspace?.path) {
+                    await setWorkspaceImagePreset(currentWorkspace.path, null);
+                }
+            }
+            showToast('已删除生图设定', 'success');
+        } catch (err) {
+            console.error('删除生图设定失败', err);
+            showToast('删除生图设定失败', 'error');
+        }
+    };
 
     const handleSelectReference = async (charName: string, imageId: string) => {
         const next = { ...characterRefs, [charName]: imageId };
@@ -568,7 +725,9 @@ export default function Step3_DeconstructionReview({
             return;
         }
         const shotId = shot.id ?? index + 1;
-        const prompt = `首帧描述: ${typeof shot.initial_frame === 'string' ? shot.initial_frame : JSON.stringify(shot.initial_frame || {})}`;
+        const basePrompt = `首帧描述: ${typeof shot.initial_frame === 'string' ? shot.initial_frame : JSON.stringify(shot.initial_frame || {})}`;
+        const presetText = activeImagePreset?.content?.trim();
+        const prompt = presetText ? `${basePrompt}\n\n生图设定：${presetText}` : basePrompt;
         const refs = extractReferenceIds(shot);
         setGeneratingShots((prev) => ({ ...prev, [shotId]: true }));
         setGenerateError(null);
@@ -597,29 +756,32 @@ export default function Step3_DeconstructionReview({
         };
 
         try {
+            // 并发两次请求，每次只取第一张
             const results = await Promise.allSettled([callGenerate(), callGenerate()]);
             const successImages = results
                 .filter((r): r is PromiseFulfilledResult<string[]> => r.status === 'fulfilled')
-                .flatMap((r) => r.value);
+                .map((r) => r.value[0])
+                .filter(Boolean);
             const hadSuccess = successImages.length > 0;
             if (hadSuccess) {
-                let mergedLength = 0;
+                let mergedLen = 0;
                 setGeneratedImages((prev) => {
-                    const merged = Array.from(new Set([...(prev[shotId] || []), ...successImages]));
-                    mergedLength = merged.length;
+                    const merged = [...(prev[shotId] || []), ...successImages];
+                    mergedLen = merged.length;
                     return { ...prev, [shotId]: merged };
                 });
-                setGeneratedIndexes((prev) => ({ ...prev, [shotId]: Math.max(0, mergedLength - 1) }));
+                setGeneratedIndexes((prev) => ({ ...prev, [shotId]: Math.max(0, mergedLen - 1) }));
                 setNewlyGenerated((prev) => {
                     const existing = prev[shotId] || [];
-                    const mergedNew = Array.from(new Set([...existing, ...successImages]));
-                    return { ...prev, [shotId]: mergedNew };
+                    return { ...prev, [shotId]: [...existing, ...successImages] };
                 });
                 setToast({ message: `生成图片成功（${successImages.length} 张）`, type: 'success' });
                 setTimeout(() => setToast(null), 3000);
                 setGenerateErrors((prev) => ({ ...prev, [shotId]: undefined }));
+                // Best-effort补充磁盘已有文件，避免前端状态丢失
+                void loadExistingImagesForShot(shotId);
             } else {
-                const msg = '生成成功但未返回图片';
+                const msg = '生成失败，请重试';
                 setGenerateError(msg);
                 setGenerateErrors((prev) => ({ ...prev, [shotId]: msg }));
                 setToast({ message: msg, type: 'error' });
@@ -723,6 +885,14 @@ export default function Step3_DeconstructionReview({
         loadCharacterRefs();
     }, [loadCharacterRefs]);
 
+    useEffect(() => {
+        void refreshImagePresets();
+    }, [refreshImagePresets]);
+
+    useEffect(() => {
+        void loadWorkspaceImagePreset();
+    }, [loadWorkspaceImagePreset]);
+
     // Load persisted generated images per workspace
     useEffect(() => {
         if (!generatedStorageKey) return;
@@ -769,23 +939,35 @@ export default function Step3_DeconstructionReview({
     const loadExistingImagesForShot = useCallback(async (shotId: number) => {
         if (!workspaceSlug) return;
         const found: string[] = [];
-        let consecutiveMisses = 0;
-        for (let i = 1; i <= 40; i++) {
-            const candidate = `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/generated/shots/${shotId}/image_url_${i}.png`;
-            try {
-                const resp = await fetch(candidate, { method: 'HEAD' });
-                if (resp.ok) {
-                    found.push(candidate);
-                    consecutiveMisses = 0; // reset on hit
-                } else {
-                    consecutiveMisses += 1;
+        const prefixes = ['image', 'image_url'];
+        const exts = ['png', 'jpg', 'jpeg', 'webp'];
+        const consecutiveLimit = 5;
+
+        for (const prefix of prefixes) {
+            let consecutiveMisses = 0;
+            for (let i = 1; i <= 40; i++) {
+                let hitThisIndex = false;
+                for (const ext of exts) {
+                    const candidate = `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/generated/shots/${shotId}/${prefix}_${i}.${ext}`;
+                    try {
+                        const resp = await fetch(candidate, { method: 'HEAD' });
+                        if (resp.ok) {
+                            found.push(candidate);
+                            hitThisIndex = true;
+                            consecutiveMisses = 0;
+                            break; // stop trying other extensions for this index
+                        }
+                    } catch {
+                        // ignore
+                    }
                 }
-                if (consecutiveMisses >= 5) break; // avoid flooding 404s
-            } catch {
-                consecutiveMisses += 1;
-                if (consecutiveMisses >= 5) break;
+                if (!hitThisIndex) {
+                    consecutiveMisses += 1;
+                    if (consecutiveMisses >= consecutiveLimit) break;
+                }
             }
         }
+
         if (found.length) {
             let mergedLen = 0;
             setGeneratedImages((prev) => {
@@ -1642,12 +1824,6 @@ export default function Step3_DeconstructionReview({
                         </button>
                     ))}
                     <div className="flex-1" />
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--color-bg-secondary)] border border-[var(--glass-border)]">
-                        <div className={`w-2 h-2 rounded-full ${savingState === 'saved' ? 'bg-green-500' : savingState === 'saving' ? 'bg-yellow-500 animate-pulse' : 'bg-slate-500'}`} />
-                        <span className="text-xs font-medium text-[var(--color-text-secondary)]">
-                            {savingState === 'saving' ? '保存中...' : savingState === 'saved' ? '已保存' : '待编辑'}
-                        </span>
-                    </div>
                     <button
                         onClick={handleCopyPrompt}
                         disabled={promptCopyStatus === 'loading'}
@@ -1657,11 +1833,33 @@ export default function Step3_DeconstructionReview({
                                 ? 'bg-green-500/20 text-green-400 border border-green-500/30'
                                 : promptCopyStatus === 'error'
                                     ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                                    : 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20'}
+                                : 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20'}
                         `}
                     >
                         {promptCopyStatus === 'copied' ? <Check size={14} /> : <Copy size={14} />}
                         <span>{promptCopyStatus === 'loading' ? '加载中...' : promptCopyStatus === 'copied' ? '已复制' : '复制剧本优化提示词'}</span>
+                    </button>
+                    <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                        <span className="hidden md:inline">剧本文件</span>
+                        <select
+                            value={selectedDeconstructionFile || 'deconstruction.json'}
+                            onChange={(e) => void switchDeconstructionFile(e.target.value)}
+                            className="px-3 py-2 rounded-lg border border-[var(--glass-border)] bg-[var(--color-bg-secondary)]/70 text-[var(--color-text-primary)] focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30"
+                        >
+                            {deconstructionFiles.length === 0 && (
+                                <option value="deconstruction.json">deconstruction.json</option>
+                            )}
+                            {deconstructionFiles.map((f) => (
+                                <option key={f} value={f}>{f}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <button
+                        onClick={() => setShowPresetModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-blue-500 text-white hover:bg-blue-600 transition shadow-sm"
+                        type="button"
+                    >
+                        生图设定
                     </button>
                     {!hideAnnotations && (
                         <button
@@ -1826,7 +2024,6 @@ export default function Step3_DeconstructionReview({
                         {generateError}
                     </div>
                 )}
-
                 {/* Final Mode Metadata & Analysis */}
                 {(mode === 'final' || mode === 'revision') && (
                     <div className="glass-card p-5 border border-purple-500/20 bg-[var(--glass-bg-light)] space-y-3">
@@ -2783,14 +2980,9 @@ export default function Step3_DeconstructionReview({
                                                     />
                                                 </div>
                                             ) : (
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <p className="text-xs font-medium text-slate-700 truncate" title={item.name}>
-                                                        {item.name}
-                                                    </p>
-                                                    <span className="text-[10px] px-2 py-1 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
-                                                        {item.category || '未分类'}
-                                                    </span>
-                                                </div>
+                                                <p className="text-xs font-medium text-slate-700 truncate" title={item.name}>
+                                                    {item.name}
+                                                </p>
                                             )}
                                             {/* Quick category change */}
                                             {!renamingId && (
@@ -2817,6 +3009,122 @@ export default function Step3_DeconstructionReview({
                                 ))}
                             </div>
                         )}
+                    </div>
+                </div>
+            </div>
+        )}
+        {showPresetModal && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
+                <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                        <div>
+                            <h3 className="text-lg font-semibold text-slate-900">生图设定库（全局复用）</h3>
+                            <p className="text-xs text-slate-500">选择一条设定即可应用，或新增设定</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            {imagePresetLoading && <span className="text-xs text-blue-500 animate-pulse">加载中...</span>}
+                            <button
+                                onClick={() => setShowPresetModal(false)}
+                                className="p-2 rounded-full hover:bg-slate-100 transition text-slate-500"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+                    </div>
+                    <div className="p-6 space-y-4">
+                        {imagePresetError && (
+                            <div className="text-xs text-amber-500 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                {imagePresetError}
+                            </div>
+                        )}
+                        <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+                            <label className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-blue-300 cursor-pointer transition">
+                                <input
+                                    type="radio"
+                                    checked={!selectedImagePresetId}
+                                    onChange={() => void handleBindPreset(null)}
+                                    className="mt-1"
+                                />
+                                <div className="space-y-1">
+                                    <div className="text-sm font-semibold text-slate-800">不使用生图设定</div>
+                                    <div className="text-xs text-slate-500">直接使用首帧描述生成</div>
+                                </div>
+                            </label>
+                            {imagePresets.map((p) => (
+                                <label
+                                    key={p.id}
+                                    className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-blue-300 cursor-pointer transition"
+                                >
+                                    <input
+                                    type="radio"
+                                    checked={selectedImagePresetId === p.id}
+                                    onChange={() => void handleBindPreset(p.id)}
+                                    className="mt-1"
+                                    />
+                                    <div className="space-y-1 flex-1">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="text-sm font-semibold text-slate-800 truncate">{presetLabel(p)}</div>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleEditPreset(p);
+                                                    }}
+                                                    className="text-[11px] px-2 py-1 rounded-lg border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600 transition"
+                                                >
+                                                    编辑
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        void handleDeletePresetById(p.id);
+                                                    }}
+                                                    className="text-[11px] px-2 py-1 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition"
+                                                >
+                                                    删除
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">
+                                            {p.content}
+                                        </div>
+                                    </div>
+                                </label>
+                            ))}
+                            {!imagePresets.length && (
+                                <div className="text-xs text-slate-400">暂无设定，请在下方新增。</div>
+                            )}
+                        </div>
+                        <div className="p-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 space-y-3">
+                            <div className="text-sm font-semibold text-slate-800">新增设定</div>
+                            <AutoTextArea
+                                value={presetForm.content}
+                                onChange={(e) => setPresetForm((prev) => ({ ...prev, content: e.target.value }))}
+                                minRows={3}
+                                maxRows={8}
+                                className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none"
+                                placeholder="描述画风、用词模板、比例等，将在生成时拼接到首帧描述后"
+                            />
+                            <div className="flex gap-2 justify-end">
+                                <button
+                                    onClick={() => void handleSavePreset()}
+                                    className="px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition disabled:opacity-60"
+                                    disabled={presetSaving}
+                                >
+                                    {editingPresetId ? '保存修改' : '新增设定'}
+                                </button>
+                                {editingPresetId && (
+                                    <button
+                                        onClick={handleResetPresetForm}
+                                        className="px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:border-slate-300 transition"
+                                    >
+                                        取消编辑
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

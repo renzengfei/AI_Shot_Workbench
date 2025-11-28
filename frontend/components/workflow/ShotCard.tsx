@@ -433,6 +433,8 @@ export const ShotCard = ({
         }
     };
 
+    const markValue = shot.discarded ? 'discarded' : shot.merge_with_previous ? 'merge' : '';
+
     return (
         <>
             <div
@@ -444,26 +446,44 @@ export const ShotCard = ({
 
                 {/* Header: Shot Number & Duration */}
                 <div className="relative z-10 flex items-center justify-between mb-8">
-                    <div className="flex items-center gap-3 flex-wrap">
-                        <div className="px-4 py-1.5 rounded-full text-sm font-semibold bg-gradient-to-r from-blue-500/25 via-cyan-500/20 to-purple-500/25 text-white/90 border border-white/20 shadow-sm">
-                            SHOT {shotId}
+                        <div className="flex items-center gap-3 flex-wrap">
+                            <div className="px-4 py-1.5 rounded-full text-sm font-semibold bg-gradient-to-r from-blue-500/25 via-cyan-500/20 to-purple-500/25 text-white/90 border border-white/20 shadow-sm">
+                                SHOT {shotId}
+                            </div>
+                            <div className="relative">
+                                <span className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-white/10 tracking-tighter">
+                                    {String(index + 1).padStart(2, '0')}
+                                </span>
+                                <div className="absolute -bottom-2 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full opacity-50 blur-sm" />
+                            </div>
                         </div>
-                        <div className="relative">
-                            <span className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-white/10 tracking-tighter">
-                                {String(index + 1).padStart(2, '0')}
-                            </span>
-                            <div className="absolute -bottom-2 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full opacity-50 blur-sm" />
+
+                    <div className="flex items-center gap-4 flex-wrap justify-end">
+                        {shot.timestamp && (
+                            <div className="flex items-center gap-2 text-slate-400 text-sm">
+                                <Clock size={14} />
+                                <span className="font-mono">{shot.timestamp}</span>
+                                {shot.end_time && <span className="font-mono">— {shot.end_time}</span>}
+                                {shot.duration && <span className="ml-2 px-2 py-0.5 rounded-full bg-white/5 text-xs">({shot.duration}s)</span>}
+                            </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                            <label className="text-xs text-white/70">标记</label>
+                            <select
+                                value={markValue}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    updateField('discarded', val === 'discarded');
+                                    updateField('merge_with_previous', val === 'merge');
+                                }}
+                                className="text-xs px-2 py-1 rounded-lg bg-white text-slate-700 border border-slate-200 shadow-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200"
+                            >
+                                <option value="">无</option>
+                                <option value="discarded">已舍弃</option>
+                                <option value="merge">跟上方卡片合并</option>
+                            </select>
                         </div>
                     </div>
-
-                    {shot.timestamp && (
-                        <div className="flex items-center gap-2 text-slate-400 text-sm">
-                            <Clock size={14} />
-                            <span className="font-mono">{shot.timestamp}</span>
-                            {shot.end_time && <span className="font-mono">— {shot.end_time}</span>}
-                            {shot.duration && <span className="ml-2 px-2 py-0.5 rounded-full bg-white/5 text-xs">({shot.duration}s)</span>}
-                        </div>
-                    )}
                 </div>
 
                 {/* Grid Layout for Shot Details */}

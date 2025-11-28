@@ -170,12 +170,19 @@ function extractShots(markdown: string): Round2['shots'] | null {
     if (tableLines.length < 2) return null;
 
     const header = splitRow(tableLines[0]);
+    const isDividerRow = (cols: string[]) => cols.length > 0 && cols.every((c) => /^:?-+:?$/.test(c.replace(/\s+/g, '')));
     // find divider row if present
     let dataStart = 1;
-    if (tableLines[1].replace(/\|/g, '').match(/^-+|:+$/)) {
-        dataStart = 2;
+    if (tableLines[1]) {
+        const potentialDivider = splitRow(tableLines[1]);
+        if (isDividerRow(potentialDivider)) {
+            dataStart = 2;
+        }
     }
-    const rows = tableLines.slice(dataStart).map(splitRow).filter((r) => r.length > 0);
+    const rows = tableLines
+        .slice(dataStart)
+        .map(splitRow)
+        .filter((r) => r.length > 0 && !isDividerRow(r));
     if (!rows.length) return null;
 
     const findIndex = (keywords: string[]) =>

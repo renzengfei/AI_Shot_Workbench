@@ -24,12 +24,12 @@ export const AutoTextArea = ({
         const el = ref.current;
         if (!el) return;
         el.style.height = 'auto';
-        el.rows = 1;
         const lineHeight = parseInt(getComputedStyle(el).lineHeight || '20', 10);
-        const maxHeight = maxRows * lineHeight;
-        const next = Math.min(maxHeight, el.scrollHeight);
+        const minHeight = (minRows || 1) * lineHeight;
+        const maxHeight = (maxRows || minRows) * lineHeight;
+        const next = Math.min(maxHeight, Math.max(minHeight, el.scrollHeight));
         el.style.height = `${next}px`;
-    }, [maxRows]);
+    }, [maxRows, minRows]);
 
     useLayoutEffect(() => {
         resize();
@@ -41,8 +41,8 @@ export const AutoTextArea = ({
             value={value}
             onChange={onChange}
             readOnly={readOnly}
-            rows={1}
-            style={{ overflow: 'hidden' }}
+            rows={minRows}
+            style={{ overflowY: 'auto', overflowX: 'hidden' }}
             className={className}
             placeholder={placeholder}
         />

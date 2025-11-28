@@ -92,6 +92,8 @@ export interface Round2Shot {
     };
     alternatives?: ShotAlternative[];
     density_score?: number;
+    discarded?: boolean;
+    merge_with_previous?: boolean;
 }
 
 export interface Round2Data {

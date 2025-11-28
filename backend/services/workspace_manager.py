@@ -7,6 +7,18 @@ class WorkspaceManager:
     def __init__(self, base_dir: str = "workspaces"):
         self.base_dir = base_dir
         os.makedirs(self.base_dir, exist_ok=True)
+        self.deconstruction_filename = "deconstruction.json"
+        self.deconstruction_legacy_filename = "deconstruction.md"
+
+    def _normalize_deconstruction_filename(self, file_name: Optional[str]) -> str:
+        """Ensure filename is safe and follows deconstruction prefix"""
+        fname = (file_name or "").strip() or self.deconstruction_filename
+        fname = os.path.basename(fname)
+        if not fname.startswith("deconstruction"):
+            fname = self.deconstruction_filename
+        if not (fname.endswith(".json") or fname.endswith(".md")):
+            fname = f"{fname}.json"
+        return fname
 
     def create_workspace(self, name: str) -> Dict[str, Any]:
         """Create a new workspace folder and initialize project.json"""
@@ -138,14 +150,47 @@ class WorkspaceManager:
         self._update_timestamp(workspace_path)
     
     # Deconstruction operations
-    def get_deconstruction(self, workspace_path: str) -> str:
-        """Get deconstruction markdown from workspace"""
-        decon_path = os.path.join(workspace_path, "deconstruction.md")
-        return self._load_text(decon_path)
+    def list_deconstruction_files(self, workspace_path: str) -> list:
+        """List deconstruction files (deconstruction*.json/.md)"""
+        if not os.path.isdir(workspace_path):
+            return []
+        files = []
+        for fname in os.listdir(workspace_path):
+            if not fname.startswith("deconstruction"):
+                continue
+            lower = fname.lower()
+            if lower.endswith(".json") or lower.endswith(".md"):
+                files.append(fname)
+        # Ensure canonical default first
+        def sort_key(x: str):
+            if x == self.deconstruction_filename:
+                return (0, x)
+            return (1, x)
+        return sorted(files, key=sort_key)
+
+    def get_deconstruction(self, workspace_path: str, file_name: Optional[str] = None) -> str:
+        """Get deconstruction content (stored as JSON string). Prefers specified filename, falls back to legacy"""
+        fname = self._normalize_deconstruction_filename(file_name)
+        json_path = os.path.join(workspace_path, fname)
+        md_path = os.path.join(workspace_path, self.deconstruction_legacy_filename)
+        if os.path.exists(json_path):
+            return self._load_text(json_path)
+        if os.path.exists(md_path):
+            # Legacy fallback: read .md and migrate to .json best-effort
+            content = self._load_text(md_path)
+            try:
+                # migrate into requested filename if using default name
+                target_path = json_path if fname.endswith(".json") else os.path.join(workspace_path, self.deconstruction_filename)
+                self._save_text(target_path, content)
+            except Exception:
+                pass
+            return content
+        return ""
     
-    def save_deconstruction(self, workspace_path: str, content: str):
-        """Save deconstruction markdown to workspace"""
-        decon_path = os.path.join(workspace_path, "deconstruction.md")
+    def save_deconstruction(self, workspace_path: str, content: str, file_name: Optional[str] = None):
+        """Save deconstruction JSON to workspace"""
+        fname = self._normalize_deconstruction_filename(file_name)
+        decon_path = os.path.join(workspace_path, fname)
         self._save_text(decon_path, content)
         self._update_timestamp(workspace_path)
     
@@ -157,7 +202,24 @@ class WorkspaceManager:
         project_data["current_step"] = step
         project_data["updated_at"] = datetime.now().isoformat()
         self._save_json(project_path, project_data)
-    
+
+    # Image preset binding
+    def get_image_preset_id(self, workspace_path: str) -> Optional[str]:
+        project_path = os.path.join(workspace_path, "project.json")
+        project_data = self._load_json(project_path)
+        preset_id = project_data.get("image_preset_id")
+        return preset_id if isinstance(preset_id, str) else None
+
+    def set_image_preset_id(self, workspace_path: str, preset_id: Optional[str]):
+        project_path = os.path.join(workspace_path, "project.json")
+        project_data = self._load_json(project_path)
+        if preset_id:
+            project_data["image_preset_id"] = preset_id
+        else:
+            project_data.pop("image_preset_id", None)
+        project_data["updated_at"] = datetime.now().isoformat()
+        self._save_json(project_path, project_data)
+
     def _update_timestamp(self, workspace_path: str):
         """Update the updated_at timestamp in project.json"""
         project_path = os.path.join(workspace_path, "project.json")

@@ -8,12 +8,15 @@ import { http, API_BASE } from '@/lib/services/http';
 interface WorkspaceContextType {
     currentWorkspace: Workspace | null;
     workspaces: Workspace[];
+    deconstructionFiles: string[];
+    selectedDeconstructionFile: string | null;
     createWorkspace: (name: string) => Promise<void>;
     openWorkspace: (path: string) => Promise<void>;
     closeWorkspace: () => void;
     refreshWorkspaces: () => Promise<void>;
     saveSegmentation: (payload: SaveSegmentationPayload) => Promise<void>;
     saveDeconstruction: (content: string) => Promise<void>;
+    switchDeconstructionFile: (file: string) => Promise<void>;
     saveShots: (shots: Shot[]) => Promise<void>;
     generateAssets: (payload: GenerateAssetsPayload) => Promise<unknown>;
 }
@@ -80,8 +83,11 @@ interface ShotsResponse {
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(null);
     const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+    const [deconstructionFiles, setDeconstructionFiles] = useState<string[]>([]);
+    const [selectedDeconstructionFile, setSelectedDeconstructionFile] = useState<string | null>(null);
     const { setProject } = useWorkflowStore();
     const { loadVideo, resetVideo } = useTimelineStore();
+    const retryRef = React.useRef<NodeJS.Timeout | null>(null);
 
     const mergeWorkspaces = (primary: Workspace[], secondary: Workspace[]) => {
         const map = new Map<string, Workspace>();
@@ -129,7 +135,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     };
 
     useEffect(() => {
-        refreshWorkspaces();
+        refreshWorkspaces().catch(() => {
+            // handled inside refreshWorkspaces
+        });
         // Auto-open last workspace if available
         const lastPath = typeof window !== 'undefined' ? localStorage.getItem(LAST_WORKSPACE_KEY) : null;
         if (lastPath) {
@@ -181,6 +189,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     }, [currentWorkspace]);
 
     const refreshWorkspaces = async () => {
+        if (retryRef.current) {
+            clearTimeout(retryRef.current);
+            retryRef.current = null;
+        }
         try {
             const data = await http.get<Workspace[]>('/api/workspaces');
             const serverList = Array.isArray(data) ? data : [];
@@ -188,9 +200,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
             persistRecents(serverList);
         } catch (error) {
             console.error('Failed to fetch workspaces:', error);
-            // keep previous state on error; optionally use cached list
             const cached = loadStoredRecents();
             if (cached.length > 0) setWorkspaces(cached);
+            retryRef.current = setTimeout(() => {
+                void refreshWorkspaces();
+            }, 2000);
         }
     };
 
@@ -232,11 +246,25 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
             updateRecents({ name: data.data.name, path: data.path, updated_at: data.data.updated_at });
 
             // Load persisted files
-            const [segData, deconData, shotsData] = await Promise.all([
+            const [segData, fileListData, shotsData] = await Promise.all([
                 http.get<SegmentationResponse>(`/api/workspaces/${encodeURIComponent(data.path)}/segmentation`).catch(() => ({})),
-                http.get<DeconstructionResponse>(`/api/workspaces/${encodeURIComponent(data.path)}/deconstruction`).catch(() => ({ content: '' })),
+                http.get<{ files?: string[] }>(`/api/workspaces/${encodeURIComponent(data.path)}/deconstruction-files`).catch(() => ({ files: [] })),
                 http.get<ShotsResponse>(`/api/workspaces/${encodeURIComponent(data.path)}/shots`).catch(() => ({})),
             ]);
+            const files = Array.isArray(fileListData.files) ? fileListData.files : [];
+            setDeconstructionFiles(files);
+            const defaultFile = 'deconstruction.json';
+            const storedKey = `decon-file:${data.path}`;
+            const storedFile = typeof window !== 'undefined' ? localStorage.getItem(storedKey) : null;
+            const chosenFile = (storedFile && files.includes(storedFile))
+                ? storedFile
+                : (files.includes(defaultFile) ? defaultFile : (files[0] || defaultFile));
+            if (typeof window !== 'undefined') {
+                localStorage.setItem(storedKey, chosenFile);
+            }
+            setSelectedDeconstructionFile(chosenFile);
+            const deconUrl = `/api/workspaces/${encodeURIComponent(data.path)}/deconstruction${chosenFile ? `?file=${encodeURIComponent(chosenFile)}` : ''}`;
+            const deconData = await http.get<DeconstructionResponse>(deconUrl).catch(() => ({ content: '' }));
 
             const cuts = Array.isArray(segData.cuts) ? segData.cuts : [];
             const hiddenSegments = Array.isArray(segData.hidden_segments) ? segData.hidden_segments : [];
@@ -283,6 +311,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         setCurrentWorkspace(null);
         useWorkflowStore.getState().resetProject();
         resetVideo();
+        setDeconstructionFiles([]);
+        setSelectedDeconstructionFile(null);
         if (typeof window !== 'undefined') {
             localStorage.removeItem(LAST_WORKSPACE_KEY);
         }
@@ -306,9 +336,28 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     const saveDeconstruction = async (content: string) => {
         if (!currentWorkspace) return;
         try {
-            await http.post(`/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/deconstruction`, { content });
+            const file = selectedDeconstructionFile || 'deconstruction.json';
+            await http.post(`/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/deconstruction`, { content, file });
         } catch (error) {
             console.error('Failed to save deconstruction:', error);
+        }
+    };
+
+    const switchDeconstructionFile = async (file: string) => {
+        if (!currentWorkspace) return;
+        const target = file || 'deconstruction.json';
+        try {
+            const deconData = await http.get<DeconstructionResponse>(`/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/deconstruction?file=${encodeURIComponent(target)}`).catch(() => ({ content: '' }));
+            setSelectedDeconstructionFile(target);
+            if (typeof window !== 'undefined') {
+                localStorage.setItem(`decon-file:${currentWorkspace.path}`, target);
+            }
+            const current = useWorkflowStore.getState().project;
+            if (current) {
+                setProject({ ...current, deconstructionText: deconData.content || '' });
+            }
+        } catch (error) {
+            console.error('Failed to switch deconstruction file:', error);
         }
     };
 
@@ -325,12 +374,15 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         <WorkspaceContext.Provider value={{
             currentWorkspace,
             workspaces,
+            deconstructionFiles,
+            selectedDeconstructionFile,
             createWorkspace,
             openWorkspace,
             closeWorkspace,
             refreshWorkspaces,
             saveSegmentation,
             saveDeconstruction,
+            switchDeconstructionFile,
             saveShots,
             generateAssets
         }}>

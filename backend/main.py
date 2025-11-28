@@ -12,6 +12,8 @@ import json
 import re
 import requests
 import time
+import logging
+import httpx
 from services.scene_detector import SceneDetector
 from services.exporter import Exporter
 from services.youtube_downloader import YouTubeDownloader
@@ -20,11 +22,15 @@ from services.asset_generator import AssetGenerator, AssetGenerationError
 
 from services.workspace_manager import WorkspaceManager
 from services.file_watcher import FileWatcher
+from services.image_preset_manager import ImagePresetManager
 
 from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger("ai-shot-workbench")
 
 app = FastAPI(title="AI Shot Workbench API")
 
@@ -47,6 +53,7 @@ REFERENCE_IMAGES_DIR = os.path.join(REFERENCE_GALLERY_DIR, "images")
 REFERENCE_METADATA_PATH = os.path.join(REFERENCE_GALLERY_DIR, "metadata.json")
 REFERENCE_CATEGORY_PROMPTS_PATH = os.path.join(REFERENCE_GALLERY_DIR, "category_prompts.json")
 REFERENCE_CATEGORIES_PATH = os.path.join(REFERENCE_GALLERY_DIR, "categories.json")
+IMAGE_PRESETS_PATH = os.path.join(BASE_DIR, "image_presets.json")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(TRANSCODE_DIR, exist_ok=True)
@@ -59,6 +66,7 @@ workspace_manager = WorkspaceManager(WORKSPACES_DIR)
 file_watcher = FileWatcher()
 frame_service = FrameService(TRANSCODE_DIR)
 asset_generator = AssetGenerator()
+image_preset_manager = ImagePresetManager(IMAGE_PRESETS_PATH)
 
 # Mount static files
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
@@ -258,9 +266,28 @@ class CategoryCreateRequest(BaseModel):
 class CategoryRenameRequest(BaseModel):
     name: str
 
+
+class ImagePresetCreateRequest(BaseModel):
+    name: Optional[str] = None
+    content: str
+
+
+class ImagePresetUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    content: Optional[str] = None
+
+
+class WorkspacePresetRequest(BaseModel):
+    preset_id: Optional[str] = None
+
 @app.get("/")
 def read_root():
     return {"status": "AI Shot Workbench API is running"}
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 # WebSocket Endpoint
 @app.websocket("/ws")
@@ -528,6 +555,59 @@ async def rename_reference_image(image_id: str, payload: ReferenceUpdateRequest)
     return {"status": "renamed", "item": updated_item}
 
 
+@app.get("/api/image-presets")
+def list_image_presets():
+    presets = image_preset_manager.list_presets()
+    return {"presets": presets}
+
+
+@app.post("/api/image-presets")
+def create_image_preset(payload: ImagePresetCreateRequest):
+    preset = image_preset_manager.create_preset(payload.name, payload.content)
+    return {"preset": preset}
+
+
+@app.patch("/api/image-presets/{preset_id}")
+def update_image_preset(preset_id: str, payload: ImagePresetUpdateRequest):
+    updated = image_preset_manager.update_preset(preset_id, payload.name, payload.content)
+    if not updated:
+        raise HTTPException(status_code=404, detail="生图设定不存在")
+    return {"preset": updated}
+
+
+@app.delete("/api/image-presets/{preset_id}")
+def delete_image_preset(preset_id: str):
+    removed = image_preset_manager.delete_preset(preset_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="生图设定不存在")
+    return {"status": "deleted"}
+
+
+@app.get("/api/workspaces/{workspace_path:path}/image-preset")
+def get_workspace_image_preset(workspace_path: str):
+    if not os.path.exists(workspace_path):
+        raise HTTPException(status_code=404, detail="workspace_path 不存在")
+    preset_id = workspace_manager.get_image_preset_id(workspace_path)
+    preset = image_preset_manager.get_preset(preset_id) if preset_id else None
+    return {"preset_id": preset_id, "preset": preset}
+
+
+@app.post("/api/workspaces/{workspace_path:path}/image-preset")
+def set_workspace_image_preset(workspace_path: str, payload: WorkspacePresetRequest):
+    if not os.path.exists(workspace_path):
+        raise HTTPException(status_code=404, detail="workspace_path 不存在")
+    preset_id = payload.preset_id
+    if preset_id:
+        preset = image_preset_manager.get_preset(preset_id)
+        if not preset:
+            raise HTTPException(status_code=404, detail="生图设定不存在")
+    try:
+        workspace_manager.set_image_preset_id(workspace_path, preset_id)
+        return {"preset_id": preset_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Generate image via Gemini API (stream)
 @app.post("/api/generate-image")
 async def generate_image(request: GenerateImageRequest):
@@ -540,6 +620,18 @@ async def generate_image(request: GenerateImageRequest):
 
     if not os.path.exists(request.workspace_path):
         raise HTTPException(status_code=404, detail="workspace_path 不存在")
+
+    preset_text = None
+    preset_id = workspace_manager.get_image_preset_id(request.workspace_path)
+    if preset_id:
+        preset_obj = image_preset_manager.get_preset(preset_id)
+        if preset_obj:
+            preset_text = preset_obj.get("content")
+
+    if preset_text and preset_text in request.prompt:
+        final_prompt = request.prompt
+    else:
+        final_prompt = request.prompt if not preset_text else f"{request.prompt}\n\n生图设定：{preset_text}"
 
     # Prepare images as base64 data URLs
     image_data_urls = []
@@ -558,7 +650,7 @@ async def generate_image(request: GenerateImageRequest):
             image_data_urls.append(f"data:{mime};base64,{encoded}")
 
     # Build messages per OpenAI-compatible format
-    content = [{"type": "text", "text": request.prompt}]
+    content = [{"type": "text", "text": final_prompt}]
     for data_url in image_data_urls:
         content.append({"type": "image_url", "image_url": {"url": data_url}})
     messages = [{"role": "user", "content": content}]
@@ -574,147 +666,150 @@ async def generate_image(request: GenerateImageRequest):
         "Content-Type": "application/json",
     }
 
-    try:
-        resp = requests.post(
-            f"{base_url}/chat/completions",
-            headers=headers,
-            json=payload,
-            stream=True,
-            timeout=120,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"请求生成接口失败: {e}")
-
-    if resp.status_code >= 400:
-        detail = resp.text
-        raise HTTPException(status_code=resp.status_code, detail=f"生成接口错误: {detail}")
-
     text_parts = []
     image_candidates = []
-    for line in resp.iter_lines():
-        if not line:
-            continue
-        line_str = line.decode("utf-8")
-        if not line_str.startswith("data: "):
-            continue
-        data_str = line_str[6:]
-        if data_str.strip() == "[DONE]":
-            break
-        try:
-            chunk = json.loads(data_str)
-        except json.JSONDecodeError:
-            continue
-        if "choices" in chunk and len(chunk["choices"]) > 0:
-            delta = chunk["choices"][0].get("delta", {})
-            content_delta = delta.get("content")
-            if isinstance(content_delta, list):
-                for part in content_delta:
-                    if isinstance(part, dict):
-                        if part.get("type") == "text" and "text" in part:
-                            text_parts.append(part["text"])
-                        elif part.get("type") == "image_url" and "image_url" in part:
-                            url = part["image_url"].get("url")
-                            if url:
-                                image_candidates.append(url)
-            elif isinstance(content_delta, str):
-                text_parts.append(content_delta)
+    try:
+        timeout = httpx.Timeout(connect=30.0, read=240.0, write=240.0, pool=None)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            async with client.stream(
+                "POST",
+                f"{base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+            ) as resp:
+                if resp.status_code >= 400:
+                    detail = await resp.aread()
+                    raise HTTPException(status_code=resp.status_code, detail=f"生成接口错误: {detail.decode('utf-8', errors='ignore')}")
 
-    # Save outputs
-    saved_images = []
-    workspace_path = request.workspace_path
-    shot_id = request.shot_id or "unknown"
-    generated_dir = os.path.join(workspace_path, "generated", "shots", str(shot_id))
-    os.makedirs(generated_dir, exist_ok=True)
+                async for line_str in resp.aiter_lines():
+                    if not line_str:
+                        continue
+                    if not line_str.startswith("data: "):
+                        continue
+                    data_str = line_str[6:]
+                    if data_str.strip() == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data_str)
+                    except json.JSONDecodeError:
+                        continue
+                    if "choices" in chunk and len(chunk["choices"]) > 0:
+                        delta = chunk["choices"][0].get("delta", {})
+                        content_delta = delta.get("content")
+                        if isinstance(content_delta, list):
+                            for part in content_delta:
+                                if isinstance(part, dict):
+                                    if part.get("type") == "text" and "text" in part:
+                                        text_parts.append(part["text"])
+                                    elif part.get("type") == "image_url" and "image_url" in part:
+                                        url = part["image_url"].get("url")
+                                        if url:
+                                            image_candidates.append(url)
+                        elif isinstance(content_delta, str):
+                            text_parts.append(content_delta)
 
-    # Determine next index to avoid overwrite
-    existing_max_idx = 0
-    for fname in os.listdir(generated_dir):
-        m = re.search(r'image(?:_url)?_(\d+)\.', fname)
-        if m:
-            try:
-                existing_max_idx = max(existing_max_idx, int(m.group(1)))
-            except ValueError:
-                continue
-    idx = existing_max_idx + 1
+            # Save outputs
+            saved_images = []
+            workspace_path = request.workspace_path
+            shot_id = request.shot_id or "unknown"
+            generated_dir = os.path.join(workspace_path, "generated", "shots", str(shot_id))
+            os.makedirs(generated_dir, exist_ok=True)
 
-    def save_base64_img(data_url: str, index: int):
-        try:
-            header, b64data = data_url.split(",", 1)
-        except ValueError:
-            return
-        ext = "png"
-        if "jpeg" in header or "jpg" in header:
-            ext = "jpg"
-        elif "webp" in header:
-            ext = "webp"
-        filename = f"image_{index}.{ext}"
-        path = os.path.join(generated_dir, filename)
-        with open(path, "wb") as f:
-            f.write(base64.b64decode(b64data))
-        saved_images.append(filename)
+            # Determine next index to avoid overwrite
+            existing_max_idx = 0
+            for fname in os.listdir(generated_dir):
+                m = re.search(r'image(?:_url)?_(\d+)\.', fname)
+                if m:
+                    try:
+                        existing_max_idx = max(existing_max_idx, int(m.group(1)))
+                    except ValueError:
+                        continue
+            idx = existing_max_idx + 1
 
-    def save_from_url(url: str, index: int):
-        try:
-            r = requests.get(url, timeout=60)
-            r.raise_for_status()
-            ext = "png"
-            ctype = r.headers.get("content-type", "")
-            if "jpeg" in ctype or "jpg" in ctype:
-                ext = "jpg"
-            elif "webp" in ctype:
-                ext = "webp"
-            filename = f"image_url_{index}.{ext}"
-            path = os.path.join(generated_dir, filename)
-            with open(path, "wb") as f:
-                f.write(r.content)
-            saved_images.append(filename)
-            return True
-        except Exception:
-            return False
+            def save_base64_img(data_url: str, index: int):
+                try:
+                    header, b64data = data_url.split(",", 1)
+                except ValueError:
+                    return
+                ext = "png"
+                if "jpeg" in header or "jpg" in header:
+                    ext = "jpg"
+                elif "webp" in header:
+                    ext = "webp"
+                filename = f"image_{index}.{ext}"
+                path = os.path.join(generated_dir, filename)
+                with open(path, "wb") as f:
+                    f.write(base64.b64decode(b64data))
+                saved_images.append(filename)
 
-    # Extract images from explicit candidates
-    for candidate in image_candidates:
-        if isinstance(candidate, str):
-            if candidate.startswith("data:image/"):
-                save_base64_img(candidate, idx)
+            async def save_from_url(url: str, index: int):
+                try:
+                    r = await client.get(url)
+                    r.raise_for_status()
+                    ext = "png"
+                    ctype = r.headers.get("content-type", "")
+                    if "jpeg" in ctype or "jpg" in ctype:
+                        ext = "jpg"
+                    elif "webp" in ctype:
+                        ext = "webp"
+                    filename = f"image_url_{index}.{ext}"
+                    path = os.path.join(generated_dir, filename)
+                    with open(path, "wb") as f:
+                        f.write(r.content)
+                    saved_images.append(filename)
+                    return True
+                except Exception:
+                    return False
+
+            # Extract images from explicit candidates
+            for candidate in image_candidates:
+                if isinstance(candidate, str):
+                    if candidate.startswith("data:image/"):
+                        save_base64_img(candidate, idx)
+                        idx += 1
+                    elif candidate.startswith("http"):
+                        if await save_from_url(candidate, idx):
+                            idx += 1
+
+            # Fallback: regex scan over concatenated text in case URLs are embedded
+            full_content_text = "".join(text_parts)
+            base64_pattern = r"data:image/[^;]+;base64,[A-Za-z0-9+/=]+"
+            url_pattern = r"https?://[^\s<>\")']+\.(?:png|jpg|jpeg|webp|gif)"
+            md_image_pattern = r"!\[[^\]]*\]\((https?://[^\s<>\")']+)\)"
+            for m in re.finditer(base64_pattern, full_content_text):
+                save_base64_img(m.group(0), idx)
                 idx += 1
-            elif candidate.startswith("http"):
-                if save_from_url(candidate, idx):
+            for m in re.finditer(url_pattern, full_content_text, re.IGNORECASE):
+                if await save_from_url(m.group(0), idx):
+                    idx += 1
+            for m in re.finditer(md_image_pattern, full_content_text, re.IGNORECASE):
+                url = m.group(1)
+                if url and await save_from_url(url, idx):
                     idx += 1
 
-    # Fallback: regex scan over concatenated text in case URLs are embedded
-    full_content_text = "".join(text_parts)
-    base64_pattern = r"data:image/[^;]+;base64,[A-Za-z0-9+/=]+"
-    url_pattern = r"https?://[^\s<>\")']+\.(?:png|jpg|jpeg|webp|gif)"
-    md_image_pattern = r"!\[[^\]]*\]\((https?://[^\s<>\")']+)\)"
-    for m in re.finditer(base64_pattern, full_content_text):
-        save_base64_img(m.group(0), idx)
-        idx += 1
-    for m in re.finditer(url_pattern, full_content_text, re.IGNORECASE):
-        if save_from_url(m.group(0), idx):
-            idx += 1
-    for m in re.finditer(md_image_pattern, full_content_text, re.IGNORECASE):
-        url = m.group(1)
-        if url and save_from_url(url, idx):
-            idx += 1
+            # Persist text and pick a fallback image (first URL if images empty)
+            text_path = os.path.join(generated_dir, "content.txt")
+            with open(text_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(text_parts))
 
-    # Persist text and pick a fallback image (first URL if images empty)
-    text_path = os.path.join(generated_dir, "content.txt")
-    with open(text_path, "w", encoding="utf-8") as f:
-        f.write("\n".join(text_parts))
+            if not saved_images:
+                # try to save first url candidate
+                for candidate in image_candidates:
+                    if isinstance(candidate, str) and candidate.startswith("http"):
+                        if await save_from_url(candidate, idx):
+                            idx += 1
+                            break
 
-    if not saved_images:
-        # try to save first url candidate
-        for candidate in image_candidates:
-            if isinstance(candidate, str) and candidate.startswith("http"):
-                if save_from_url(candidate, idx):
-                    idx += 1
-                    break
+            rel_base = os.path.relpath(generated_dir, os.path.abspath(WORKSPACES_DIR))
+            image_urls = [f"/workspaces/{rel_base}/{fname}" for fname in saved_images]
 
-    rel_base = os.path.relpath(generated_dir, os.path.abspath(WORKSPACES_DIR))
-    image_urls = [f"/workspaces/{rel_base}/{fname}" for fname in saved_images]
-
-    return {"text": "\n".join(text_parts), "images": image_urls}
+            return {"text": "\n".join(text_parts), "images": image_urls}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"请求生成接口失败: {e}")
+    # Should never reach here
+    return {"text": "\n".join(text_parts), "images": []}
 
 # File operation endpoints
 @app.get("/api/workspaces/{workspace_path:path}/segmentation")
@@ -773,20 +868,30 @@ async def save_character_references(workspace_path: str, data: dict):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/workspaces/{workspace_path:path}/deconstruction")
-async def get_deconstruction(workspace_path: str):
-    """Get deconstruction markdown from workspace"""
+@app.get("/api/workspaces/{workspace_path:path}/deconstruction-files")
+async def list_deconstruction_files(workspace_path: str):
+    """List available deconstruction files under the workspace"""
     try:
-        content = workspace_manager.get_deconstruction(workspace_path)
+        files = workspace_manager.list_deconstruction_files(workspace_path)
+        return {"files": files}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/workspaces/{workspace_path:path}/deconstruction")
+async def get_deconstruction(workspace_path: str, file: Optional[str] = None):
+    """Get deconstruction content from workspace"""
+    try:
+        content = workspace_manager.get_deconstruction(workspace_path, file)
         return {"content": content}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/workspaces/{workspace_path:path}/deconstruction")
-async def save_deconstruction(workspace_path: str, data: dict):
-    """Save deconstruction markdown to workspace"""
+async def save_deconstruction(workspace_path: str, data: dict, file: Optional[str] = None):
+    """Save deconstruction content to workspace"""
     try:
-        workspace_manager.save_deconstruction(workspace_path, data.get("content", ""))
+        file_name = data.get("file") if isinstance(data, dict) else None
+        workspace_manager.save_deconstruction(workspace_path, data.get("content", ""), file_name or file)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

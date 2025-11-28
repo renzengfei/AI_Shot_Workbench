@@ -39,7 +39,7 @@ class FileWatcher:
                     change_type, file_path = change
                     # Only notify for relevant files
                     filename = os.path.basename(file_path)
-                    if filename in ['project.json', 'segmentation.json', 'shots.json', 'deconstruction.md']:
+                    if filename in ['project.json', 'segmentation.json', 'shots.json', 'deconstruction.json', 'deconstruction.md'] or (filename.startswith('deconstruction') and (filename.endswith('.json') or filename.endswith('.md'))):
                         await self._broadcast({
                             "type": "file_change",
                             "file": filename,
