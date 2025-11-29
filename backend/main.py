@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Union
 import os
 import shutil
 import uuid
@@ -14,6 +14,8 @@ import requests
 import time
 import logging
 import httpx
+import asyncio
+from datetime import datetime
 from services.scene_detector import SceneDetector
 from services.exporter import Exporter
 from services.youtube_downloader import YouTubeDownloader
@@ -251,8 +253,17 @@ class GenerateImageRequest(BaseModel):
     workspace_path: str
     prompt: str
     reference_image_ids: Optional[List[str]] = None
-    shot_id: Optional[float] = None
+    shot_id: Optional[Union[float, str]] = None
     generated_dir: Optional[str] = None
+
+
+class ImageTaskCreateRequest(BaseModel):
+    workspace_path: str
+    prompt: str
+    reference_image_ids: Optional[List[str]] = None
+    shot_id: Union[float, str]
+    generated_dir: Optional[str] = None
+    count: int = 2
 
 
 class CategoryPromptRequest(BaseModel):
@@ -609,9 +620,55 @@ def set_workspace_image_preset(workspace_path: str, payload: WorkspacePresetRequ
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Generate image via Gemini API (stream)
-@app.post("/api/generate-image")
-async def generate_image(request: GenerateImageRequest):
+def ensure_workspace_exists(workspace_path: str):
+    if not os.path.exists(workspace_path):
+        raise HTTPException(status_code=404, detail="workspace_path 不存在")
+
+
+def normalize_generated_dir(generated_dir: Optional[str]) -> str:
+    name = (generated_dir or "generated").strip()
+    return name or "generated"
+
+
+def get_task_dir(workspace_path: str, generated_dir: Optional[str]) -> str:
+    dir_name = normalize_generated_dir(generated_dir)
+    path = os.path.join(workspace_path, dir_name, "image_tasks")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def get_task_path(workspace_path: str, generated_dir: Optional[str], task_id: str) -> str:
+    return os.path.join(get_task_dir(workspace_path, generated_dir), f"{task_id}.json")
+
+
+def save_task_record(path: str, record: dict):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(record, f, ensure_ascii=False, indent=2)
+
+
+def load_task_record(path: str) -> Optional[dict]:
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def dedupe_files(files: List[str]) -> List[str]:
+    seen = set()
+    ordered = []
+    for f in files:
+        if f in seen:
+            continue
+        seen.add(f)
+        ordered.append(f)
+    return ordered
+
+
+async def generate_images_internal(request: GenerateImageRequest) -> dict:
     api_key = os.getenv("GEMINI_IMAGE_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="GEMINI_IMAGE_API_KEY 未配置")
@@ -619,8 +676,7 @@ async def generate_image(request: GenerateImageRequest):
     base_url = os.getenv("GEMINI_IMAGE_BASE_URL", "https://api.tu-zi.com/v1")
     model_name = os.getenv("GEMINI_IMAGE_MODEL", "gemini-3-pro-image-preview-4")
 
-    if not os.path.exists(request.workspace_path):
-        raise HTTPException(status_code=404, detail="workspace_path 不存在")
+    ensure_workspace_exists(request.workspace_path)
 
     preset_text = None
     preset_id = workspace_manager.get_image_preset_id(request.workspace_path)
@@ -629,10 +685,9 @@ async def generate_image(request: GenerateImageRequest):
         if preset_obj:
             preset_text = preset_obj.get("content")
 
-    if preset_text and preset_text in request.prompt:
-        final_prompt = request.prompt
-    else:
-        final_prompt = request.prompt if not preset_text else f"{request.prompt}\n\n生图设定：{preset_text}"
+    final_prompt = request.prompt if (preset_text and preset_text in request.prompt) else (
+        request.prompt if not preset_text else f"{request.prompt}\n\n生图设定：{preset_text}"
+    )
 
     # Prepare images as base64 data URLs
     image_data_urls = []
@@ -642,7 +697,6 @@ async def generate_image(request: GenerateImageRequest):
             continue
         with open(path, "rb") as f:
             encoded = base64.b64encode(f.read()).decode("utf-8")
-            # best-effort mime guess
             mime = "image/png"
             if path.lower().endswith(".jpg") or path.lower().endswith(".jpeg"):
                 mime = "image/jpeg"
@@ -650,7 +704,6 @@ async def generate_image(request: GenerateImageRequest):
                 mime = "image/webp"
             image_data_urls.append(f"data:{mime};base64,{encoded}")
 
-    # Build messages per OpenAI-compatible format
     content = [{"type": "text", "text": final_prompt}]
     for data_url in image_data_urls:
         content.append({"type": "image_url", "image_url": {"url": data_url}})
@@ -667,10 +720,18 @@ async def generate_image(request: GenerateImageRequest):
         "Content-Type": "application/json",
     }
 
-    text_parts = []
-    image_candidates = []
+    text_parts: List[str] = []
+    image_candidates: List[str] = []
+    shot_id = request.shot_id or "unknown"
+    shot_label = str(shot_id).strip()
+    if ".." in shot_label or "/" in shot_label or "\\" in shot_label:
+        raise HTTPException(status_code=400, detail="shot_id 无效")
+    generated_dir_name = normalize_generated_dir(request.generated_dir)
+    generated_root = os.path.join(request.workspace_path, generated_dir_name, "shots", shot_label)
+    os.makedirs(generated_root, exist_ok=True)
+
     try:
-        timeout = httpx.Timeout(connect=30.0, read=240.0, write=240.0, pool=None)
+        timeout = httpx.Timeout(connect=30.0, read=300.0, write=300.0, pool=None)
         async with httpx.AsyncClient(timeout=timeout) as client:
             async with client.stream(
                 "POST",
@@ -711,15 +772,9 @@ async def generate_image(request: GenerateImageRequest):
 
             # Save outputs
             saved_images = []
-            workspace_path = request.workspace_path
-            shot_id = request.shot_id or "unknown"
-            generated_dir_name = request.generated_dir or "generated"
-            generated_root = os.path.join(workspace_path, generated_dir_name, "shots", str(shot_id))
-            os.makedirs(generated_root, exist_ok=True)
 
-            # Determine next index to avoid overwrite
             existing_max_idx = 0
-            for fname in os.listdir(generated_dir):
+            for fname in os.listdir(generated_root):
                 m = re.search(r'image(?:_url)?_(\d+)\.', fname)
                 if m:
                     try:
@@ -728,7 +783,17 @@ async def generate_image(request: GenerateImageRequest):
                         continue
             idx = existing_max_idx + 1
 
-            def save_base64_img(data_url: str, index: int):
+            def next_available_filename(base: str, ext: str) -> str:
+                nonlocal idx
+                while True:
+                    candidate = f"{base}_{idx}.{ext}"
+                    full_path = os.path.join(generated_root, candidate)
+                    if not os.path.exists(full_path):
+                        return candidate
+                    idx += 1
+
+            def save_base64_img(data_url: str):
+                nonlocal idx
                 try:
                     header, b64data = data_url.split(",", 1)
                 except ValueError:
@@ -738,13 +803,15 @@ async def generate_image(request: GenerateImageRequest):
                     ext = "jpg"
                 elif "webp" in header:
                     ext = "webp"
-                filename = f"image_{index}.{ext}"
+                filename = next_available_filename("image", ext)
                 path = os.path.join(generated_root, filename)
                 with open(path, "wb") as f:
                     f.write(base64.b64decode(b64data))
                 saved_images.append(filename)
+                idx += 1
 
-            async def save_from_url(url: str, index: int):
+            async def save_from_url(url: str):
+                nonlocal idx
                 try:
                     r = await client.get(url)
                     r.raise_for_status()
@@ -754,11 +821,12 @@ async def generate_image(request: GenerateImageRequest):
                         ext = "jpg"
                     elif "webp" in ctype:
                         ext = "webp"
-                    filename = f"image_url_{index}.{ext}"
+                    filename = next_available_filename("image_url", ext)
                     path = os.path.join(generated_root, filename)
                     with open(path, "wb") as f:
                         f.write(r.content)
                     saved_images.append(filename)
+                    idx += 1
                     return True
                 except Exception:
                     return False
@@ -767,11 +835,9 @@ async def generate_image(request: GenerateImageRequest):
             for candidate in image_candidates:
                 if isinstance(candidate, str):
                     if candidate.startswith("data:image/"):
-                        save_base64_img(candidate, idx)
-                        idx += 1
+                        save_base64_img(candidate)
                     elif candidate.startswith("http"):
-                        if await save_from_url(candidate, idx):
-                            idx += 1
+                        await save_from_url(candidate)
 
             # Fallback: regex scan over concatenated text in case URLs are embedded
             full_content_text = "".join(text_parts)
@@ -779,15 +845,13 @@ async def generate_image(request: GenerateImageRequest):
             url_pattern = r"https?://[^\s<>\")']+\.(?:png|jpg|jpeg|webp|gif)"
             md_image_pattern = r"!\[[^\]]*\]\((https?://[^\s<>\")']+)\)"
             for m in re.finditer(base64_pattern, full_content_text):
-                save_base64_img(m.group(0), idx)
-                idx += 1
+                save_base64_img(m.group(0))
             for m in re.finditer(url_pattern, full_content_text, re.IGNORECASE):
-                if await save_from_url(m.group(0), idx):
-                    idx += 1
+                await save_from_url(m.group(0))
             for m in re.finditer(md_image_pattern, full_content_text, re.IGNORECASE):
                 url = m.group(1)
-                if url and await save_from_url(url, idx):
-                    idx += 1
+                if url:
+                    await save_from_url(url)
 
             # Persist text and pick a fallback image (first URL if images empty)
             text_path = os.path.join(generated_root, "content.txt")
@@ -795,23 +859,133 @@ async def generate_image(request: GenerateImageRequest):
                 f.write("\n".join(text_parts))
 
             if not saved_images:
-                # try to save first url candidate
                 for candidate in image_candidates:
                     if isinstance(candidate, str) and candidate.startswith("http"):
-                        if await save_from_url(candidate, idx):
-                            idx += 1
-                            break
+                        await save_from_url(candidate)
+                        break
 
             rel_base = os.path.relpath(generated_root, os.path.abspath(WORKSPACES_DIR))
             image_urls = [f"/workspaces/{rel_base}/{fname}" for fname in saved_images]
 
             return {"text": "\n".join(text_parts), "images": image_urls}
+    except httpx.HTTPError as e:
+        raise HTTPException(status_code=502, detail=f"生成服务请求失败: {str(e)}")
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"请求生成接口失败: {e}")
-    # Should never reach here
-    return {"text": "\n".join(text_parts), "images": []}
+
+# Generate image via Gemini API (stream)
+@app.post("/api/generate-image")
+async def generate_image(request: GenerateImageRequest):
+    return await generate_images_internal(request)
+
+async def run_image_task(task_path: str, payload: ImageTaskCreateRequest):
+    record = load_task_record(task_path)
+    if not record:
+        return
+    record["status"] = "running"
+    record["started_at"] = record.get("started_at") or datetime.utcnow().isoformat()
+    save_task_record(task_path, record)
+
+    files: List[str] = []
+    error_detail: Optional[str] = None
+    count = payload.count if payload.count and payload.count > 0 else 1
+    if count > 4:
+        count = 4
+
+    for _ in range(count):
+        try:
+            gen_req = GenerateImageRequest(
+                workspace_path=payload.workspace_path,
+                prompt=payload.prompt,
+                reference_image_ids=payload.reference_image_ids,
+                shot_id=payload.shot_id,
+                generated_dir=payload.generated_dir,
+            )
+            result = await generate_images_internal(gen_req)
+            files.extend(result.get("images", []))
+        except HTTPException as e:
+            error_detail = e.detail if isinstance(e.detail, str) else str(e.detail)
+            break
+        except Exception as e:
+            error_detail = str(e)
+            break
+
+    if not files and not error_detail:
+        error_detail = "生成失败，未返回图片"
+
+    record["files"] = dedupe_files(files)
+    record["finished_at"] = datetime.utcnow().isoformat()
+    if error_detail:
+        record["status"] = "failed"
+        record["error"] = error_detail
+    else:
+        record["status"] = "succeeded"
+        record["error"] = None
+    save_task_record(task_path, record)
+
+
+@app.post("/api/image-tasks")
+async def create_image_task(payload: ImageTaskCreateRequest):
+    ensure_workspace_exists(payload.workspace_path)
+    count = payload.count if payload.count and payload.count > 0 else 1
+    task_id = uuid.uuid4().hex
+    record = {
+        "id": task_id,
+        "workspace_path": payload.workspace_path,
+        "shot_id": payload.shot_id,
+        "prompt": payload.prompt,
+        "reference_image_ids": payload.reference_image_ids or [],
+        "generated_dir": normalize_generated_dir(payload.generated_dir),
+        "count": min(count, 4),
+        "status": "pending",
+        "error": None,
+        "files": [],
+        "created_at": datetime.utcnow().isoformat(),
+        "started_at": None,
+        "finished_at": None,
+    }
+    task_path = get_task_path(payload.workspace_path, payload.generated_dir, task_id)
+    save_task_record(task_path, record)
+
+    asyncio.create_task(run_image_task(task_path, payload))
+
+    return {"task_id": task_id, "status": "pending"}
+
+
+@app.get("/api/image-tasks/{task_id}")
+async def get_image_task(task_id: str, workspace_path: str, generated_dir: Optional[str] = None):
+    ensure_workspace_exists(workspace_path)
+    task_path = get_task_path(workspace_path, generated_dir, task_id)
+    record = load_task_record(task_path)
+    if not record:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    record["files"] = dedupe_files(record.get("files", []))
+    return {"task": record}
+
+@app.get("/api/workspaces/{workspace_path:path}/generated")
+async def list_generated_assets(workspace_path: str, shot_id: str, generated_dir: Optional[str] = None):
+    """List generated files for a given shot (images/videos)"""
+    if not os.path.exists(workspace_path):
+        raise HTTPException(status_code=404, detail="workspace_path 不存在")
+    shot_label = str(shot_id).strip()
+    if ".." in shot_label:
+        raise HTTPException(status_code=400, detail="shot_id 无效")
+    dir_name = generated_dir or "generated"
+    root = os.path.join(workspace_path, dir_name, "shots", shot_label)
+    norm_root = os.path.normpath(root)
+    if not norm_root.startswith(os.path.normpath(workspace_path)):
+        raise HTTPException(status_code=400, detail="路径无效")
+    if not os.path.isdir(norm_root):
+        return {"files": []}
+    files = []
+    for fname in sorted(os.listdir(norm_root)):
+        fpath = os.path.join(norm_root, fname)
+        if os.path.isfile(fpath):
+            rel_base = os.path.relpath(fpath, os.path.abspath(WORKSPACES_DIR))
+            files.append(f"/workspaces/{rel_base}")
+    return {"files": files}
 
 # File operation endpoints
 @app.get("/api/workspaces/{workspace_path:path}/segmentation")

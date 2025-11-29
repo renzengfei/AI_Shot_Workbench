@@ -8,6 +8,8 @@ interface AutoTextAreaProps {
     minRows?: number;
     maxRows?: number;
     readOnly?: boolean;
+    /** 是否尽量保留光标位置，默认开启 */
+    preserveSelection?: boolean;
 }
 
 export const AutoTextArea = ({
@@ -18,8 +20,10 @@ export const AutoTextArea = ({
     minRows = 1,
     maxRows = 12,
     readOnly,
+    preserveSelection = true,
 }: AutoTextAreaProps) => {
     const ref = useRef<HTMLTextAreaElement | null>(null);
+    const selectionRef = useRef<{ start: number; end: number } | null>(null);
     const resize = useCallback(() => {
         const el = ref.current;
         if (!el) return;
@@ -35,13 +39,28 @@ export const AutoTextArea = ({
 
     useLayoutEffect(() => {
         resize();
-    }, [value, minRows, maxRows, resize]);
+        if (preserveSelection && selectionRef.current && ref.current && document.activeElement === ref.current) {
+            const { start, end } = selectionRef.current;
+            const len = ref.current.value.length;
+            const nextStart = Math.min(start, len);
+            const nextEnd = Math.min(end, len);
+            ref.current.setSelectionRange(nextStart, nextEnd);
+        }
+    }, [value, minRows, maxRows, resize, preserveSelection]);
 
     return (
         <textarea
             ref={ref}
             value={value}
-            onChange={onChange}
+            onChange={(e) => {
+                if (preserveSelection) {
+                    selectionRef.current = {
+                        start: e.target.selectionStart ?? e.target.value.length,
+                        end: e.target.selectionEnd ?? e.target.value.length,
+                    };
+                }
+                onChange(e);
+            }}
             readOnly={readOnly}
             rows={minRows}
             style={{ overflowY: 'auto', overflowX: 'hidden' }}

@@ -1,6 +1,6 @@
 'use client';
 
-import { RefreshCw, Volume2, VolumeX, AlertCircle, Trash2, X, Zap, Users, Box, Layout, Film, ArrowRight, Check, Copy, MessageSquare, ClipboardPaste, GitBranch, Anchor } from 'lucide-react';
+import { RefreshCw, Volume2, VolumeX, AlertCircle, Trash2, X, Zap, Users, Box, Layout, Film, ArrowRight, Check, Copy, MessageSquare, ClipboardPaste, GitBranch, Anchor, Pencil } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useWorkflowStore } from '@/lib/stores/workflowStore';
 import { useWorkspace } from '@/components/WorkspaceContext';
@@ -47,6 +47,7 @@ import {
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
 
 type AnnotationMap = Record<string, string>;
+type PendingGeneration = { taskId: string; startedAt: number };
 
 interface Step3Props {
     /** 隐藏批注功能 */
@@ -79,7 +80,7 @@ export default function Step3_DeconstructionReview({
     const [round2Error, setRound2Error] = useState<string | null>(null);
     const [round1Text, setRound1Text] = useState('');
     const [round2Text, setRound2Text] = useState('');
-    const [savingState, setSavingState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+    const [, setSavingState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [annotations, setAnnotations] = useState<AnnotationMap>({});
     const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -128,7 +129,9 @@ export default function Step3_DeconstructionReview({
     const [uploading, setUploading] = useState(false);
     const [renamingId, setRenamingId] = useState<string | null>(null);
     const [renameValue, setRenameValue] = useState('');
-    const [renameCategory, setRenameCategory] = useState('');
+    const [renameCategoryInput, setRenameCategoryInput] = useState('');
+    const [renamingCharacter, setRenamingCharacter] = useState<string | null>(null);
+    const [renamingCharacterValue, setRenamingCharacterValue] = useState('');
     const [activeCategoryTab, setActiveCategoryTab] = useState<string>('all');
     const [newCategoryName, setNewCategoryName] = useState('');
     const [renamingCategoryName, setRenamingCategoryName] = useState('');
@@ -152,6 +155,7 @@ export default function Step3_DeconstructionReview({
     const [presetSaving, setPresetSaving] = useState(false);
     // Generated images per shot
     const [generatedImages, setGeneratedImages] = useState<Record<number, string[]>>({});
+    const generatedImagesRef = useRef<Record<number, string[]>>({});
     const [generatedIndexes, setGeneratedIndexes] = useState<Record<number, number>>({});
     const [generatingShots, setGeneratingShots] = useState<Record<number, boolean>>({});
     const [generateError, setGenerateError] = useState<string | null>(null);
@@ -197,13 +201,17 @@ export default function Step3_DeconstructionReview({
             ? `${currentWorkspace.path}/deconstruction.json`
             : '';
     const generatedDir = useMemo(() => {
-        if (!selectedDeconstructionFile) return 'generated';
-        const match = selectedDeconstructionFile.match(/^deconstruction_(.+)\.json$/);
-        return match ? `generated_${match[1]}` : 'generated';
+        const base = (selectedDeconstructionFile || '').split('/').pop()?.trim() || '';
+        const match = base.match(/^deconstruction_(.+)\.json$/);
+        if (match && match[1]) {
+            return `generated_${match[1]}`;
+        }
+        return 'generated';
     }, [selectedDeconstructionFile]);
     const generatedStorageKey = workspaceSlug
         ? `generatedImages:${workspaceSlug}:${generatedDir}`
         : null;
+    const pendingGenKey = workspaceSlug ? `pendingGenerations:${workspaceSlug}:${generatedDir}` : null;
     const activeImagePreset = useMemo(() => {
         return imagePresets.find((p) => p.id === selectedImagePresetId) || workspacePresetSnapshot;
     }, [imagePresets, selectedImagePresetId, workspacePresetSnapshot]);
@@ -213,6 +221,187 @@ export default function Step3_DeconstructionReview({
         const single = text.replace(/\s+/g, ' ');
         return single.slice(0, 24) || '生图设定';
     }, []);
+    const probedShotsRef = useRef<Set<number>>(new Set());
+    const taskPollersRef = useRef<Record<string, NodeJS.Timeout>>({});
+    const readPendingGenerations = useCallback((): Record<number, PendingGeneration> => {
+        if (!pendingGenKey) return {};
+        try {
+            const raw = localStorage.getItem(pendingGenKey);
+            if (!raw) return {};
+            const parsed = JSON.parse(raw) as Record<number, number | PendingGeneration>;
+            const now = Date.now();
+            const fresh: Record<number, PendingGeneration> = {};
+            Object.entries(parsed).forEach(([k, v]) => {
+                if (typeof v === 'number') {
+                    if (now - v < 6 * 60 * 1000) {
+                        fresh[Number(k)] = { taskId: '', startedAt: v };
+                    }
+                    return;
+                }
+                const ts = v?.startedAt ?? 0;
+                if (ts && now - ts < 6 * 60 * 1000) {
+                    fresh[Number(k)] = { taskId: v.taskId || '', startedAt: ts };
+                }
+            });
+            if (Object.keys(fresh).length !== Object.keys(parsed).length) {
+                localStorage.setItem(pendingGenKey, JSON.stringify(fresh));
+            }
+            return fresh;
+        } catch {
+            return {};
+        }
+    }, [pendingGenKey]);
+
+    const writePendingGenerations = useCallback((pending: Record<number, PendingGeneration>) => {
+        if (!pendingGenKey) return;
+        try {
+            localStorage.setItem(pendingGenKey, JSON.stringify(pending));
+        } catch {
+            // ignore
+        }
+    }, [pendingGenKey]);
+
+    const appendNewImages = useCallback((shotId: number, urls: string[]) => {
+        const normalized = urls
+            .map((u) => {
+                if (!u) return '';
+                if (u.startsWith('http')) return u;
+                return `${API_BASE}${u.startsWith('/') ? '' : '/'}${u}`;
+            })
+            .filter(Boolean);
+        if (!normalized.length) return;
+        let mergedLen = 0;
+        setGeneratedImages((prev) => {
+            const merged = Array.from(new Set([...(prev[shotId] || []), ...normalized]));
+            mergedLen = merged.length;
+            return { ...prev, [shotId]: merged };
+        });
+        setGeneratedIndexes((prev) => ({ ...prev, [shotId]: Math.max(0, mergedLen - 1) }));
+        setNewlyGenerated((prev) => {
+            const existing = prev[shotId] || [];
+            const merged = Array.from(new Set([...existing, ...normalized]));
+            return { ...prev, [shotId]: merged };
+        });
+    }, []);
+
+    useEffect(() => {
+        generatedImagesRef.current = generatedImages;
+    }, [generatedImages]);
+
+    // Try to auto-detect existing generated images on disk (fallback: image_url_1.png)
+    const loadExistingImagesForShot = useCallback(async (shotId: number) => {
+        if (!workspaceSlug || !currentWorkspace?.path) return;
+        if (probedShotsRef.current.has(shotId) && !(generatedImagesRef.current[shotId]?.length)) return;
+        const labels = new Set<string>();
+        labels.add(String(shotId));
+        if (Number.isInteger(shotId)) {
+            labels.add(shotId.toFixed(1));
+        }
+        const found: string[] = [];
+        for (const label of labels) {
+            try {
+                const url = `${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/generated?shot_id=${encodeURIComponent(label)}&generated_dir=${encodeURIComponent(generatedDir)}`;
+                const resp = await fetch(url);
+                if (resp.ok) {
+                    const data = await resp.json() as { files?: string[] };
+                    if (Array.isArray(data.files) && data.files.length) {
+                        data.files.forEach((f) => found.push(f.startsWith('http') ? f : `${API_BASE}${f.startsWith('/') ? '' : '/'}${f}`));
+                    }
+                }
+            } catch {
+                // ignore
+            }
+        }
+        if (found.length) {
+            let mergedLen = 0;
+            setGeneratedImages((prev) => {
+                const merged = Array.from(new Set([...(prev[shotId] || []), ...found]));
+                mergedLen = merged.length;
+                return { ...prev, [shotId]: merged };
+            });
+            setGeneratedIndexes((prev) => ({ ...prev, [shotId]: Math.max(0, mergedLen - 1) }));
+            probedShotsRef.current.add(shotId);
+        } else {
+            probedShotsRef.current.add(shotId);
+        }
+    }, [workspaceSlug, currentWorkspace?.path, generatedDir]);
+
+    const clearTaskPoller = useCallback((taskId: string) => {
+        const timer = taskPollersRef.current[taskId];
+        if (timer) {
+            clearTimeout(timer);
+            delete taskPollersRef.current[taskId];
+        }
+    }, []);
+
+    const pollTaskStatus = useCallback(
+        async (shotId: number, taskId: string, attempt = 0) => {
+            if (!currentWorkspace?.path) return;
+            const url = `${API_BASE}/api/image-tasks/${taskId}?workspace_path=${encodeURIComponent(currentWorkspace.path)}&generated_dir=${encodeURIComponent(generatedDir)}`;
+            try {
+                const resp = await fetch(url, { cache: 'no-store' });
+                if (!resp.ok) throw new Error(`状态 ${resp.status}`);
+                const data = (await resp.json()) as { task?: { status?: string; files?: string[]; error?: string } };
+                const task = data?.task;
+                if (!task) throw new Error('任务不存在');
+                if (task.status === 'succeeded') {
+                    appendNewImages(shotId, task.files || []);
+                    setGeneratingShots((prev) => {
+                        const next = { ...prev };
+                        delete next[shotId];
+                        return next;
+                    });
+                    setGenerateErrors((prev) => ({ ...prev, [shotId]: undefined }));
+                    const pending = readPendingGenerations();
+                    delete pending[shotId];
+                    writePendingGenerations(pending);
+                    clearTaskPoller(taskId);
+                    setToast({ message: `生成图片成功（${(task.files || []).length} 张）`, type: 'success' });
+                    setTimeout(() => setToast(null), 3000);
+                    return;
+                }
+                if (task.status === 'failed') {
+                    const detail = task.error || '生成失败，请重试';
+                    setGenerateErrors((prev) => ({ ...prev, [shotId]: detail }));
+                    setGeneratingShots((prev) => {
+                        const next = { ...prev };
+                        delete next[shotId];
+                        return next;
+                    });
+                    const pending = readPendingGenerations();
+                    delete pending[shotId];
+                    writePendingGenerations(pending);
+                    clearTaskPoller(taskId);
+                    setToast({ message: detail, type: 'error' });
+                    setTimeout(() => setToast(null), 3000);
+                    return;
+                }
+                const delay = Math.min(5000, 1000 + attempt * 500);
+                clearTaskPoller(taskId);
+                taskPollersRef.current[taskId] = setTimeout(() => {
+                    void pollTaskStatus(shotId, taskId, attempt + 1);
+                }, delay);
+            } catch {
+                const delay = Math.min(6000, 1200 + attempt * 600);
+                clearTaskPoller(taskId);
+                taskPollersRef.current[taskId] = setTimeout(() => {
+                    void pollTaskStatus(shotId, taskId, attempt + 1);
+                }, delay);
+            }
+        },
+        [appendNewImages, clearTaskPoller, currentWorkspace?.path, generatedDir, readPendingGenerations, writePendingGenerations],
+    );
+
+    const startPollingTask = useCallback(
+        (shotId: number, taskId: string, delay = 600) => {
+            if (!taskId) return;
+            clearTaskPoller(taskId);
+            taskPollersRef.current[taskId] = setTimeout(() => {
+                void pollTaskStatus(shotId, taskId, 0);
+            }, delay);
+        },
+        [clearTaskPoller, pollTaskStatus],
+    );
 
     const loadReferenceGallery = useCallback(async () => {
         setGalleryLoading(true);
@@ -621,7 +810,7 @@ export default function Step3_DeconstructionReview({
             );
             setRenamingId(null);
             setRenameValue('');
-            setRenameCategory('');
+            setRenameCategoryInput('');
         } catch (err) {
             console.error(err);
             setGalleryError('重命名失败，请重试');
@@ -654,9 +843,84 @@ export default function Step3_DeconstructionReview({
             setTimeout(() => setToast(null), 3000);
         }
     };
+
+    const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    const renameCharacterInFrame = (frame: unknown, oldName: string, newName: string) => {
+        if (!frame || typeof frame !== 'object') return;
+        const obj = frame as Record<string, unknown>;
+        const layers = [obj.foreground, obj.midground];
+        layers.forEach((layer) => {
+            if (!layer || typeof layer !== 'object') return;
+            const layerObj = layer as Record<string, unknown>;
+            (['characters'] as const).forEach((key) => {
+                const arr = layerObj[key];
+                if (Array.isArray(arr)) {
+                    layerObj[key] = arr.map((item) => {
+                        if (typeof item === 'object' && item && 'tag' in (item as Record<string, unknown>)) {
+                            const mapped = { ...(item as Record<string, unknown>) };
+                            if ((mapped.tag as string) === oldName) {
+                                mapped.tag = newName;
+                            }
+                            return mapped;
+                        }
+                        if (item === oldName) return newName;
+                        return item;
+                    });
+                }
+            });
+        });
+    };
+
+    const handleRenameCharacter = (oldName: string, newNameRaw: string) => {
+        const newName = newNameRaw.trim();
+        if (!newName) {
+            showToast('角色名不能为空', 'error');
+            return;
+        }
+        if (newName === oldName) {
+            setRenamingCharacter(null);
+            return;
+        }
+        if (round2Data && typeof round2Data !== 'string' && round2Data.characters && round2Data.characters[newName]) {
+            showToast('已存在同名角色', 'error');
+            return;
+        }
+        const pattern = new RegExp(`【${escapeRegExp(oldName)}】`, 'g');
+        mutateRound2((draft) => {
+            if (!draft.characters) draft.characters = {};
+            const desc = draft.characters[oldName];
+            delete draft.characters[oldName];
+            draft.characters[newName] = desc;
+            (draft.shots || []).forEach((shot) => {
+                if (typeof shot.initial_frame === 'string') {
+                    shot.initial_frame = shot.initial_frame.replace(pattern, `【${newName}】`);
+                } else if (shot.initial_frame && typeof shot.initial_frame === 'object') {
+                    renameCharacterInFrame(shot.initial_frame, oldName, newName);
+                }
+                if (typeof shot.visual_changes === 'string') {
+                    shot.visual_changes = shot.visual_changes.replace(pattern, `【${newName}】`);
+                }
+            });
+        });
+        setCharacterRefs((prev) => {
+            const next = { ...prev };
+            if (next[oldName]) {
+                next[newName] = next[oldName];
+                delete next[oldName];
+                void persistCharacterRefs(next);
+                return next;
+            }
+            return prev;
+        });
+        setRenamingCharacter(null);
+        setRenamingCharacterValue('');
+        showToast('角色名称已更新', 'success');
+    };
+
     const categoryOptions = useMemo(() => {
         const ordered = [...categories];
-        let hasUncategorized = referenceGallery.some((item) => !item.category || item.category.trim() === '');
+        const hasUncategorized = referenceGallery.some((item) => !item.category || item.category.trim() === '');
         const extras = new Set<string>();
         referenceGallery.forEach((item) => {
             const cat = (item.category || '').trim();
@@ -737,9 +1001,14 @@ export default function Step3_DeconstructionReview({
         const prompt = presetText ? `${basePrompt}\n\n生图设定：${presetText}` : basePrompt;
         const refs = extractReferenceIds(shot);
         setGeneratingShots((prev) => ({ ...prev, [shotId]: true }));
+        let taskStarted = false;
+        const pendingBefore = readPendingGenerations();
+        pendingBefore[shotId] = { taskId: pendingBefore[shotId]?.taskId || '', startedAt: Date.now() };
+        writePendingGenerations(pendingBefore);
         setGenerateError(null);
-        const callGenerate = async () => {
-            const resp = await fetch(`${API_BASE}/api/generate-image`, {
+        setGenerateErrors((prev) => ({ ...prev, [shotId]: undefined }));
+        try {
+            const resp = await fetch(`${API_BASE}/api/image-tasks`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -748,66 +1017,59 @@ export default function Step3_DeconstructionReview({
                     prompt,
                     reference_image_ids: refs,
                     generated_dir: generatedDir,
+                    count: 2,
                 }),
             });
             if (!resp.ok) {
-                const msg = await resp.text();
-                throw new Error(msg);
+                let detail = resp.statusText;
+                try {
+                    const data = await resp.json();
+                    detail = (data as { detail?: string })?.detail || detail;
+                } catch {
+                    try {
+                        detail = await resp.text();
+                    } catch {
+                        // ignore
+                    }
+                }
+                throw new Error(detail || `生成失败（${resp.status}）`);
             }
-            const data = await resp.json() as { images?: string[] };
-            const absoluted = (data.images || [])
-                .filter(Boolean)
-                .map((img) => img.startsWith('http')
-                    ? img
-                    : `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/${generatedDir}/shots/${shotId}/${img.split('/').pop()}`);
-            return absoluted;
-        };
-
-        try {
-            // 并发两次请求，每次只取第一张
-            const results = await Promise.allSettled([callGenerate(), callGenerate()]);
-            const successImages = results
-                .filter((r): r is PromiseFulfilledResult<string[]> => r.status === 'fulfilled')
-                .map((r) => r.value[0])
-                .filter(Boolean);
-            const hadSuccess = successImages.length > 0;
-            if (hadSuccess) {
-                let mergedLen = 0;
-                setGeneratedImages((prev) => {
-                    const merged = [...(prev[shotId] || []), ...successImages];
-                    mergedLen = merged.length;
-                    return { ...prev, [shotId]: merged };
-                });
-                setGeneratedIndexes((prev) => ({ ...prev, [shotId]: Math.max(0, mergedLen - 1) }));
-                setNewlyGenerated((prev) => {
-                    const existing = prev[shotId] || [];
-                    return { ...prev, [shotId]: [...existing, ...successImages] };
-                });
-                setToast({ message: `生成图片成功（${successImages.length} 张）`, type: 'success' });
-                setTimeout(() => setToast(null), 3000);
-                setGenerateErrors((prev) => ({ ...prev, [shotId]: undefined }));
-                // Best-effort补充磁盘已有文件，避免前端状态丢失
-                void loadExistingImagesForShot(shotId);
-            } else {
-                const msg = '生成失败，请重试';
-                setGenerateError(msg);
-                setGenerateErrors((prev) => ({ ...prev, [shotId]: msg }));
-                setToast({ message: msg, type: 'error' });
-                setTimeout(() => setToast(null), 3000);
+            const data = (await resp.json()) as { task_id?: string };
+            const taskId = data?.task_id || '';
+            if (!taskId) {
+                throw new Error('创建生成任务失败，请重试');
             }
+            const pending = readPendingGenerations();
+            pending[shotId] = { taskId, startedAt: Date.now() };
+            writePendingGenerations(pending);
+            startPollingTask(shotId, taskId, 200);
+            taskStarted = true;
         } catch (err) {
             console.error(err);
-            const msg = '生成失败，请重试';
+            const msg = err instanceof Error ? (err.message || '生成失败，请重试') : '生成失败，请重试';
             setGenerateError(msg);
             setGenerateErrors((prev) => ({ ...prev, [shotId]: msg }));
             setToast({ message: msg, type: 'error' });
             setTimeout(() => setToast(null), 3000);
-        } finally {
             setGeneratingShots((prev) => {
                 const next = { ...prev };
                 delete next[shotId];
                 return next;
             });
+            const pending = readPendingGenerations();
+            delete pending[shotId];
+            writePendingGenerations(pending);
+        } finally {
+            if (!taskStarted) {
+                setGeneratingShots((prev) => {
+                    const next = { ...prev };
+                    delete next[shotId];
+                    return next;
+                });
+                const pending = readPendingGenerations();
+                delete pending[shotId];
+                writePendingGenerations(pending);
+            }
         }
     };
 
@@ -901,9 +1163,53 @@ export default function Step3_DeconstructionReview({
         void loadWorkspaceImagePreset();
     }, [loadWorkspaceImagePreset]);
 
-    // Load persisted generated images per workspace
+    // Reset image caches when switching workspace or generatedDir
+    useEffect(() => {
+        setGeneratedImages({});
+        setGeneratedIndexes({});
+        setNewlyGenerated({});
+        setGeneratingShots({});
+    }, [generatedStorageKey, pendingGenKey, readPendingGenerations, loadExistingImagesForShot, startPollingTask]);
+
+    useEffect(() => {
+        return () => {
+            Object.values(taskPollersRef.current).forEach((timer) => clearTimeout(timer));
+            taskPollersRef.current = {};
+        };
+    }, [generatedStorageKey]);
+
+    // Load persisted generated images per workspace & pending generation flags
     useEffect(() => {
         if (!generatedStorageKey) return;
+        // pending generations
+        if (pendingGenKey) {
+            const pending = readPendingGenerations();
+            if (Object.keys(pending).length > 0) {
+                const active: Record<number, boolean> = {};
+                const cleanup: number[] = [];
+                Object.entries(pending).forEach(([k, v]) => {
+                    const id = Number(k);
+                    active[id] = true;
+                    void loadExistingImagesForShot(id);
+                    if (v?.taskId) {
+                        startPollingTask(id, v.taskId, 200);
+                    } else {
+                        cleanup.push(id);
+                    }
+                });
+                setGeneratingShots((prev) => ({ ...prev, ...active }));
+                if (cleanup.length) {
+                    const next = { ...pending };
+                    cleanup.forEach((id) => delete next[id]);
+                    writePendingGenerations(next);
+                    setGeneratingShots((prev) => {
+                        const nextGen = { ...prev };
+                        cleanup.forEach((id) => delete nextGen[id]);
+                        return nextGen;
+                    });
+                }
+            }
+        }
         try {
             const raw = localStorage.getItem(generatedStorageKey);
             if (raw) {
@@ -931,9 +1237,8 @@ export default function Step3_DeconstructionReview({
             setGeneratedImages({});
             setGeneratedIndexes({});
         }
-    }, [generatedStorageKey]);
+    }, [generatedStorageKey, pendingGenKey, readPendingGenerations, loadExistingImagesForShot, startPollingTask, writePendingGenerations]);
 
-    // Persist generated images when changed
     useEffect(() => {
         if (!generatedStorageKey) return;
         try {
@@ -942,50 +1247,6 @@ export default function Step3_DeconstructionReview({
             // ignore
         }
     }, [generatedImages, generatedStorageKey]);
-
-    // Try to auto-detect existing generated images on disk (fallback: image_url_1.png)
-    const loadExistingImagesForShot = useCallback(async (shotId: number) => {
-        if (!workspaceSlug) return;
-        const found: string[] = [];
-        const prefixes = ['image', 'image_url'];
-        const exts = ['png', 'jpg', 'jpeg', 'webp'];
-        const consecutiveLimit = 5;
-
-        for (const prefix of prefixes) {
-            let consecutiveMisses = 0;
-            for (let i = 1; i <= 40; i++) {
-                let hitThisIndex = false;
-                for (const ext of exts) {
-                    const candidate = `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/${generatedDir}/shots/${shotId}/${prefix}_${i}.${ext}`;
-                    try {
-                        const resp = await fetch(candidate, { method: 'HEAD' });
-                        if (resp.ok) {
-                            found.push(candidate);
-                            hitThisIndex = true;
-                            consecutiveMisses = 0;
-                            break; // stop trying other extensions for this index
-                        }
-                    } catch {
-                        // ignore
-                    }
-                }
-                if (!hitThisIndex) {
-                    consecutiveMisses += 1;
-                    if (consecutiveMisses >= consecutiveLimit) break;
-                }
-            }
-        }
-
-        if (found.length) {
-            let mergedLen = 0;
-            setGeneratedImages((prev) => {
-                const merged = Array.from(new Set([...(prev[shotId] || []), ...found]));
-                mergedLen = merged.length;
-                return { ...prev, [shotId]: merged };
-            });
-            setGeneratedIndexes((prev) => ({ ...prev, [shotId]: Math.max(0, mergedLen - 1) }));
-        }
-    }, [workspaceSlug, generatedDir]);
 
     useEffect(() => {
         if (!workspaceSlug) return;
@@ -2489,11 +2750,59 @@ export default function Step3_DeconstructionReview({
                                                         <div className="flex-1 flex flex-col min-w-0">
                                                             {/* Header: Name & Actions */}
                                                             <div className="flex items-start justify-between gap-2 mb-2">
-                                                                <div>
-                                                                    <h4 className="text-lg font-bold text-slate-800 tracking-tight group-hover:text-blue-600 transition-colors duration-300 truncate">
-                                                                        {name}
-                                                                    </h4>
-                                                                    <div className="h-0.5 w-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mt-1 group-hover:w-16 transition-all duration-500" />
+                                                                <div className="flex-1 min-w-0">
+                                                                    {renamingCharacter === name ? (
+                                                                        <div className="flex items-center gap-2">
+                                                                            <input
+                                                                                value={renamingCharacterValue}
+                                                                                onChange={(e) => setRenamingCharacterValue(e.target.value)}
+                                                                                onKeyDown={(e) => {
+                                                                                    if (e.key === 'Enter') handleRenameCharacter(name, renamingCharacterValue);
+                                                                                    if (e.key === 'Escape') {
+                                                                                        setRenamingCharacter(null);
+                                                                                        setRenamingCharacterValue('');
+                                                                                    }
+                                                                                }}
+                                                                                autoFocus
+                                                                                className="flex-1 px-2 py-1 rounded-md border border-slate-200 text-sm focus:ring-1 focus:ring-blue-500/40 focus:border-blue-400"
+                                                                                placeholder="新的角色名"
+                                                                            />
+                                                                            <button
+                                                                                className="px-2 py-1 rounded-md bg-blue-500 text-white text-xs"
+                                                                                onClick={() => handleRenameCharacter(name, renamingCharacterValue)}
+                                                                            >
+                                                                                确认
+                                                                            </button>
+                                                                            <button
+                                                                                className="px-2 py-1 rounded-md bg-slate-200 text-xs"
+                                                                                onClick={() => {
+                                                                                    setRenamingCharacter(null);
+                                                                                    setRenamingCharacterValue('');
+                                                                                }}
+                                                                            >
+                                                                                取消
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div>
+                                                                                <h4 className="text-lg font-bold text-slate-800 tracking-tight group-hover:text-blue-600 transition-colors duration-300 truncate">
+                                                                                    {name}
+                                                                                </h4>
+                                                                                <div className="h-0.5 w-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mt-1 group-hover:w-16 transition-all duration-500" />
+                                                                            </div>
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    setRenamingCharacter(name);
+                                                                                    setRenamingCharacterValue(name);
+                                                                                }}
+                                                                                className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition"
+                                                                                title="修改角色名"
+                                                                            >
+                                                                                <Pencil size={14} />
+                                                                            </button>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
                                                                     <button
@@ -2925,7 +3234,7 @@ export default function Step3_DeconstructionReview({
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            void handleRenameReference(item.id, renameValue || item.name, renameCategory);
+                                                            void handleRenameReference(item.id, renameValue || item.name, renameCategoryInput);
                                                         }}
                                                         className="flex-1 px-2 py-1.5 rounded-lg text-xs font-medium bg-emerald-500 text-white hover:bg-emerald-600 transition"
                                                     >
@@ -2965,7 +3274,7 @@ export default function Step3_DeconstructionReview({
                                                         className="w-full text-xs px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
                                                         autoFocus
                                                         onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') void handleRenameReference(item.id, renameValue || item.name, renameCategory);
+                                                            if (e.key === 'Enter') void handleRenameReference(item.id, renameValue || item.name, renameCategoryInput);
                                                             if (e.key === 'Escape') {
                                                                 setRenamingId(null);
                                                                 setRenameCategory('');
@@ -2974,14 +3283,14 @@ export default function Step3_DeconstructionReview({
                                                         placeholder="名称"
                                                     />
                                                     <input
-                                                        value={renameCategory}
-                                                        onChange={(e) => setRenameCategory(e.target.value)}
+                                                        value={renameCategoryInput}
+                                                        onChange={(e) => setRenameCategoryInput(e.target.value)}
                                                         className="w-full text-xs px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
                                                         onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') void handleRenameReference(item.id, renameValue || item.name, renameCategory);
+                                                            if (e.key === 'Enter') void handleRenameReference(item.id, renameValue || item.name, renameCategoryInput);
                                                             if (e.key === 'Escape') {
                                                                 setRenamingId(null);
-                                                                setRenameCategory('');
+                                                                setRenameCategoryInput('');
                                                             }
                                                         }}
                                                         placeholder="分类（可选）"

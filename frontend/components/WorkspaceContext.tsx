@@ -88,6 +88,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     const { setProject } = useWorkflowStore();
     const { loadVideo, resetVideo } = useTimelineStore();
     const retryRef = React.useRef<NodeJS.Timeout | null>(null);
+    const autoOpenedRef = React.useRef(false);
+    const openWorkspaceRef = React.useRef<((path: string) => Promise<void>) | null>(null);
 
     const mergeWorkspaces = (primary: Workspace[], secondary: Workspace[]) => {
         const map = new Map<string, Workspace>();
@@ -306,6 +308,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
             throw error;
         }
     };
+    openWorkspaceRef.current = openWorkspace;
 
     const closeWorkspace = () => {
         setCurrentWorkspace(null);
@@ -369,6 +372,27 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
             console.error('Failed to save shots:', error);
         }
     };
+
+    // Fallback: auto-open most recent workspace if none selected and no last-path
+    useEffect(() => {
+        if (currentWorkspace || autoOpenedRef.current) return;
+        if (typeof window !== 'undefined') {
+            const last = localStorage.getItem(LAST_WORKSPACE_KEY);
+            if (last) return; // will be handled by initial auto-open
+        }
+        if (workspaces.length > 0) {
+            autoOpenedRef.current = true;
+            const opener = openWorkspaceRef.current;
+            if (opener) {
+                void opener(workspaces[0].path).catch((err) => {
+                    console.error('Auto-open latest workspace failed:', err);
+                    autoOpenedRef.current = false;
+                });
+            } else {
+                autoOpenedRef.current = false;
+            }
+        }
+    }, [currentWorkspace, workspaces]);
 
     return (
         <WorkspaceContext.Provider value={{
