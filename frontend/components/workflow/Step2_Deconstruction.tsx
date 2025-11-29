@@ -8,7 +8,7 @@ import { DECONSTRUCTION_PROMPT } from '@/data/deconstructionPrompt';
 import { parseRound1, parseRound2, parseStoredDeconstruction } from '@/lib/services/deconstruction';
 import { useStepNavigator } from '@/lib/hooks/useStepNavigator';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8000';
 
 export default function Step2_Deconstruction() {
     const { project, updateDeconstruction } = useWorkflowStore();

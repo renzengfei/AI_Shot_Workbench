@@ -7,15 +7,30 @@ interface PreviewVideoPlayerProps {
     muted?: boolean;
     className?: string;
     aspectRatio?: string;
+    poster?: string;
+    lazy?: boolean;
 }
 
-export const PreviewVideoPlayer = ({ src, volume = 1, muted = false, className, aspectRatio = "aspect-[9/16]" }: PreviewVideoPlayerProps) => {
+export const PreviewVideoPlayer = ({
+    src,
+    volume = 1,
+    muted = false,
+    className,
+    aspectRatio = "aspect-[9/16]",
+    poster,
+    lazy = true,
+}: PreviewVideoPlayerProps) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [playing, setPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [rate, setRate] = useState(1.0);
+    const [shouldLoad, setShouldLoad] = useState(() => {
+        if (!lazy) return true;
+        if (typeof window === 'undefined') return false;
+        return typeof IntersectionObserver === 'undefined' ? true : false;
+    });
 
     useEffect(() => {
         if (videoRef.current) {
@@ -23,6 +38,22 @@ export const PreviewVideoPlayer = ({ src, volume = 1, muted = false, className, 
             videoRef.current.muted = muted;
         }
     }, [volume, muted]);
+
+    useEffect(() => {
+        if (!lazy || shouldLoad) return;
+        const el = containerRef.current;
+        if (!el || typeof IntersectionObserver === 'undefined') return;
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                    setShouldLoad(true);
+                    observer.disconnect();
+                }
+            });
+        }, { rootMargin: '200px' });
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [lazy, shouldLoad]);
 
     useEffect(() => {
         const video = videoRef.current;
@@ -96,10 +127,12 @@ export const PreviewVideoPlayer = ({ src, volume = 1, muted = false, className, 
             <div className={`relative ${aspectRatio} bg-transparent rounded-xl overflow-hidden border border-[var(--glass-border)] shadow-lg cursor-pointer group`} onClick={togglePlay}>
                 <video
                     ref={videoRef}
-                    src={src}
+                    src={shouldLoad ? src : undefined}
                     className="w-full h-full object-cover"
                     loop
                     playsInline
+                    preload={shouldLoad ? "metadata" : "none"}
+                    poster={poster}
                 />
             </div>
 

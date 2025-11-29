@@ -12,7 +12,7 @@ import { useWorkspace, type GenerateAssetsPayload } from '@/components/Workspace
 import FramePreview from '@/components/FramePreview';
 import { useStepNavigator } from '@/lib/hooks/useStepNavigator';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8000';
 const USE_EDIT_VIDEO = false; // 如果希望强制使用带音频的原始文件，则保持 false
 
 export default function Step1_Segmentation() {

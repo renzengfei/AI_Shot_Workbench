@@ -1,0 +1,61 @@
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8000';
+
+export interface ImagePreset {
+    id: string;
+    name: string;
+    content: string;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export async function fetchImagePresets(): Promise<ImagePreset[]> {
+    const resp = await fetch(`${API_BASE}/api/image-presets`);
+    if (!resp.ok) throw new Error(`加载生图设定失败: ${resp.status}`);
+    const data = await resp.json();
+    return (data?.presets as ImagePreset[]) || [];
+}
+
+export async function createImagePreset(content: string, name?: string): Promise<ImagePreset> {
+    const resp = await fetch(`${API_BASE}/api/image-presets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, content }),
+    });
+    if (!resp.ok) throw new Error(`创建生图设定失败: ${resp.status}`);
+    const data = await resp.json();
+    return data?.preset as ImagePreset;
+}
+
+export async function updateImagePreset(id: string, content: string, name?: string): Promise<ImagePreset> {
+    const resp = await fetch(`${API_BASE}/api/image-presets/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, content }),
+    });
+    if (!resp.ok) throw new Error(`更新生图设定失败: ${resp.status}`);
+    const data = await resp.json();
+    return data?.preset as ImagePreset;
+}
+
+export async function deleteImagePreset(id: string) {
+    const resp = await fetch(`${API_BASE}/api/image-presets/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+    });
+    if (!resp.ok) throw new Error(`删除生图设定失败: ${resp.status}`);
+}
+
+export async function getWorkspaceImagePreset(workspacePath: string): Promise<{ preset_id?: string | null; preset?: ImagePreset | null }> {
+    const resp = await fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(workspacePath)}/image-preset`);
+    if (!resp.ok) throw new Error(`加载工作空间生图设定失败: ${resp.status}`);
+    return (await resp.json()) as { preset_id?: string | null; preset?: ImagePreset | null };
+}
+
+export async function setWorkspaceImagePreset(workspacePath: string, presetId: string | null) {
+    const resp = await fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(workspacePath)}/image-preset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preset_id: presetId }),
+    });
+    if (!resp.ok) throw new Error(`保存工作空间生图设定失败: ${resp.status}`);
+    return (await resp.json()) as { preset_id?: string | null };
+}

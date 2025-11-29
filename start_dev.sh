@@ -28,13 +28,13 @@ if [[ ! -d "$FRONTEND_DIR/node_modules" ]]; then
   echo "Warning: frontend node_modules missing. Run: cd \"$FRONTEND_DIR\" && npm install"
 fi
 
-echo "Starting backend (uvicorn main:app --reload --port 8000)..."
+echo "Starting backend (uvicorn main:app --reload --host 0.0.0.0 --port 8000)..."
 # Kill existing backend on port 8000 to avoid Address already in use
 if lsof -i :8000 >/dev/null 2>&1; then
   echo "Port 8000 busy, terminating existing process..."
   lsof -ti :8000 | xargs -r kill
 fi
-(cd "$BACKEND_DIR" && source "$BACKEND_VENV_BIN/activate" && uvicorn main:app --reload --port 8000) &
+(cd "$BACKEND_DIR" && source "$BACKEND_VENV_BIN/activate" && uvicorn main:app --reload --host 0.0.0.0 --port 8000) &
 BACKEND_PID=$!
 
 echo "Starting frontend (npm run dev)..."

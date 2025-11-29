@@ -501,6 +501,8 @@ export const ShotCard = ({
                                         muted={isGlobalMuted}
                                         className="w-full"
                                         aspectRatio="aspect-[9/16]"
+                                        poster={frameUrl || undefined}
+                                        lazy
                                     />
                                 ) : isNewShot ? (
                                     <div className="relative aspect-[9/16] bg-slate-900/60 rounded-xl border border-dashed border-slate-700 flex items-center justify-center text-slate-400 text-sm p-4 text-center">
