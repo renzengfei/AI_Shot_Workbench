@@ -166,8 +166,6 @@ export default function Step3_DeconstructionReview({
     const [savedIndexes, setSavedIndexes] = useState<Record<number, number>>({});
     const savedIndexesRef = useRef<Record<number, number>>({});
     const selectedIndexesKey = workspaceSlug ? `selectedIndexes:${workspaceSlug}:${generatedDir}` : null;
-    const [savedIndexes, setSavedIndexes] = useState<Record<number, number>>({});
-    const savedIndexesRef = useRef<Record<number, number>>({});
     const [generatingShots, setGeneratingShots] = useState<Record<number, boolean>>({});
     const [generateError, setGenerateError] = useState<string | null>(null);
     const [generateErrors, setGenerateErrors] = useState<Record<number, string | undefined>>({});
