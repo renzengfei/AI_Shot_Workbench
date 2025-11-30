@@ -1,4 +1,4 @@
-import { Clock, Zap, Image as ImageIcon, Layers, Sparkles, Users, Sun, Palette, CheckCircle2, RefreshCw, Box, Layout, Trash2, Play, ChevronDown, ChevronUp, Check, AlertCircle, Film, Video, Wand2, Loader2, FileText, X, ZoomIn, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, Zap, Image as ImageIcon, Layers, Sparkles, Users, Sun, Palette, CheckCircle2, RefreshCw, Box, Layout, Trash2, Play, ChevronDown, ChevronUp, Check, AlertCircle, Film, Video, Wand2, Loader2, FileText, X, ZoomIn, ChevronLeft, ChevronRight, Undo2 } from 'lucide-react';
 import { type ReactNode, useState, useEffect, useMemo } from 'react';
 import { AutoTextArea } from '@/components/ui/AutoTextArea';
 import { PreviewVideoPlayer } from '@/components/ui/PreviewVideoPlayer';
@@ -228,12 +228,8 @@ interface ShotCardProps {
     generatedImageIndex?: number;
     onPrevGenerated?: (shot: Round2Shot, index: number) => void;
     onNextGenerated?: (shot: Round2Shot, index: number) => void;
-    onGenerateImage?: (shot: Round2Shot, index: number, providerId?: string) => void;
+    onGenerateImage?: (shot: Round2Shot, index: number) => void;
     isGenerating?: boolean;
-    // Provider selection per shot
-    providers?: Array<{ id: string; name: string; is_default?: boolean }>;
-    selectedProviderId?: string;
-    onProviderChange?: (shot: Round2Shot, index: number, providerId: string) => void;
     highlightGenerated?: boolean;
     newImages?: string[];
     onImageSeen?: (shot: Round2Shot, index: number, url: string) => void;
@@ -266,9 +262,6 @@ export const ShotCard = ({
     onNextGenerated,
     onGenerateImage,
     isGenerating = false,
-    providers = [],
-    selectedProviderId,
-    onProviderChange,
     highlightGenerated = false,
     newImages = [],
     onImageSeen,
@@ -712,13 +705,13 @@ export const ShotCard = ({
         }
     };
 
-    const markValue = shot.discarded ? 'discarded' : shot.merge_with_previous ? 'merge' : '';
+    const isDiscarded = !!shot.discarded;
 
     return (
         <>
             <div
                 id={`shot-${index}`}
-                className={`relative group p-8 rounded-[2.5rem] border ${borderColor} bg-white/5 backdrop-blur-2xl transition-all duration-500 hover:border-white/20 shadow-2xl ${glowColor}`}
+                className={`relative group p-8 rounded-[2.5rem] border ${borderColor} bg-white/5 backdrop-blur-2xl transition-all duration-500 hover:border-white/20 shadow-2xl ${glowColor} ${isDiscarded ? 'opacity-40 grayscale' : ''}`}
             >
                 {/* Glass Reflection Effect */}
                 <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent opacity-50 rounded-[2.5rem] pointer-events-none" />
@@ -746,22 +739,26 @@ export const ShotCard = ({
                                 {shot.duration && <span className="ml-2 px-2 py-0.5 rounded-full bg-white/5 text-xs">({shot.duration}s)</span>}
                             </div>
                         )}
-                        <div className="flex items-center gap-2">
-                            <label className="text-xs text-white/70">标记</label>
-                            <select
-                                value={markValue}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    updateField('discarded', val === 'discarded');
-                                    updateField('merge_with_previous', val === 'merge');
-                                }}
-                                className="text-xs px-2 py-1 rounded-lg bg-white text-slate-700 border border-slate-200 shadow-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200"
-                            >
-                                <option value="">无</option>
-                                <option value="discarded">已舍弃</option>
-                                <option value="merge">跟上方卡片合并</option>
-                            </select>
-                        </div>
+                        <button
+                            onClick={() => updateField('discarded', !isDiscarded)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+                                isDiscarded
+                                    ? 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30'
+                                    : 'bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30'
+                            }`}
+                        >
+                            {isDiscarded ? (
+                                <>
+                                    <Undo2 size={14} />
+                                    <span>恢复</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Trash2 size={14} />
+                                    <span>舍弃</span>
+                                </>
+                            )}
+                        </button>
                     </div>
                 </div>
 
@@ -817,34 +814,19 @@ export const ShotCard = ({
                                             <span className="text-slate-400">点击下方生成</span>
                                         )}
                                     </div>
-                                    {/* 供应商选择器 + 生图按钮 */}
-                                    <div className="mt-2 flex items-center gap-2">
-                                        {providers.length > 0 && (
-                                            <select
-                                                value={selectedProviderId || providers.find(p => p.is_default)?.id || providers[0]?.id || ''}
-                                                onChange={(e) => onProviderChange?.(shot, index, e.target.value)}
-                                                disabled={isGenerating}
-                                                className="flex-shrink-0 px-2 py-2 rounded-lg text-xs font-medium bg-white/80 border border-slate-200/50 text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50 disabled:opacity-50"
-                                                title="选择生图供应商"
-                                            >
-                                                {providers.map(p => (
-                                                    <option key={p.id} value={p.id}>
-                                                        {p.name}{p.is_default ? ' ✓' : ''}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        )}
+                                    {/* 生图按钮 */}
+                                    <div className="mt-2">
                                         <button
                                             onClick={() => {
                                                 // 先 blur 当前输入框，强制同步 debounce 中的数据
                                                 (document.activeElement as HTMLElement)?.blur();
                                                 // 延迟 50ms 确保 React 状态更新完成
                                                 setTimeout(() => {
-                                                    onGenerateImage?.(shot, index, selectedProviderId);
+                                                    onGenerateImage?.(shot, index);
                                                 }, 50);
                                             }}
                                             disabled={isGenerating}
-                                            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shadow-md transition-all duration-200 active:scale-95 ${
+                                            className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shadow-md transition-all duration-200 active:scale-95 ${
                                                 isGenerating
                                                     ? 'bg-slate-400 text-white cursor-not-allowed'
                                                     : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600'
