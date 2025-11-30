@@ -165,6 +165,9 @@ export default function Step3_DeconstructionReview({
     const [generatedIndexes, setGeneratedIndexes] = useState<Record<number, number>>({});
     const [savedIndexes, setSavedIndexes] = useState<Record<number, number>>({});
     const savedIndexesRef = useRef<Record<number, number>>({});
+    const selectedIndexesKey = workspaceSlug ? `selectedIndexes:${workspaceSlug}:${generatedDir}` : null;
+    const [savedIndexes, setSavedIndexes] = useState<Record<number, number>>({});
+    const savedIndexesRef = useRef<Record<number, number>>({});
     const [generatingShots, setGeneratingShots] = useState<Record<number, boolean>>({});
     const [generateError, setGenerateError] = useState<string | null>(null);
     const [generateErrors, setGenerateErrors] = useState<Record<number, string | undefined>>({});
@@ -1333,7 +1336,7 @@ export default function Step3_DeconstructionReview({
         }
     }, [generatedImages, generatedStorageKey]);
 
-    // Persist selected image indexes to server (with debounce)
+    // Persist selected image indexes to server & localStorage (with debounce)
     const saveIndexesTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     useEffect(() => {
         if (!currentWorkspace?.path || !generatedDir || Object.keys(generatedIndexes).length === 0) return;
@@ -1342,6 +1345,14 @@ export default function Step3_DeconstructionReview({
             clearTimeout(saveIndexesTimeoutRef.current);
         }
         saveIndexesTimeoutRef.current = setTimeout(() => {
+            // 本地兜底保存，避免网络异常导致记忆丢失
+            if (selectedIndexesKey) {
+                try {
+                    localStorage.setItem(selectedIndexesKey, JSON.stringify(generatedIndexes));
+                } catch {
+                    // ignore
+                }
+            }
             fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-images`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1353,7 +1364,7 @@ export default function Step3_DeconstructionReview({
                 clearTimeout(saveIndexesTimeoutRef.current);
             }
         };
-    }, [generatedIndexes, currentWorkspace?.path, generatedDir]);
+    }, [generatedIndexes, currentWorkspace?.path, generatedDir, selectedIndexesKey]);
 
     useEffect(() => {
         if (!workspaceSlug) return;
@@ -1370,10 +1381,27 @@ export default function Step3_DeconstructionReview({
             setSavedIndexes({});
             return;
         }
+        // 先读取本地兜底
+        let localFallback: Record<number, number> = {};
+        if (selectedIndexesKey) {
+            try {
+                const raw = localStorage.getItem(selectedIndexesKey);
+                if (raw) {
+                    const parsed = JSON.parse(raw) as Record<string, number>;
+                    Object.entries(parsed).forEach(([k, v]) => {
+                        if (typeof v === 'number') localFallback[Number(k)] = v;
+                    });
+                }
+            } catch {
+                // ignore
+            }
+        }
+        setSavedIndexes(localFallback);
+
         fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-images?generated_dir=${encodeURIComponent(generatedDir)}`)
             .then(resp => resp.ok ? resp.json() : { indexes: {} })
             .then((data: { indexes?: Record<string, number> }) => {
-                const mapped: Record<number, number> = {};
+                const mapped: Record<number, number> = { ...localFallback };
                 if (data.indexes) {
                     Object.entries(data.indexes).forEach(([k, v]) => {
                         if (typeof v === 'number') mapped[Number(k)] = v;
@@ -1381,8 +1409,8 @@ export default function Step3_DeconstructionReview({
                 }
                 setSavedIndexes(mapped);
             })
-            .catch(() => setSavedIndexes({}));
-    }, [currentWorkspace?.path, generatedDir]);
+            .catch(() => setSavedIndexes(localFallback));
+    }, [currentWorkspace?.path, generatedDir, selectedIndexesKey]);
 
     // 保持 ref 最新
     useEffect(() => {
