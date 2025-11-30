@@ -777,6 +777,11 @@ async def generate_images_internal(request: GenerateImageRequest) -> dict:
             path = os.path.join(generated_root, filename)
             with open(path, "wb") as f:
                 f.write(base64.b64decode(b64data))
+            # 为每张图片保存对应的 prompt 文件
+            prompt_filename = os.path.splitext(filename)[0] + ".prompt.txt"
+            prompt_path = os.path.join(generated_root, prompt_filename)
+            with open(prompt_path, "w", encoding="utf-8") as f:
+                f.write(final_prompt)
             saved_images.append(filename)
             idx += 1
 
@@ -799,6 +804,11 @@ async def generate_images_internal(request: GenerateImageRequest) -> dict:
                     path = os.path.join(generated_root, filename)
                     with open(path, "wb") as f:
                         f.write(r.content)
+                    # 为每张图片保存对应的 prompt 文件
+                    prompt_filename = os.path.splitext(filename)[0] + ".prompt.txt"
+                    prompt_path = os.path.join(generated_root, prompt_filename)
+                    with open(prompt_path, "w", encoding="utf-8") as f:
+                        f.write(final_prompt)
                     saved_images.append(filename)
                     idx += 1
                     return True
@@ -894,31 +904,35 @@ async def run_image_task(task_path: str, payload: ImageTaskCreateRequest):
             reference_image_ids=payload.reference_image_ids,
             shot_id=payload.shot_id,
             generated_dir=payload.generated_dir,
+            provider_id=payload.provider_id,
         )
         return await generate_images_internal(gen_req)
 
     tasks = [generate_one() for _ in range(count)]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
+    error_messages = []
     for result in results:
         if isinstance(result, HTTPException):
-            error_detail = result.detail if isinstance(result.detail, str) else str(result.detail)
+            detail = result.detail if isinstance(result.detail, str) else str(result.detail)
+            error_messages.append(detail)
         elif isinstance(result, Exception):
-            error_detail = str(result)
+            error_messages.append(str(result))
         elif isinstance(result, dict):
             files.extend(result.get("images", []))
 
-    if not files and not error_detail:
-        error_detail = "生成失败，未返回图片"
+    if not files and not error_messages:
+        error_messages.append("生成失败，未返回图片")
 
     record["files"] = dedupe_files(files)
     record["finished_at"] = datetime.utcnow().isoformat()
-    if error_detail:
-        record["status"] = "failed"
-        record["error"] = error_detail
-    else:
+    if record["files"]:
+        # 若至少有一张图片生成成功，任务视为成功，错误记录到 error 字段便于排查
         record["status"] = "succeeded"
-        record["error"] = None
+        record["error"] = "; ".join(error_messages) if error_messages else None
+    else:
+        record["status"] = "failed"
+        record["error"] = "; ".join(error_messages) if error_messages else "生成失败，未返回图片"
     save_task_record(task_path, record)
 
 
@@ -1025,15 +1039,40 @@ async def save_selected_images(workspace_path: str, data: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/workspaces/{workspace_path:path}/prompt")
-async def get_shot_prompt(workspace_path: str, shot_id: str, generated_dir: Optional[str] = None):
-    """读取指定镜头的生图 prompt"""
+async def get_shot_prompt(
+    workspace_path: str, 
+    shot_id: str, 
+    generated_dir: Optional[str] = None,
+    image_filename: Optional[str] = None
+):
+    """读取指定镜头或图片的生图 prompt
+    
+    - 如果提供 image_filename，优先读取该图片对应的 prompt（如 image_url_36.prompt.txt）
+    - 否则回退到 shot 级别的 prompt.txt
+    """
     if not os.path.exists(workspace_path):
         raise HTTPException(status_code=404, detail="workspace_path 不存在")
     shot_label = str(shot_id).strip()
     if ".." in shot_label:
         raise HTTPException(status_code=400, detail="shot_id 无效")
     dir_name = generated_dir or "generated"
-    prompt_path = os.path.join(workspace_path, dir_name, "shots", shot_label, "prompt.txt")
+    shot_dir = os.path.join(workspace_path, dir_name, "shots", shot_label)
+    
+    # 如果提供了图片文件名，优先读取该图片对应的 prompt
+    if image_filename:
+        # 从图片文件名推断 prompt 文件名：image_url_36.png -> image_url_36.prompt.txt
+        base_name = os.path.splitext(image_filename)[0]
+        per_image_prompt_path = os.path.join(shot_dir, f"{base_name}.prompt.txt")
+        norm_path = os.path.normpath(per_image_prompt_path)
+        if norm_path.startswith(os.path.normpath(workspace_path)) and os.path.isfile(norm_path):
+            try:
+                with open(norm_path, "r", encoding="utf-8") as f:
+                    return {"prompt": f.read()}
+            except Exception as e:
+                logger.warning(f"读取图片 prompt 失败: {e}")
+    
+    # 回退到 shot 级别的 prompt.txt
+    prompt_path = os.path.join(shot_dir, "prompt.txt")
     norm_path = os.path.normpath(prompt_path)
     if not norm_path.startswith(os.path.normpath(workspace_path)):
         raise HTTPException(status_code=400, detail="路径无效")

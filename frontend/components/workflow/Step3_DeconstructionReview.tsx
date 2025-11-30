@@ -163,10 +163,15 @@ export default function Step3_DeconstructionReview({
     const [generatedImages, setGeneratedImages] = useState<Record<number, string[]>>({});
     const generatedImagesRef = useRef<Record<number, string[]>>({});
     const [generatedIndexes, setGeneratedIndexes] = useState<Record<number, number>>({});
+    const [savedIndexes, setSavedIndexes] = useState<Record<number, number>>({});
+    const savedIndexesRef = useRef<Record<number, number>>({});
     const [generatingShots, setGeneratingShots] = useState<Record<number, boolean>>({});
     const [generateError, setGenerateError] = useState<string | null>(null);
     const [generateErrors, setGenerateErrors] = useState<Record<number, string | undefined>>({});
     const [newlyGenerated, setNewlyGenerated] = useState<Record<number, string[]>>({});
+    // Provider selection per shot
+    const [providers, setProviders] = useState<Array<{ id: string; name: string; is_default?: boolean }>>([]);
+    const [shotProviders, setShotProviders] = useState<Record<number, string>>({});
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const [previewImage, setPreviewImage] = useState<{ url: string; name?: string } | null>(null);
     const canEdit = mode === 'review';
@@ -282,7 +287,15 @@ export default function Step3_DeconstructionReview({
             mergedLen = merged.length;
             return { ...prev, [shotId]: merged };
         });
-        setGeneratedIndexes((prev) => ({ ...prev, [shotId]: Math.max(0, mergedLen - 1) }));
+        // 只有当该 shot 没有已保存的索引时才设置为最后一张
+        setGeneratedIndexes((prev) => {
+            if (typeof prev[shotId] === 'number') return prev;
+            const saved = savedIndexesRef.current[shotId];
+            if (typeof saved === 'number' && saved >= 0 && saved < mergedLen) {
+                return { ...prev, [shotId]: saved };
+            }
+            return { ...prev, [shotId]: Math.max(0, mergedLen - 1) };
+        });
         setNewlyGenerated((prev) => {
             const existing = prev[shotId] || [];
             const merged = Array.from(new Set([...existing, ...normalized]));
@@ -325,7 +338,15 @@ export default function Step3_DeconstructionReview({
                 mergedLen = merged.length;
                 return { ...prev, [shotId]: merged };
             });
-            setGeneratedIndexes((prev) => ({ ...prev, [shotId]: Math.max(0, mergedLen - 1) }));
+            // 只有当该 shot 没有已保存的索引时才设置为最后一张
+            setGeneratedIndexes((prev) => {
+                if (typeof prev[shotId] === 'number') return prev;
+                const saved = savedIndexesRef.current[shotId];
+                if (typeof saved === 'number' && saved >= 0 && saved < mergedLen) {
+                    return { ...prev, [shotId]: saved };
+                }
+                return { ...prev, [shotId]: Math.max(0, mergedLen - 1) };
+            });
             probedShotsRef.current.add(shotId);
         } else {
             probedShotsRef.current.add(shotId);
@@ -632,6 +653,16 @@ export default function Step3_DeconstructionReview({
     const handleImageSeen = (shot: Round2Shot, idx: number, url: string) => {
         const shotId = shot.id ?? idx + 1;
         setNewlyGenerated((prev) => ({ ...prev, [shotId]: (prev[shotId] || []).filter((u) => u !== url) }));
+    };
+
+    const handleClearNewImages = (shot: Round2Shot, idx: number) => {
+        const shotId = shot.id ?? idx + 1;
+        setNewlyGenerated((prev) => ({ ...prev, [shotId]: [] }));
+    };
+
+    const handleProviderChange = (shot: Round2Shot, idx: number, providerId: string) => {
+        const shotId = shot.id ?? idx + 1;
+        setShotProviders((prev) => ({ ...prev, [shotId]: providerId }));
     };
 
     const handleSelectImageIndex = (shot: Round2Shot, idx: number, targetIndex: number) => {
@@ -1008,7 +1039,7 @@ export default function Step3_DeconstructionReview({
         return Array.from(ids);
     };
 
-    const handleGenerateImage = async (shot: Round2Shot, index: number) => {
+    const handleGenerateImage = async (shot: Round2Shot, index: number, providerId?: string) => {
         if (!currentWorkspace?.path || !workspaceSlug) {
             setGenerateError('请先选择工作空间');
             return;
@@ -1036,6 +1067,7 @@ export default function Step3_DeconstructionReview({
                     reference_image_ids: refs,
                     generated_dir: generatedDir,
                     count: 2,
+                    ...(providerId && { provider_id: providerId }),
                 }),
             });
             if (!resp.ok) {
@@ -1181,6 +1213,16 @@ export default function Step3_DeconstructionReview({
         void loadWorkspaceImagePreset();
     }, [loadWorkspaceImagePreset]);
 
+    // Load providers list
+    useEffect(() => {
+        fetch(`${API_BASE}/api/providers`)
+            .then(resp => resp.ok ? resp.json() : { providers: [] })
+            .then((data: { providers?: Array<{ id: string; name: string; is_default?: boolean }> }) => {
+                setProviders(data.providers || []);
+            })
+            .catch(() => setProviders([]));
+    }, []);
+
     // Reset image caches when switching workspace or generatedDir
     useEffect(() => {
         setGeneratedImages({});
@@ -1321,6 +1363,50 @@ export default function Step3_DeconstructionReview({
             void loadExistingImagesForShot(id);
         });
     }, [workspaceSlug, round2Data, loadExistingImagesForShot]);
+
+    // 拉取已保存的选中索引（即使本地没有缓存也要获取）
+    useEffect(() => {
+        if (!currentWorkspace?.path || !generatedDir) {
+            setSavedIndexes({});
+            return;
+        }
+        fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-images?generated_dir=${encodeURIComponent(generatedDir)}`)
+            .then(resp => resp.ok ? resp.json() : { indexes: {} })
+            .then((data: { indexes?: Record<string, number> }) => {
+                const mapped: Record<number, number> = {};
+                if (data.indexes) {
+                    Object.entries(data.indexes).forEach(([k, v]) => {
+                        if (typeof v === 'number') mapped[Number(k)] = v;
+                    });
+                }
+                setSavedIndexes(mapped);
+            })
+            .catch(() => setSavedIndexes({}));
+    }, [currentWorkspace?.path, generatedDir]);
+
+    // 保持 ref 最新
+    useEffect(() => {
+        savedIndexesRef.current = savedIndexes;
+    }, [savedIndexes]);
+
+    // 当远端已保存的索引到达后，为尚未设置的镜头应用它
+    useEffect(() => {
+        if (!Object.keys(savedIndexes).length) return;
+        setGeneratedIndexes((prev) => {
+            let changed = false;
+            const next = { ...prev };
+            Object.entries(savedIndexes).forEach(([k, v]) => {
+                const id = Number(k);
+                const imgs = generatedImages[id];
+                if (!imgs || !imgs.length) return;
+                if (v >= 0 && v < imgs.length && prev[id] !== v) {
+                    next[id] = v;
+                    changed = true;
+                }
+            });
+            return changed ? next : prev;
+        });
+    }, [savedIndexes, generatedImages]);
 
     const optimizedMapped = useMemo(() => {
         if (!optimizedStoryboard) return { r1: null as Round1Data | null, r2: null as Round2Data | null };
@@ -3012,10 +3098,14 @@ export default function Step3_DeconstructionReview({
                                     onPrevGenerated={handlePrevImage}
                                     onNextGenerated={handleNextImage}
                                     isGenerating={!!generatingShots[shot.id ?? index + 1]}
+                                    providers={providers}
+                                    selectedProviderId={shotProviders[shot.id ?? index + 1]}
+                                    onProviderChange={handleProviderChange}
                                     onGenerateImage={handleGenerateImage}
                                     highlightGenerated={!!(newlyGenerated[shot.id ?? index + 1]?.length)}
                                     newImages={newlyGenerated[shot.id ?? index + 1] || []}
                                     onImageSeen={handleImageSeen}
+                                    onClearNewImages={handleClearNewImages}
                                     generateError={generateErrors[shot.id ?? index + 1]}
                                     canPrevGenerated={(generatedIndexes[shot.id ?? index + 1] ?? 0) > 0}
                                     canNextGenerated={

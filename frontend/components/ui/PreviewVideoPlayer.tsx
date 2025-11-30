@@ -63,17 +63,20 @@ export const PreviewVideoPlayer = ({
         const onLoadedMetadata = () => setDuration(video.duration);
         const onPlay = () => setPlaying(true);
         const onPause = () => setPlaying(false);
+        const onEnded = () => setPlaying(false);
 
         video.addEventListener('timeupdate', onTimeUpdate);
         video.addEventListener('loadedmetadata', onLoadedMetadata);
         video.addEventListener('play', onPlay);
         video.addEventListener('pause', onPause);
+        video.addEventListener('ended', onEnded);
 
         return () => {
             video.removeEventListener('timeupdate', onTimeUpdate);
             video.removeEventListener('loadedmetadata', onLoadedMetadata);
             video.removeEventListener('play', onPlay);
             video.removeEventListener('pause', onPause);
+            video.removeEventListener('ended', onEnded);
         };
     }, []);
 
@@ -129,7 +132,6 @@ export const PreviewVideoPlayer = ({
                     ref={videoRef}
                     src={shouldLoad ? src : undefined}
                     className="w-full h-full object-cover"
-                    loop
                     playsInline
                     preload={shouldLoad ? "metadata" : "none"}
                     poster={poster}

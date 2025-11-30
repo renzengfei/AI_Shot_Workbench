@@ -1,14 +1,212 @@
-import { Clock, Zap, Image as ImageIcon, Layers, Sparkles, Users, Sun, Palette, CheckCircle2, RefreshCw, Box, Layout, Trash2 } from 'lucide-react';
-import { type ReactNode, useState, useEffect } from 'react';
+import { Clock, Zap, Image as ImageIcon, Layers, Sparkles, Users, Sun, Palette, CheckCircle2, RefreshCw, Box, Layout, Trash2, Play, ChevronDown, ChevronUp, Check, AlertCircle, Film, Video, Wand2, Loader2, FileText, X, ZoomIn, ChevronLeft, ChevronRight } from 'lucide-react';
+import { type ReactNode, useState, useEffect, useMemo } from 'react';
 import { AutoTextArea } from '@/components/ui/AutoTextArea';
 import { PreviewVideoPlayer } from '@/components/ui/PreviewVideoPlayer';
 import { Round2Shot, ReviewMode, StructuredInitialFrame, ShotAlternative } from '@/types/deconstruction';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8000';
 
 // Diff info for a single field
 interface DiffInfo {
     oldVal: string;
     newVal: string;
 }
+
+// 生成失败提示组件
+const ErrorTooltip = ({ error }: { error: string }) => {
+    const [expanded, setExpanded] = useState(false);
+    
+    return (
+        <div className="mt-2 w-full">
+            <button
+                onClick={() => setExpanded(!expanded)}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-600 text-sm hover:bg-red-100 transition-colors"
+            >
+                <AlertCircle size={16} className="flex-shrink-0" />
+                <span className="font-medium">生成失败</span>
+                <ChevronDown size={14} className={`ml-auto transition-transform ${expanded ? 'rotate-180' : ''}`} />
+            </button>
+            {expanded && (
+                <div className="mt-1 p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 max-h-32 overflow-y-auto whitespace-pre-wrap break-words">
+                    {error}
+                </div>
+            )}
+        </div>
+    );
+};
+
+// 图片放大查看组件
+const ImageLightbox = ({
+    images,
+    currentIndex,
+    onClose,
+    onPrev,
+    onNext,
+    getImageIndex,
+}: {
+    images: string[];
+    currentIndex: number;
+    onClose: () => void;
+    onPrev: () => void;
+    onNext: () => void;
+    getImageIndex: (url: string) => number;
+}) => {
+    const currentUrl = images[currentIndex];
+    const imageNum = getImageIndex(currentUrl);
+    
+    // 键盘导航
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+            if (e.key === 'ArrowLeft') onPrev();
+            if (e.key === 'ArrowRight') onNext();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onClose, onPrev, onNext]);
+
+    return (
+        <div 
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md"
+            onClick={onClose}
+        >
+            {/* 关闭按钮 */}
+            <button
+                onClick={onClose}
+                className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors z-10"
+            >
+                <X size={24} />
+            </button>
+            
+            {/* 图片序号 */}
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-white/10 text-white text-sm font-medium">
+                #{imageNum} · {currentIndex + 1} / {images.length}
+            </div>
+            
+            {/* 上一张 */}
+            {currentIndex > 0 && (
+                <button
+                    onClick={(e) => { e.stopPropagation(); onPrev(); }}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                >
+                    <ChevronLeft size={28} />
+                </button>
+            )}
+            
+            {/* 图片 */}
+            <div 
+                className="max-w-[90vw] max-h-[90vh] flex items-center justify-center"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img 
+                    src={currentUrl} 
+                    alt={`图片 #${imageNum}`}
+                    className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+                />
+            </div>
+            
+            {/* 下一张 */}
+            {currentIndex < images.length - 1 && (
+                <button
+                    onClick={(e) => { e.stopPropagation(); onNext(); }}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                >
+                    <ChevronRight size={28} />
+                </button>
+            )}
+        </div>
+    );
+};
+
+// Prompt 查看器组件
+const PromptViewer = ({ 
+    workspacePath, 
+    shotId, 
+    generatedDir,
+    imageFilename,
+    imageUrl
+}: { 
+    workspacePath: string; 
+    shotId: string | number; 
+    generatedDir?: string;
+    imageFilename?: string;
+    imageUrl?: string;
+}) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [prompt, setPrompt] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [lastImageFilename, setLastImageFilename] = useState<string | undefined>(undefined);
+
+    const fetchPrompt = async () => {
+        // 如果图片文件名变了，需要重新获取 prompt
+        if (prompt !== null && lastImageFilename === imageFilename) {
+            setIsOpen(true);
+            return;
+        }
+        setLoading(true);
+        try {
+            const shotFromUrl = imageUrl
+                ? (imageUrl.match(/\/shots\/([^/]+)/)?.[1] ?? undefined)
+                : undefined;
+            const params = new URLSearchParams({
+                shot_id: shotFromUrl ?? String(shotId),
+                ...(generatedDir && { generated_dir: generatedDir }),
+                ...(imageFilename && { image_filename: imageFilename }),
+            });
+            const res = await fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(workspacePath)}/prompt?${params}`);
+            const data = await res.json();
+            setPrompt(data.prompt || '暂无 Prompt 记录');
+            setLastImageFilename(imageFilename);
+            setIsOpen(true);
+        } catch {
+            setPrompt('加载失败');
+            setIsOpen(true);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <>
+            <button
+                onClick={fetchPrompt}
+                disabled={loading}
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100/80 border border-slate-200/50 text-slate-500 text-xs font-medium hover:bg-slate-200/80 hover:text-slate-700 transition-all duration-200 active:scale-95"
+                title="查看生图 Prompt"
+            >
+                <FileText size={12} />
+                {loading ? '...' : 'Prompt'}
+            </button>
+            {isOpen && (
+                <div 
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+                    onClick={() => setIsOpen(false)}
+                >
+                    <div 
+                        className="relative w-[90%] max-w-2xl max-h-[80vh] bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/50 overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200/50">
+                            <h3 className="text-base font-semibold text-slate-700">生图 Prompt</h3>
+                            <button
+                                onClick={() => setIsOpen(false)}
+                                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="p-5 overflow-y-auto max-h-[60vh]">
+                            <pre className="whitespace-pre-wrap text-sm text-slate-600 leading-relaxed font-mono bg-slate-50/80 rounded-xl p-4 border border-slate-100">
+                                {prompt}
+                            </pre>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
+    );
+};
 
 interface ShotCardProps {
     shot: Round2Shot;
@@ -30,14 +228,22 @@ interface ShotCardProps {
     generatedImageIndex?: number;
     onPrevGenerated?: (shot: Round2Shot, index: number) => void;
     onNextGenerated?: (shot: Round2Shot, index: number) => void;
-    onGenerateImage?: (shot: Round2Shot, index: number) => void;
+    onGenerateImage?: (shot: Round2Shot, index: number, providerId?: string) => void;
     isGenerating?: boolean;
+    // Provider selection per shot
+    providers?: Array<{ id: string; name: string; is_default?: boolean }>;
+    selectedProviderId?: string;
+    onProviderChange?: (shot: Round2Shot, index: number, providerId: string) => void;
     highlightGenerated?: boolean;
     newImages?: string[];
     onImageSeen?: (shot: Round2Shot, index: number, url: string) => void;
+    onClearNewImages?: (shot: Round2Shot, index: number) => void;
     generateError?: string | null;
     canPrevGenerated?: boolean;
     canNextGenerated?: boolean;
+    onSelectGeneratedIndex?: (shot: Round2Shot, shotIndex: number, imageIndex: number) => void;
+    workspacePath?: string;
+    generatedDir?: string;
 }
 
 export const ShotCard = ({
@@ -60,18 +266,29 @@ export const ShotCard = ({
     onNextGenerated,
     onGenerateImage,
     isGenerating = false,
+    providers = [],
+    selectedProviderId,
+    onProviderChange,
     highlightGenerated = false,
     newImages = [],
     onImageSeen,
+    onClearNewImages,
     generateError = null,
     canPrevGenerated = true,
     canNextGenerated = true,
+    onSelectGeneratedIndex,
+    workspacePath = '',
+    generatedDir,
 }: ShotCardProps) => {
     const shotId = shot.id ?? index + 1;
     const canEdit = mode === 'review';
 
     // Delete confirmation state: { type: 'fg_char' | 'fg_obj' | 'mg_char' | 'mg_obj', index: number } | null
     const [deleteConfirm, setDeleteConfirm] = useState<{ type: string; index: number; label: string } | null>(null);
+    const [activeStream, setActiveStream] = useState<'image' | 'video'>('image');
+    const [selectedVideo, setSelectedVideo] = useState<string | null>(clipUrl || null);
+    // 图片放大查看状态
+    const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
     // Helper to render character or object item (handles both string and object types)
     const renderFrameItem = (item: unknown): string => {
@@ -404,6 +621,67 @@ export const ShotCard = ({
     const activeIndex = generatedImageIndex !== undefined ? generatedImageIndex : (hasGeneratedImages ? generatedImageUrls.length - 1 : 0);
     const activeImage = hasGeneratedImages ? generatedImageUrls[Math.min(activeIndex, generatedImageUrls.length - 1)] : null;
     const isNewShot = !Number.isInteger(shotId) || shot.timestamp === 'N/A' || shot.end_time === 'N/A';
+    
+    // 从图片URL提取文件名序号（如 image_url_27.png → 27）
+    const getImageIndex = (url: string): number => {
+        try {
+            const filename = url.split('/').pop() || '';
+            const match = filename.match(/_(\d+)\.[^.]+$/);
+            return match ? parseInt(match[1], 10) : 0;
+        } catch {
+            return 0;
+        }
+    };
+
+    // 排序后的图片列表（按文件名序号倒序，最新在前）
+    const sortedImages = useMemo(() => 
+        [...generatedImageUrls]
+            .filter(Boolean)
+            .sort((a, b) => getImageIndex(b) - getImageIndex(a)), 
+        [generatedImageUrls]
+    );
+
+    // Apple Glass Design System - 样式常量 (Harmonized)
+    const MEDIA_WIDTH = 'w-[420px]';           // 统一卡片宽度
+    const DESC_WIDTH = 'w-[630px]';            // 描述区宽度 (MEDIA_WIDTH * 1.5)
+    const CARD_HEIGHT = 'h-[820px]';           // 统一卡片高度 (与 9:16 视频卡片对齐)
+    const CARD_PADDING = 'p-6';                // 统一内边距
+    const CARD_GAP = 'gap-5';                  // 统一内部间距
+    const CARD_RADIUS = 'rounded-3xl';         // 统一大圆角
+    const BTN_RADIUS = 'rounded-xl';           // 按钮圆角
+    
+    // 媒体容器：通过 aspect-[9/16] 自动计算高度，确保所有媒体对齐
+    const mediaBaseClass = `relative aspect-[9/16] ${CARD_RADIUS} overflow-hidden bg-slate-900`;
+    const mediaCardBase = `flex-shrink-0 ${MEDIA_WIDTH} ${CARD_RADIUS} border border-white/30 bg-white/50 backdrop-blur-xl shadow-md ${CARD_PADDING} flex flex-col ${CARD_GAP} transition-all duration-300 hover:bg-white/60 hover:shadow-lg`;
+    // 标题样式：固定高度确保对齐
+    const mediaTitleClass = 'h-6 text-sm font-medium text-slate-500 text-center tracking-wide';
+
+    // 从图片URL提取生成时间
+    const getGenerationTime = (url: string): string => {
+        try {
+            const filename = url.split('/').pop() || '';
+            const match = filename.match(/_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
+            if (match) {
+                const [, , , , hour, minute] = match;
+                return `${hour}:${minute}`;
+            }
+            return '';
+        } catch {
+            return '';
+        }
+    };
+
+    // 当前选中的视频
+    const activeVideo = useMemo(() => selectedVideo || clipUrl || null, [selectedVideo, clipUrl]);
+    
+    // 视频流列表
+    const videoFlow = useMemo(() => {
+        const list: string[] = [];
+        if (selectedVideo && selectedVideo !== clipUrl) list.push(selectedVideo);
+        if (clipUrl) list.push(clipUrl);
+        return list;
+    }, [clipUrl, selectedVideo]);
+
     useEffect(() => {
         if (activeImage && newImages.includes(activeImage)) {
             onImageSeen?.(shot, index, activeImage);
@@ -487,13 +765,15 @@ export const ShotCard = ({
                     </div>
                 </div>
 
-                {/* Grid Layout for Shot Details */}
-                <div className={`relative z-10 grid grid-cols-1 ${showGeneration ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-6`}>
-                    {/* Left Column: Video/Frame Display + Generated Placeholders */}
-                    <div className={showGeneration ? 'md:col-span-3' : ''}>
-                        <div className={showGeneration ? 'grid grid-cols-3 gap-4' : ''}>
-                            {/* Original Video/Frame */}
-                            <div className="space-y-3">
+                {/* 横向滚动布局：原片视频(sticky) + 选中图 + 生成视频 + 描述 + 流切换器 + 素材列表 */}
+                <div className="relative z-10 space-y-6">
+                    {/* 横向滚动容器 */}
+                    <div className="relative overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
+                        <div className="flex flex-nowrap items-start gap-6 pb-4 pt-2" style={{ minWidth: 'max-content' }}>
+                            
+                            {/* 1. 原片分镜视频 (Sticky) - 放大宽度 w-[510px] */}
+                            <div className={`sticky left-0 top-0 z-20 ${mediaCardBase}`}>
+                                <div className={mediaTitleClass}>原片分镜</div>
                                 {clipUrl ? (
                                     <PreviewVideoPlayer
                                         src={clipUrl}
@@ -505,84 +785,296 @@ export const ShotCard = ({
                                         lazy
                                     />
                                 ) : isNewShot ? (
-                                    <div className="relative aspect-[9/16] bg-slate-900/60 rounded-xl border border-dashed border-slate-700 flex items-center justify-center text-slate-400 text-sm p-4 text-center">
-                                        该镜头为新增镜头，无原片对照
+                                    <div className={`${mediaBaseClass} border border-dashed border-slate-700 flex items-center justify-center text-slate-400 text-base p-6 text-center`}>
+                                        新增镜头
                                     </div>
                                 ) : frameUrl ? (
-                                    <div className="relative aspect-[9/16] bg-slate-900 rounded-xl overflow-hidden border border-[var(--glass-border)] shadow-lg">
+                                    <div className={`${mediaBaseClass} border border-[var(--glass-border)] shadow-lg`}>
                                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img
-                                            src={frameUrl}
-                                            alt={`Shot ${index + 1} frame`}
-                                            className="w-full h-full object-cover"
-                                        />
+                                        <img src={frameUrl} alt={`Shot ${index + 1} frame`} className="w-full h-full object-cover" />
                                     </div>
                                 ) : (
-                                    <div className="relative aspect-[9/16] bg-slate-900/50 rounded-xl border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-sm">
-                                        No media
+                                    <div className={`${mediaBaseClass} border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-base`}>
+                                        无媒体
                                     </div>
                                 )}
                             </div>
-                            {/* Generated Image Placeholder */}
+
+                            {/* 2. 选中的生成图片 - 放大 */}
                             {showGeneration && (
-                                <div className="space-y-2">
-                                    <div className={`relative aspect-[9/16] rounded-xl overflow-hidden border ${highlightGenerated || (activeImage && newImages.includes(activeImage)) ? 'border-red-400' : 'border-[var(--glass-border)]'} shadow-lg bg-slate-900 flex items-center justify-center text-xs text-blue-300`}>
+                                <div className={`${mediaCardBase}`}>
+                                    <div className={mediaTitleClass}>
+                                        {getGenerationTime(activeImage || '') || '选中生成图'}
+                                    </div>
+                                    <div className={`${mediaBaseClass} border ${highlightGenerated || (activeImage && newImages.includes(activeImage)) ? 'border-red-400' : 'border-slate-200'} shadow-sm flex items-center justify-center text-lg text-blue-300`}>
                                         {(activeImage && newImages.includes(activeImage)) && (
-                                            <span className="absolute top-2 right-2 px-2 py-1 rounded-full text-[10px] font-semibold bg-red-500 text-white shadow">
-                                                NEW
-                                            </span>
+                                            <span className="absolute top-2 right-2 px-3 py-1.5 rounded-full text-sm font-semibold bg-red-500 text-white">NEW</span>
                                         )}
                                         {activeImage ? (
                                             // eslint-disable-next-line @next/next/no-img-element
                                             <img src={activeImage} alt="生成图片" className="w-full h-full object-cover" />
                                         ) : (
-                                            '生成图片'
+                                            <span className="text-slate-400">点击下方生成</span>
                                         )}
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    {/* 供应商选择器 + 生图按钮 */}
+                                    <div className="mt-2 flex items-center gap-2">
+                                        {providers.length > 0 && (
+                                            <select
+                                                value={selectedProviderId || providers.find(p => p.is_default)?.id || providers[0]?.id || ''}
+                                                onChange={(e) => onProviderChange?.(shot, index, e.target.value)}
+                                                disabled={isGenerating}
+                                                className="flex-shrink-0 px-2 py-2 rounded-lg text-xs font-medium bg-white/80 border border-slate-200/50 text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50 disabled:opacity-50"
+                                                title="选择生图供应商"
+                                            >
+                                                {providers.map(p => (
+                                                    <option key={p.id} value={p.id}>
+                                                        {p.name}{p.is_default ? ' ✓' : ''}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        )}
                                         <button
-                                            onClick={() => onPrevGenerated?.(shot, index)}
-                                            disabled={!hasGeneratedImages || isGenerating || !canPrevGenerated}
-                                            className="flex-1 py-2 rounded-lg bg-slate-200 text-slate-700 text-xs font-medium border border-slate-300 hover:bg-slate-300 transition disabled:opacity-60 disabled:cursor-not-allowed"
-                                        >
-                                            上一张
-                                        </button>
-                                        <button
-                                            onClick={() => onGenerateImage?.(shot, index)}
+                                            onClick={() => {
+                                                // 先 blur 当前输入框，强制同步 debounce 中的数据
+                                                (document.activeElement as HTMLElement)?.blur();
+                                                // 延迟 50ms 确保 React 状态更新完成
+                                                setTimeout(() => {
+                                                    onGenerateImage?.(shot, index, selectedProviderId);
+                                                }, 50);
+                                            }}
                                             disabled={isGenerating}
-                                            className="flex-1 py-2 rounded-lg bg-blue-500 text-white text-xs font-medium shadow hover:bg-blue-600 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                                            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shadow-md transition-all duration-200 active:scale-95 ${
+                                                isGenerating
+                                                    ? 'bg-slate-400 text-white cursor-not-allowed'
+                                                    : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600'
+                                            }`}
                                         >
-                                            {isGenerating ? '生成中...' : '生成图片'}
-                                        </button>
-                                        <button
-                                            onClick={() => onNextGenerated?.(shot, index)}
-                                            disabled={!hasGeneratedImages || isGenerating || !canNextGenerated}
-                                            className="flex-1 py-2 rounded-lg bg-slate-200 text-slate-700 text-xs font-medium border border-slate-300 hover:bg-slate-300 transition disabled:opacity-60 disabled:cursor-not-allowed"
-                                        >
-                                            下一张
+                                            {isGenerating ? (
+                                                <><Loader2 size={16} className="animate-spin" />生成中...</>
+                                            ) : (
+                                                <><Wand2 size={16} />生成</>
+                                            )}
                                         </button>
                                     </div>
-                                    {generateError && (
-                                        <button
-                                            onClick={() => alert(generateError)}
-                                            className="w-full text-[11px] text-red-500 underline underline-offset-2 text-left"
-                                        >
-                                            生成失败，点击查看原因
-                                        </button>
+                                    {/* 生成失败提示 */}
+                                    {generateError && !isGenerating && (
+                                        <ErrorTooltip error={generateError} />
                                     )}
                                 </div>
                             )}
-                            {/* Generated Video Placeholder */}
+
+                            {/* 3. 生成视频预览 - 放大 */}
                             {showGeneration && (
-                                <div className="relative aspect-[9/16] bg-slate-900 rounded-xl overflow-hidden border border-[var(--glass-border)] shadow-lg flex items-center justify-center text-xs text-purple-300">
-                                    生成视频（占位）
+                                <div className={`${mediaCardBase}`}>
+                                    <div className={mediaTitleClass}>{getGenerationTime(activeVideo || '') || '生成视频'}</div>
+                                    {activeVideo ? (
+                                        <PreviewVideoPlayer
+                                            src={activeVideo}
+                                            volume={globalVolume}
+                                            muted={isGlobalMuted}
+                                            className="w-full"
+                                            aspectRatio="aspect-[9/16]"
+                                            poster={frameUrl || undefined}
+                                            lazy
+                                        />
+                                    ) : (
+                                        <div className={`${mediaBaseClass} border border-slate-200 shadow-sm flex items-center justify-center text-base text-purple-300`}>
+                                            占位
+                                        </div>
+                                    )}
                                 </div>
                             )}
+
+                            {/* 4. 首帧/视频描述 */}
+                                <div className={`flex-shrink-0 ${DESC_WIDTH} ${CARD_HEIGHT} ${CARD_RADIUS} border border-white/30 bg-white/50 backdrop-blur-xl shadow-md ${CARD_PADDING} flex flex-col ${CARD_GAP} transition-all duration-300 hover:bg-white/60 hover:shadow-lg overflow-y-auto`}>
+                                <div className="flex flex-col gap-2 basis-[58%] min-h-0">
+                                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500 flex-shrink-0">
+                                        <span>首帧描述</span>
+                                        {renderAnnotationControl?.(`shot-${shot.id ?? index}-initial`, `Shot #${shot.id ?? index + 1} Initial Frame`)}
+                                    </div>
+                                    {renderFieldWithRevision(
+                                        structuredFrameOriginal || structuredFrameOptimized ? (
+                                            <div className="p-3 rounded-lg border border-dashed border-slate-200 bg-white/60 text-sm text-slate-500">
+                                                结构化首帧，见下方
+                                            </div>
+                                        ) : (
+                                            <AutoTextArea
+                                                value={initialFrameText}
+                                                onChange={(e) => updateField('initial_frame', e.target.value)}
+                                                readOnly={!canEdit}
+                                                minRows={2}
+                                                maxRows={20}
+                                                className={`w-full h-full p-4 ${BTN_RADIUS} bg-white/40 border border-white/30 text-slate-700 text-base leading-loose hover:bg-white/60 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none placeholder:text-slate-400`}
+                                                placeholder="输入首帧描述..."
+                                            />
+                                        ),
+                                        '首帧描述',
+                                        initialFrameText,
+                                        initialFrameTextOptimized,
+                                    )}
+                                </div>
+                                <div className="flex flex-col gap-2 basis-[30%] min-h-0">
+                                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-purple-500/80 flex-shrink-0">
+                                        <span>视频描述</span>
+                                        {renderAnnotationControl?.(`shot-${shot.id ?? index}-visual`, `Shot #${shot.id ?? index + 1} Visual`)}
+                                    </div>
+                                    {renderFieldWithRevision(
+                                        <AutoTextArea
+                                            value={visualVal}
+                                            onChange={(e) => updateField('visual_changes', e.target.value)}
+                                            readOnly={!canEdit}
+                                            minRows={2}
+                                            maxRows={12}
+                                            className={`w-full h-full p-4 ${BTN_RADIUS} bg-slate-50/80 border border-slate-200/60 text-slate-700 text-base leading-loose hover:bg-slate-100/80 transition-all focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none placeholder:text-slate-400`}
+                                            placeholder="画面描述..."
+                                        />,
+                                        '视频描述',
+                                        baseVisual,
+                                        optVisual
+                                    )}
+                                    {renderDiffPanel(`shot-${shot.id ?? index}-visual_changes`)}
+                                </div>
+                            </div>
+
+                            {/* 5. 流切换器 (竖向Tab) */}
+                            {showGeneration && (
+                                <div className={`flex-shrink-0 w-24 ${CARD_HEIGHT} flex flex-col gap-3 items-center justify-center bg-white/50 backdrop-blur-xl border border-white/30 ${CARD_RADIUS} shadow-md`}>
+                                    <div className="relative">
+                                        <button
+                                            onClick={() => {
+                                                setActiveStream('image');
+                                                // 切换到图片流时，清除所有 NEW 标记
+                                                if (newImages.length > 0) {
+                                                    onClearNewImages?.(shot, index);
+                                                }
+                                            }}
+                                            className={`w-16 h-16 ${BTN_RADIUS} flex flex-col items-center justify-center gap-1 transition-all duration-200 active:scale-95 ${activeStream === 'image' ? 'bg-[#007AFF] text-white shadow-md' : 'bg-white/60 text-slate-400 hover:bg-white/80 hover:text-slate-600'}`}
+                                        >
+                                            <ImageIcon size={20} />
+                                            <span className="text-xs font-medium">图片</span>
+                                        </button>
+                                        {newImages.length > 0 && (
+                                            <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-red-500 text-white shadow-sm animate-pulse">
+                                                NEW
+                                            </span>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={() => setActiveStream('video')}
+                                        className={`w-16 h-16 ${BTN_RADIUS} flex flex-col items-center justify-center gap-1 transition-all duration-200 active:scale-95 ${activeStream === 'video' ? 'bg-[#AF52DE] text-white shadow-md' : 'bg-white/60 text-slate-400 hover:bg-white/80 hover:text-slate-600'}`}
+                                    >
+                                        <Video size={20} />
+                                        <span className="text-xs font-medium">视频</span>
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* 6. 素材列表 (横向无限滚动) */}
+                            <div className="flex flex-nowrap items-start gap-6">
+                                {activeStream === 'video' ? (
+                                    videoFlow.length > 0 ? (
+                                        videoFlow.map((videoUrl, vIdx) => {
+                                            const isChosen = activeVideo === videoUrl;
+                                            const genTime = getGenerationTime(videoUrl);
+                                            return (
+                                                <div
+                                                    key={`${videoUrl}-${vIdx}`}
+                                                    className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} border transition-all duration-300 ${isChosen ? 'border-purple-400/50 shadow-lg ring-1 ring-purple-400/20' : 'border-white/30 hover:shadow-md'} bg-white/50 backdrop-blur-xl ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
+                                                >
+                                                    <div className={mediaTitleClass}>{genTime || ' '}</div>
+                                                    <PreviewVideoPlayer
+                                                        src={videoUrl}
+                                                        volume={globalVolume}
+                                                        muted={isGlobalMuted}
+                                                        aspectRatio="aspect-[9/16]"
+                                                        className="w-full"
+                                                        lazy
+                                                    />
+                                                    <button
+                                                        onClick={() => setSelectedVideo(videoUrl)}
+                                                        className={`text-sm font-medium ${BTN_RADIUS} px-4 py-3 transition-all duration-200 active:scale-[0.98] ${isChosen ? 'bg-purple-500 text-white shadow-sm' : 'bg-white/60 border border-white/30 text-slate-600 hover:bg-white/80'}`}
+                                                    >
+                                                        {isChosen ? '✓ 已选择' : '选择'}
+                                                    </button>
+                                                </div>
+                                            );
+                                        })
+                                    ) : (
+                                            <div className={`w-full min-w-[360px] flex items-center justify-center text-sm text-slate-400 bg-white/30 ${CARD_RADIUS} border border-dashed border-slate-300/50 p-10 backdrop-blur-sm`}>
+                                                暂无生成视频
+                                            </div>
+                                        )
+                                    ) : sortedImages.length > 0 ? (
+                                        sortedImages.map((url, idx) => {
+                                        const originalIdx = generatedImageUrls.indexOf(url);
+                                        const isActive = activeImage === url;
+                                        const isNew = newImages.includes(url);
+                                        const genTime = getGenerationTime(url);
+                                        return (
+                                                <div
+                                                    key={`${url}-${idx}`}
+                                                    className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} border transition-all duration-300 ${isActive ? 'border-blue-400/50 shadow-lg ring-1 ring-blue-400/20' : 'border-white/30 hover:shadow-md'} bg-white/50 backdrop-blur-xl ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
+                                                >
+                                                    <div className={mediaTitleClass}>{genTime || ' '}</div>
+                                                    <div 
+                                                        className={`${mediaBaseClass} border border-white/10 shadow-inner cursor-pointer`}
+                                                        onClick={() => setLightboxIndex(idx)}
+                                                    >
+                                                        {/* 右上角：生成时间 */}
+                                                        {genTime && (
+                                                            <span className="absolute top-2 right-2 px-2 py-1 rounded-md text-xs font-medium bg-black/50 text-white/90 backdrop-blur-sm z-10">
+                                                            {genTime}
+                                                        </span>
+                                                    )}
+                                                    {isNew && (
+                                                        <span className="absolute top-2 left-2 px-2 py-1 rounded-md text-xs font-semibold bg-red-500 text-white z-10">
+                                                            NEW
+                                                        </span>
+                                                    )}
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img src={url} alt={`生成图 ${idx + 1}`} className="w-full h-full object-cover" />
+                                                </div>
+                                                {/* 操作按钮区 */}
+                                                <div className="flex flex-col gap-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={() => onSelectGeneratedIndex?.(shot, index, originalIdx)}
+                                                            className={`flex-1 flex items-center justify-center gap-2 text-sm font-medium ${BTN_RADIUS} px-4 py-2.5 transition-all duration-200 active:scale-[0.98] ${isActive 
+                                                                ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md' 
+                                                                : 'bg-white/70 border border-slate-200/50 text-slate-600 hover:bg-white hover:border-blue-300 hover:text-blue-600'}`}
+                                                        >
+                                                            {isActive ? <><Check size={14} /> 已选择</> : '选择此图'}
+                                                        </button>
+                                                        <span className={`text-xs font-medium text-slate-400 px-2.5 py-2 bg-slate-100/80 ${BTN_RADIUS} border border-slate-200/30`}>
+                                                            #{getImageIndex(url)}
+                                                        </span>
+                                                    </div>
+                                                    {/* 查看 Prompt 按钮 */}
+                                                    {workspacePath && (
+                                                        <PromptViewer 
+                                                            workspacePath={workspacePath} 
+                                                            shotId={shotId} 
+                                                            generatedDir={generatedDir}
+                                                            imageFilename={url.split('/').pop()}
+                                                            imageUrl={url}
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                ) : (
+                                    <div className={`w-full min-w-[360px] flex items-center justify-center text-sm text-slate-400 bg-white/30 ${CARD_RADIUS} border border-dashed border-slate-300/50 p-10 backdrop-blur-sm`}>
+                                        暂无生成图片，点击左侧「生成」开始
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
-                    {/* Right Column: All Content Fields */}
-                    <div className={`${showGeneration ? 'md:col-span-2' : 'md:col-span-3'} space-y-6`}>
+                    {/* 下方内容区域 */}
+                    <div className="space-y-6">
 
                         {modificationInfo && (
                             <div className={`p-4 rounded-2xl text-sm border ${modBadgeClass} space-y-2 bg-gradient-to-br from-blue-50/50 to-indigo-50/30`}>
@@ -1170,52 +1662,7 @@ export const ShotCard = ({
                                     </div>
                                 )}
                             </div>
-                        ) : initialFrameText || initialFrameTextOptimized ? (
-                            <div className="space-y-2">
-                                <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-500 pl-1">
-                                    <ImageIcon size={12} className="text-blue-500" />
-                                    <span>首帧描述</span>
-                                    {renderAnnotationControl?.(`shot-${shot.id ?? index}-initial`, `Shot #${shot.id ?? index + 1} Initial Frame`)}
-                                </div>
-                                {renderFieldWithRevision(
-                                    <AutoTextArea
-                                        value={initialFrameText}
-                                        onChange={(e) => updateField('initial_frame', e.target.value)}
-                                        readOnly={!canEdit}
-                                        minRows={1}
-                                        maxRows={16}
-                                        className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-blue-500/30 resize-none placeholder:text-slate-400"
-                                        placeholder="首帧描述..."
-                                    />,
-                                    '首帧描述',
-                                    initialFrameText,
-                                    initialFrameTextOptimized,
-                                )}
-                            </div>
                         ) : null}
-
-                        {/* Visual - Full Width */}
-                        <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-purple-400/80 pl-1">
-                                <span>视频描述</span>
-                                {renderAnnotationControl?.(`shot-${shot.id ?? index}-visual`, `Shot #${shot.id ?? index + 1} Visual`)}
-                            </div>
-                            {renderFieldWithRevision(
-                                <AutoTextArea
-                                    value={visualVal}
-                                    onChange={(e) => updateField('visual_changes', e.target.value)}
-                                    readOnly={!canEdit}
-                                    minRows={1}
-                                    maxRows={16}
-                                    className="w-full p-4 rounded-xl bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors focus:outline-none focus:border-purple-500/30 resize-none placeholder:text-slate-400"
-                                    placeholder="画面描述..."
-                                />,
-                                '视频描述',
-                                baseVisual,
-                                optVisual
-                            )}
-                            {renderDiffPanel(`shot-${shot.id ?? index}-visual_changes`)}
-                        </div>
 
                         {/* Camera, Beat, Viral, Logic, Mission hidden per requirement */}
 
@@ -1283,6 +1730,18 @@ export const ShotCard = ({
                         </div>
                     </div>
                 </div>
+            )}
+            
+            {/* 图片放大查看 Lightbox */}
+            {lightboxIndex !== null && sortedImages.length > 0 && (
+                <ImageLightbox
+                    images={sortedImages}
+                    currentIndex={lightboxIndex}
+                    onClose={() => setLightboxIndex(null)}
+                    onPrev={() => setLightboxIndex(Math.max(0, lightboxIndex - 1))}
+                    onNext={() => setLightboxIndex(Math.min(sortedImages.length - 1, lightboxIndex + 1))}
+                    getImageIndex={getImageIndex}
+                />
             )}
         </>
     );
