@@ -722,10 +722,15 @@ export const ShotCard = ({
         <>
             <div
                 id={`shot-${index}`}
-                className={`relative group p-8 rounded-[2.5rem] border ${borderColor} bg-white/5 backdrop-blur-2xl transition-all duration-500 hover:border-white/20 shadow-2xl ${glowColor} ${isDiscarded ? 'opacity-40 grayscale' : ''}`}
+                className={`relative group p-8 rounded-[2.5rem] border ${borderColor} bg-white/5 backdrop-blur-2xl transition-all duration-500 hover:border-white/20 shadow-2xl ${glowColor}`}
             >
                 {/* Glass Reflection Effect */}
                 <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent opacity-50 rounded-[2.5rem] pointer-events-none" />
+                
+                {/* Discarded Overlay */}
+                {isDiscarded && (
+                    <div className="absolute inset-0 bg-black/60 rounded-[2.5rem] z-20 pointer-events-none" />
+                )}
 
                 {/* Header: Shot Number & Duration */}
                 <div className="relative z-10 flex items-center justify-between mb-8">
@@ -752,9 +757,9 @@ export const ShotCard = ({
                         )}
                         <button
                             onClick={() => updateField('discarded', !isDiscarded)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+                            className={`relative z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
                                 isDiscarded
-                                    ? 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30'
+                                    ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/30'
                                     : 'bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30'
                             }`}
                         >
