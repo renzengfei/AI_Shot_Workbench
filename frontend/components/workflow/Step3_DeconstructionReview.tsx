@@ -1225,11 +1225,13 @@ export default function Step3_DeconstructionReview({
 
     // Reset image caches when switching workspace or generatedDir
     useEffect(() => {
+        console.log('[DEBUG] Resetting caches, generatedDir:', generatedDir);
         setGeneratedImages({});
         setGeneratedIndexes({});
+        setSavedIndexes({});  // 同时重置保存的索引，避免使用错误目录的索引
         setNewlyGenerated({});
         setGeneratingShots({});
-    }, [generatedStorageKey, pendingGenKey, readPendingGenerations, loadExistingImagesForShot, startPollingTask]);
+    }, [generatedDir, currentWorkspace?.path]);
 
     useEffect(() => {
         return () => {
@@ -1389,19 +1391,29 @@ export default function Step3_DeconstructionReview({
         savedIndexesRef.current = savedIndexes;
     }, [savedIndexes]);
 
-    // 当远端已保存的索引到达后，为尚未设置的镜头应用它
+    // 当远端已保存的索引到达后，强制应用到对应镜头
     useEffect(() => {
         if (!Object.keys(savedIndexes).length) return;
+        console.log('[DEBUG] Applying savedIndexes:', savedIndexes);
         setGeneratedIndexes((prev) => {
             let changed = false;
             const next = { ...prev };
             Object.entries(savedIndexes).forEach(([k, v]) => {
                 const id = Number(k);
                 const imgs = generatedImages[id];
-                if (!imgs || !imgs.length) return;
-                if (v >= 0 && v < imgs.length && prev[id] !== v) {
-                    next[id] = v;
-                    changed = true;
+                if (!imgs || !imgs.length) {
+                    console.log(`[DEBUG] Shot ${id}: no images loaded yet`);
+                    return;
+                }
+                // 只要保存的索引在有效范围内，就强制应用（覆盖 fallback 值）
+                if (v >= 0 && v < imgs.length) {
+                    if (prev[id] !== v) {
+                        console.log(`[DEBUG] Shot ${id}: updating index from ${prev[id]} to ${v}`);
+                        next[id] = v;
+                        changed = true;
+                    } else {
+                        console.log(`[DEBUG] Shot ${id}: index already correct (${v})`);
+                    }
                 }
             });
             return changed ? next : prev;

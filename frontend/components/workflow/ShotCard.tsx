@@ -125,13 +125,15 @@ const PromptViewer = ({
     shotId, 
     generatedDir,
     imageFilename,
-    imageUrl
+    imageUrl,
+    compact = false
 }: { 
     workspacePath: string; 
     shotId: string | number; 
     generatedDir?: string;
     imageFilename?: string;
     imageUrl?: string;
+    compact?: boolean;
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [prompt, setPrompt] = useState<string | null>(null);
@@ -172,11 +174,14 @@ const PromptViewer = ({
             <button
                 onClick={fetchPrompt}
                 disabled={loading}
-                className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100/80 border border-slate-200/50 text-slate-500 text-xs font-medium hover:bg-slate-200/80 hover:text-slate-700 transition-all duration-200 active:scale-95"
+                className={compact 
+                    ? "flex items-center justify-center p-2 rounded-lg bg-slate-100/80 border border-slate-200/30 text-slate-400 hover:bg-slate-200/80 hover:text-slate-600 transition-all duration-200 active:scale-95"
+                    : "flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100/80 border border-slate-200/50 text-slate-500 text-xs font-medium hover:bg-slate-200/80 hover:text-slate-700 transition-all duration-200 active:scale-95"
+                }
                 title="查看生图 Prompt"
             >
-                <FileText size={12} />
-                {loading ? '...' : 'Prompt'}
+                <FileText size={compact ? 14 : 12} />
+                {!compact && (loading ? '...' : 'Prompt')}
             </button>
             {isOpen && (
                 <div 
@@ -1039,20 +1044,18 @@ export const ShotCard = ({
                                                     <img src={url} alt={`生成图 ${idx + 1}`} className="w-full h-full object-cover" />
                                                 </div>
                                                 {/* 操作按钮区 */}
-                                                <div className="flex flex-col gap-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <button
-                                                            onClick={() => onSelectGeneratedIndex?.(shot, index, originalIdx)}
-                                                            className={`flex-1 flex items-center justify-center gap-2 text-sm font-medium ${BTN_RADIUS} px-4 py-2.5 transition-all duration-200 active:scale-[0.98] ${isActive 
-                                                                ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md' 
-                                                                : 'bg-white/70 border border-slate-200/50 text-slate-600 hover:bg-white hover:border-blue-300 hover:text-blue-600'}`}
-                                                        >
-                                                            {isActive ? <><Check size={14} /> 已选择</> : '选择此图'}
-                                                        </button>
-                                                        <span className={`text-xs font-medium text-slate-400 px-2.5 py-2 bg-slate-100/80 ${BTN_RADIUS} border border-slate-200/30`}>
-                                                            #{getImageIndex(url)}
-                                                        </span>
-                                                    </div>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => onSelectGeneratedIndex?.(shot, index, originalIdx)}
+                                                        className={`flex-1 flex items-center justify-center gap-2 text-sm font-medium ${BTN_RADIUS} px-4 py-2.5 transition-all duration-200 active:scale-[0.98] ${isActive 
+                                                            ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md' 
+                                                            : 'bg-white/70 border border-slate-200/50 text-slate-600 hover:bg-white hover:border-blue-300 hover:text-blue-600'}`}
+                                                    >
+                                                        {isActive ? <><Check size={14} /> 已选择</> : '选择此图'}
+                                                    </button>
+                                                    <span className={`text-xs font-medium text-slate-400 px-2.5 py-2 bg-slate-100/80 ${BTN_RADIUS} border border-slate-200/30`}>
+                                                        #{getImageIndex(url)}
+                                                    </span>
                                                     {/* 查看 Prompt 按钮 */}
                                                     {workspacePath && (
                                                         <PromptViewer 
@@ -1061,6 +1064,7 @@ export const ShotCard = ({
                                                             generatedDir={generatedDir}
                                                             imageFilename={url.split('/').pop()}
                                                             imageUrl={url}
+                                                            compact
                                                         />
                                                     )}
                                                 </div>
