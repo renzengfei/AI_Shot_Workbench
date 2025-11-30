@@ -25,6 +25,8 @@ from services.asset_generator import AssetGenerator, AssetGenerationError
 from services.workspace_manager import WorkspaceManager
 from services.file_watcher import FileWatcher
 from services.image_preset_manager import ImagePresetManager
+from services.image_providers import ImageProvider, ProviderConfig, ProviderType, GenerateResult
+from services.provider_config import provider_config_manager
 
 from dotenv import load_dotenv
 
@@ -255,6 +257,7 @@ class GenerateImageRequest(BaseModel):
     reference_image_ids: Optional[List[str]] = None
     shot_id: Optional[Union[float, str]] = None
     generated_dir: Optional[str] = None
+    provider_id: Optional[str] = None  # 指定供应商 ID，None 时使用默认供应商
 
 
 class ImageTaskCreateRequest(BaseModel):
@@ -264,6 +267,7 @@ class ImageTaskCreateRequest(BaseModel):
     shot_id: Union[float, str]
     generated_dir: Optional[str] = None
     count: int = 2
+    provider_id: Optional[str] = None  # 指定供应商 ID
 
 
 class CategoryPromptRequest(BaseModel):
@@ -669,15 +673,25 @@ def dedupe_files(files: List[str]) -> List[str]:
 
 
 async def generate_images_internal(request: GenerateImageRequest) -> dict:
-    api_key = os.getenv("GEMINI_IMAGE_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=500, detail="GEMINI_IMAGE_API_KEY 未配置")
-
-    base_url = os.getenv("GEMINI_IMAGE_BASE_URL", "https://api.tu-zi.com/v1")
-    model_name = os.getenv("GEMINI_IMAGE_MODEL", "gemini-3-pro-image-preview-4")
-
+    """
+    使用配置的供应商生成图片
+    支持多供应商切换（Rabbit/Candy）
+    """
+    # 1. 获取供应商配置
+    if request.provider_id:
+        provider_config = provider_config_manager.get_provider(request.provider_id)
+        if not provider_config:
+            raise HTTPException(status_code=404, detail=f"供应商不存在: {request.provider_id}")
+    else:
+        provider_config = provider_config_manager.get_default_provider()
+        if not provider_config:
+            raise HTTPException(status_code=500, detail="未配置任何生图供应商，请先在设置中添加")
+    
+    logger.info(f"使用供应商: {provider_config.name} ({provider_config.type.value})")
+    
     ensure_workspace_exists(request.workspace_path)
 
+    # 2. 构建提示词（合并 preset）
     preset_text = None
     preset_id = workspace_manager.get_image_preset_id(request.workspace_path)
     if preset_id:
@@ -689,7 +703,7 @@ async def generate_images_internal(request: GenerateImageRequest) -> dict:
         request.prompt if not preset_text else f"{request.prompt}\n\n生图设定：{preset_text}"
     )
 
-    # Prepare images as base64 data URLs
+    # 3. 准备参考图片的 data URLs
     image_data_urls = []
     for img_id in request.reference_image_ids or []:
         path = get_reference_image_path(img_id)
@@ -704,24 +718,7 @@ async def generate_images_internal(request: GenerateImageRequest) -> dict:
                 mime = "image/webp"
             image_data_urls.append(f"data:{mime};base64,{encoded}")
 
-    content = [{"type": "text", "text": final_prompt}]
-    for data_url in image_data_urls:
-        content.append({"type": "image_url", "image_url": {"url": data_url}})
-    messages = [{"role": "user", "content": content}]
-
-    payload = {
-        "model": model_name,
-        "messages": messages,
-        "stream": True,
-    }
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-
-    text_parts: List[str] = []
-    image_candidates: List[str] = []
+    # 4. 准备输出目录
     shot_id = request.shot_id or "unknown"
     shot_label = str(shot_id).strip()
     if ".." in shot_label or "/" in shot_label or "\\" in shot_label:
@@ -731,88 +728,65 @@ async def generate_images_internal(request: GenerateImageRequest) -> dict:
     os.makedirs(generated_root, exist_ok=True)
 
     try:
-        timeout = httpx.Timeout(connect=30.0, read=300.0, write=300.0, pool=None)
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            async with client.stream(
-                "POST",
-                f"{base_url}/chat/completions",
-                headers=headers,
-                json=payload,
-            ) as resp:
-                if resp.status_code >= 400:
-                    detail = await resp.aread()
-                    raise HTTPException(status_code=resp.status_code, detail=f"生成接口错误: {detail.decode('utf-8', errors='ignore')}")
-
-                async for line_str in resp.aiter_lines():
-                    if not line_str:
-                        continue
-                    if not line_str.startswith("data: "):
-                        continue
-                    data_str = line_str[6:]
-                    if data_str.strip() == "[DONE]":
-                        break
-                    try:
-                        chunk = json.loads(data_str)
-                    except json.JSONDecodeError:
-                        continue
-                    if "choices" in chunk and len(chunk["choices"]) > 0:
-                        delta = chunk["choices"][0].get("delta", {})
-                        content_delta = delta.get("content")
-                        if isinstance(content_delta, list):
-                            for part in content_delta:
-                                if isinstance(part, dict):
-                                    if part.get("type") == "text" and "text" in part:
-                                        text_parts.append(part["text"])
-                                    elif part.get("type") == "image_url" and "image_url" in part:
-                                        url = part["image_url"].get("url")
-                                        if url:
-                                            image_candidates.append(url)
-                        elif isinstance(content_delta, str):
-                            text_parts.append(content_delta)
-
-            # Save outputs
-            saved_images = []
-
-            existing_max_idx = 0
-            for fname in os.listdir(generated_root):
-                m = re.search(r'image(?:_url)?_(\d+)\.', fname)
-                if m:
-                    try:
-                        existing_max_idx = max(existing_max_idx, int(m.group(1)))
-                    except ValueError:
-                        continue
-            idx = existing_max_idx + 1
-
-            def next_available_filename(base: str, ext: str) -> str:
-                nonlocal idx
-                while True:
-                    candidate = f"{base}_{idx}.{ext}"
-                    full_path = os.path.join(generated_root, candidate)
-                    if not os.path.exists(full_path):
-                        return candidate
-                    idx += 1
-
-            def save_base64_img(data_url: str):
-                nonlocal idx
+        # 5. 创建 Provider 实例并调用生成
+        provider = ImageProvider.create(provider_config)
+        result = await provider.generate(
+            prompt=final_prompt,
+            reference_data_urls=image_data_urls,
+            aspect_ratio="9:16",
+        )
+        
+        # 6. 保存图片
+        saved_images = []
+        source_seen: set = set()
+        
+        existing_max_idx = 0
+        for fname in os.listdir(generated_root):
+            m = re.search(r'image(?:_url)?_(\d+)\.', fname)
+            if m:
                 try:
-                    header, b64data = data_url.split(",", 1)
+                    existing_max_idx = max(existing_max_idx, int(m.group(1)))
                 except ValueError:
-                    return
-                ext = "png"
-                if "jpeg" in header or "jpg" in header:
-                    ext = "jpg"
-                elif "webp" in header:
-                    ext = "webp"
-                filename = next_available_filename("image", ext)
-                path = os.path.join(generated_root, filename)
-                with open(path, "wb") as f:
-                    f.write(base64.b64decode(b64data))
-                saved_images.append(filename)
+                    continue
+        idx = existing_max_idx + 1
+
+        def next_available_filename(base: str, ext: str) -> str:
+            nonlocal idx
+            while True:
+                candidate = f"{base}_{idx}.{ext}"
+                full_path = os.path.join(generated_root, candidate)
+                if not os.path.exists(full_path):
+                    return candidate
                 idx += 1
 
-            async def save_from_url(url: str):
-                nonlocal idx
-                try:
+        def save_base64_img(data_url: str):
+            nonlocal idx
+            if not data_url or data_url in source_seen:
+                return
+            source_seen.add(data_url)
+            try:
+                header, b64data = data_url.split(",", 1)
+            except ValueError:
+                return
+            ext = "png"
+            if "jpeg" in header or "jpg" in header:
+                ext = "jpg"
+            elif "webp" in header:
+                ext = "webp"
+            filename = next_available_filename("image", ext)
+            path = os.path.join(generated_root, filename)
+            with open(path, "wb") as f:
+                f.write(base64.b64decode(b64data))
+            saved_images.append(filename)
+            idx += 1
+
+        async def save_from_url(url: str):
+            nonlocal idx
+            if not url or url in source_seen:
+                return False
+            source_seen.add(url)
+            try:
+                async with httpx.AsyncClient(timeout=60.0) as client:
                     r = await client.get(url)
                     r.raise_for_status()
                     ext = "png"
@@ -828,51 +802,69 @@ async def generate_images_internal(request: GenerateImageRequest) -> dict:
                     saved_images.append(filename)
                     idx += 1
                     return True
-                except Exception:
-                    return False
+            except Exception as e:
+                logger.warning(f"下载图片失败: {url}, 错误: {e}")
+                return False
 
-            # Extract images from explicit candidates
-            for candidate in image_candidates:
-                if isinstance(candidate, str):
-                    if candidate.startswith("data:image/"):
-                        save_base64_img(candidate)
-                    elif candidate.startswith("http"):
-                        await save_from_url(candidate)
+        # 去重后的图片 URL，避免同一请求多次写入重复文件
+        raw_urls = result.image_urls or []
+        seen_urls: set = set()
+        deduped_urls: List[str] = []
+        for u in raw_urls:
+            if not u or u in seen_urls:
+                continue
+            seen_urls.add(u)
+            deduped_urls.append(u)
 
-            # Fallback: regex scan over concatenated text in case URLs are embedded
-            full_content_text = "".join(text_parts)
+        # 处理返回的图片 URLs
+        for img_url in deduped_urls:
+            if img_url.startswith("data:image/"):
+                save_base64_img(img_url)
+            elif img_url.startswith("http"):
+                await save_from_url(img_url)
+
+        # 从文本响应中提取嵌入的图片（Gemini 模型通常将图片嵌入在文本中）
+        if result.text_response:
             base64_pattern = r"data:image/[^;]+;base64,[A-Za-z0-9+/=]+"
             url_pattern = r"https?://[^\s<>\")']+\.(?:png|jpg|jpeg|webp|gif)"
             md_image_pattern = r"!\[[^\]]*\]\((https?://[^\s<>\")']+)\)"
-            for m in re.finditer(base64_pattern, full_content_text):
+            
+            for m in re.finditer(base64_pattern, result.text_response):
                 save_base64_img(m.group(0))
-            for m in re.finditer(url_pattern, full_content_text, re.IGNORECASE):
+            for m in re.finditer(url_pattern, result.text_response, re.IGNORECASE):
                 await save_from_url(m.group(0))
-            for m in re.finditer(md_image_pattern, full_content_text, re.IGNORECASE):
+            for m in re.finditer(md_image_pattern, result.text_response, re.IGNORECASE):
                 url = m.group(1)
                 if url:
                     await save_from_url(url)
 
-            # Persist text and pick a fallback image (first URL if images empty)
-            text_path = os.path.join(generated_root, "content.txt")
-            with open(text_path, "w", encoding="utf-8") as f:
-                f.write("\n".join(text_parts))
+        # 保存发送给生图API的完整prompt
+        prompt_path = os.path.join(generated_root, "prompt.txt")
+        with open(prompt_path, "w", encoding="utf-8") as f:
+            f.write(final_prompt)
+        
+        # 保存文本响应
+        text_path = os.path.join(generated_root, "content.txt")
+        with open(text_path, "w", encoding="utf-8") as f:
+            f.write(result.text_response)
 
-            if not saved_images:
-                for candidate in image_candidates:
-                    if isinstance(candidate, str) and candidate.startswith("http"):
-                        await save_from_url(candidate)
-                        break
+        rel_base = os.path.relpath(generated_root, os.path.abspath(WORKSPACES_DIR))
+        image_urls = [f"/workspaces/{rel_base}/{fname}" for fname in dedupe_files(saved_images)]
 
-            rel_base = os.path.relpath(generated_root, os.path.abspath(WORKSPACES_DIR))
-            image_urls = [f"/workspaces/{rel_base}/{fname}" for fname in saved_images]
-
-            return {"text": "\n".join(text_parts), "images": image_urls}
+        return {
+            "text": result.text_response,
+            "images": image_urls,
+            "provider": provider_config.name,
+        }
+    except RuntimeError as e:
+        # Provider 抛出的业务错误
+        raise HTTPException(status_code=502, detail=str(e))
     except httpx.HTTPError as e:
         raise HTTPException(status_code=502, detail=f"生成服务请求失败: {str(e)}")
     except HTTPException:
         raise
     except Exception as e:
+        logger.exception(f"生成图片失败: {e}")
         raise HTTPException(status_code=500, detail=f"请求生成接口失败: {e}")
 
 # Generate image via Gemini API (stream)
@@ -894,23 +886,27 @@ async def run_image_task(task_path: str, payload: ImageTaskCreateRequest):
     if count > 4:
         count = 4
 
-    for _ in range(count):
-        try:
-            gen_req = GenerateImageRequest(
-                workspace_path=payload.workspace_path,
-                prompt=payload.prompt,
-                reference_image_ids=payload.reference_image_ids,
-                shot_id=payload.shot_id,
-                generated_dir=payload.generated_dir,
-            )
-            result = await generate_images_internal(gen_req)
+    # 并发生成多张图片
+    async def generate_one():
+        gen_req = GenerateImageRequest(
+            workspace_path=payload.workspace_path,
+            prompt=payload.prompt,
+            reference_image_ids=payload.reference_image_ids,
+            shot_id=payload.shot_id,
+            generated_dir=payload.generated_dir,
+        )
+        return await generate_images_internal(gen_req)
+
+    tasks = [generate_one() for _ in range(count)]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    for result in results:
+        if isinstance(result, HTTPException):
+            error_detail = result.detail if isinstance(result.detail, str) else str(result.detail)
+        elif isinstance(result, Exception):
+            error_detail = str(result)
+        elif isinstance(result, dict):
             files.extend(result.get("images", []))
-        except HTTPException as e:
-            error_detail = e.detail if isinstance(e.detail, str) else str(e.detail)
-            break
-        except Exception as e:
-            error_detail = str(e)
-            break
 
     if not files and not error_detail:
         error_detail = "生成失败，未返回图片"
@@ -986,6 +982,69 @@ async def list_generated_assets(workspace_path: str, shot_id: str, generated_dir
             rel_base = os.path.relpath(fpath, os.path.abspath(WORKSPACES_DIR))
             files.append(f"/workspaces/{rel_base}")
     return {"files": files}
+
+@app.get("/api/workspaces/{workspace_path:path}/selected-images")
+async def get_selected_images(workspace_path: str, generated_dir: Optional[str] = None):
+    """读取选中的图片索引"""
+    if not os.path.exists(workspace_path):
+        raise HTTPException(status_code=404, detail="workspace_path 不存在")
+    dir_name = generated_dir or "generated"
+    json_path = os.path.join(workspace_path, dir_name, "selected_images.json")
+    norm_path = os.path.normpath(json_path)
+    if not norm_path.startswith(os.path.normpath(workspace_path)):
+        raise HTTPException(status_code=400, detail="路径无效")
+    if not os.path.isfile(norm_path):
+        return {"indexes": {}}
+    try:
+        with open(norm_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return {"indexes": data.get("indexes", {})}
+    except Exception as e:
+        logger.warning(f"读取选中图片索引失败: {e}")
+        return {"indexes": {}}
+
+@app.post("/api/workspaces/{workspace_path:path}/selected-images")
+async def save_selected_images(workspace_path: str, data: dict):
+    """保存选中的图片索引"""
+    if not os.path.exists(workspace_path):
+        raise HTTPException(status_code=404, detail="workspace_path 不存在")
+    generated_dir = data.get("generated_dir") or "generated"
+    indexes = data.get("indexes", {})
+    dir_path = os.path.join(workspace_path, generated_dir)
+    os.makedirs(dir_path, exist_ok=True)
+    json_path = os.path.join(dir_path, "selected_images.json")
+    norm_path = os.path.normpath(json_path)
+    if not norm_path.startswith(os.path.normpath(workspace_path)):
+        raise HTTPException(status_code=400, detail="路径无效")
+    try:
+        with open(norm_path, "w", encoding="utf-8") as f:
+            json.dump({"indexes": indexes}, f, ensure_ascii=False, indent=2)
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"保存选中图片索引失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/workspaces/{workspace_path:path}/prompt")
+async def get_shot_prompt(workspace_path: str, shot_id: str, generated_dir: Optional[str] = None):
+    """读取指定镜头的生图 prompt"""
+    if not os.path.exists(workspace_path):
+        raise HTTPException(status_code=404, detail="workspace_path 不存在")
+    shot_label = str(shot_id).strip()
+    if ".." in shot_label:
+        raise HTTPException(status_code=400, detail="shot_id 无效")
+    dir_name = generated_dir or "generated"
+    prompt_path = os.path.join(workspace_path, dir_name, "shots", shot_label, "prompt.txt")
+    norm_path = os.path.normpath(prompt_path)
+    if not norm_path.startswith(os.path.normpath(workspace_path)):
+        raise HTTPException(status_code=400, detail="路径无效")
+    if not os.path.isfile(norm_path):
+        return {"prompt": None}
+    try:
+        with open(norm_path, "r", encoding="utf-8") as f:
+            return {"prompt": f.read()}
+    except Exception as e:
+        logger.warning(f"读取 prompt 失败: {e}")
+        return {"prompt": None}
 
 # File operation endpoints
 @app.get("/api/workspaces/{workspace_path:path}/segmentation")
@@ -1239,3 +1298,81 @@ async def get_frame(session_id: str, time: float):
     except FrameServiceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return FileResponse(frame_path, media_type="image/jpeg", filename=os.path.basename(frame_path))
+
+
+# ==================== Image Provider Management API ====================
+
+class ProviderCreateRequest(BaseModel):
+    name: str
+    type: str  # "rabbit" or "candy"
+    api_key: str
+    endpoint: str
+    model: str
+    is_default: bool = False
+
+
+class ProviderUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    api_key: Optional[str] = None
+    endpoint: Optional[str] = None
+    model: Optional[str] = None
+    is_default: Optional[bool] = None
+
+
+@app.get("/api/providers")
+async def list_providers():
+    """列出所有已配置的生图供应商（API Key 脱敏）"""
+    return {"providers": provider_config_manager.list_providers()}
+
+
+@app.post("/api/providers")
+async def create_provider(request: ProviderCreateRequest):
+    """创建新的生图供应商配置"""
+    try:
+        provider_type = ProviderType(request.type)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"无效的供应商类型: {request.type}，支持: rabbit, candy")
+    
+    provider = provider_config_manager.add_provider(
+        name=request.name,
+        provider_type=provider_type,
+        api_key=request.api_key,
+        endpoint=request.endpoint,
+        model=request.model,
+        is_default=request.is_default,
+    )
+    return {"success": True, "provider": provider.to_safe_dict()}
+
+
+@app.put("/api/providers/{provider_id}")
+async def update_provider(provider_id: str, request: ProviderUpdateRequest):
+    """更新供应商配置"""
+    updated = provider_config_manager.update_provider(
+        provider_id=provider_id,
+        name=request.name,
+        api_key=request.api_key,
+        endpoint=request.endpoint,
+        model=request.model,
+        is_default=request.is_default,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="供应商不存在")
+    return {"success": True, "provider": updated.to_safe_dict()}
+
+
+@app.delete("/api/providers/{provider_id}")
+async def delete_provider(provider_id: str):
+    """删除供应商配置"""
+    success = provider_config_manager.delete_provider(provider_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="供应商不存在")
+    return {"success": True}
+
+
+@app.post("/api/providers/{provider_id}/set-default")
+async def set_default_provider(provider_id: str):
+    """设置默认供应商"""
+    success = provider_config_manager.set_default_provider(provider_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="供应商不存在")
+    return {"success": True}

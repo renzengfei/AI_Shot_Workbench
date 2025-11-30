@@ -1,6 +1,6 @@
 'use client';
 
-import { RefreshCw, Volume2, VolumeX, AlertCircle, Trash2, X, Zap, Users, Box, Layout, Film, ArrowRight, Check, Copy, MessageSquare, ClipboardPaste, GitBranch, Anchor, Pencil } from 'lucide-react';
+import { RefreshCw, Volume2, VolumeX, AlertCircle, Trash2, X, Zap, Users, Box, Layout, Film, ArrowRight, Check, Copy, MessageSquare, ClipboardPaste, GitBranch, Anchor, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useWorkflowStore } from '@/lib/stores/workflowStore';
 import { useWorkspace } from '@/components/WorkspaceContext';
@@ -8,6 +8,8 @@ import { parseRound1, parseRound2, parseStoredDeconstruction } from '@/lib/servi
 import { useStepNavigator } from '@/lib/hooks/useStepNavigator';
 import { AutoTextArea } from '@/components/ui/AutoTextArea';
 import { ShotCard } from '@/components/workflow/ShotCard';
+import { ProviderConfigModal } from '@/components/workflow/ProviderConfigModal';
+import { Settings } from 'lucide-react';
 import {
     fetchCharacterReferences,
     fetchReferenceGallery,
@@ -148,7 +150,11 @@ export default function Step3_DeconstructionReview({
     const [imagePresetLoading, setImagePresetLoading] = useState(false);
     const [imagePresetError, setImagePresetError] = useState<string | null>(null);
     const [showPresetModal, setShowPresetModal] = useState(false);
+    const [showProviderModal, setShowProviderModal] = useState(false);
     const [selectedImagePresetId, setSelectedImagePresetId] = useState<string | null>(null);
+    // Shot pagination
+    const [shotPage, setShotPage] = useState(0);
+    const shotsPerPage = 5;
     const [workspacePresetSnapshot, setWorkspacePresetSnapshot] = useState<ImagePreset | null>(null);
     const [presetForm, setPresetForm] = useState<{ content: string }>({ content: '' });
     const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
@@ -626,6 +632,18 @@ export default function Step3_DeconstructionReview({
     const handleImageSeen = (shot: Round2Shot, idx: number, url: string) => {
         const shotId = shot.id ?? idx + 1;
         setNewlyGenerated((prev) => ({ ...prev, [shotId]: (prev[shotId] || []).filter((u) => u !== url) }));
+    };
+
+    const handleSelectImageIndex = (shot: Round2Shot, idx: number, targetIndex: number) => {
+        const shotId = shot.id ?? idx + 1;
+        let list = generatedImages[shotId] || [];
+        if (!list.length) {
+            void loadExistingImagesForShot(shotId);
+            list = generatedImages[shotId] || [];
+        }
+        if (!list.length) return;
+        const bounded = Math.min(Math.max(0, targetIndex), list.length - 1);
+        setGeneratedIndexes((prev) => ({ ...prev, [shotId]: bounded }));
     };
 
     const handleUploadReference = async (file?: File) => {
@@ -1224,11 +1242,36 @@ export default function Step3_DeconstructionReview({
                     }
                 });
                 setGeneratedImages(normalized);
-                const idxMap: Record<number, number> = {};
-                Object.entries(normalized).forEach(([k, arr]) => {
-                    idxMap[Number(k)] = Math.max(0, arr.length - 1);
-                });
-                setGeneratedIndexes(idxMap);
+                // Load saved indexes from server, fallback to last image for each shot
+                const applyIndexes = (savedIndexes: Record<number, number>) => {
+                    const idxMap: Record<number, number> = {};
+                    Object.entries(normalized).forEach(([k, arr]) => {
+                        const shotId = Number(k);
+                        const saved = savedIndexes[shotId];
+                        if (typeof saved === 'number' && saved >= 0 && saved < arr.length) {
+                            idxMap[shotId] = saved;
+                        } else {
+                            idxMap[shotId] = Math.max(0, arr.length - 1);
+                        }
+                    });
+                    setGeneratedIndexes(idxMap);
+                };
+                if (currentWorkspace?.path && generatedDir) {
+                    fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-images?generated_dir=${encodeURIComponent(generatedDir)}`)
+                        .then(resp => resp.ok ? resp.json() : { indexes: {} })
+                        .then((data: { indexes?: Record<string, number> }) => {
+                            const savedIndexes: Record<number, number> = {};
+                            if (data.indexes) {
+                                Object.entries(data.indexes).forEach(([k, v]) => {
+                                    savedIndexes[Number(k)] = v;
+                                });
+                            }
+                            applyIndexes(savedIndexes);
+                        })
+                        .catch(() => applyIndexes({}));
+                } else {
+                    applyIndexes({});
+                }
             } else {
                 setGeneratedImages({});
                 setGeneratedIndexes({});
@@ -1237,7 +1280,7 @@ export default function Step3_DeconstructionReview({
             setGeneratedImages({});
             setGeneratedIndexes({});
         }
-    }, [generatedStorageKey, pendingGenKey, readPendingGenerations, loadExistingImagesForShot, startPollingTask, writePendingGenerations]);
+    }, [generatedStorageKey, pendingGenKey, readPendingGenerations, loadExistingImagesForShot, startPollingTask, writePendingGenerations, currentWorkspace?.path, generatedDir]);
 
     useEffect(() => {
         if (!generatedStorageKey) return;
@@ -1247,6 +1290,28 @@ export default function Step3_DeconstructionReview({
             // ignore
         }
     }, [generatedImages, generatedStorageKey]);
+
+    // Persist selected image indexes to server (with debounce)
+    const saveIndexesTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(() => {
+        if (!currentWorkspace?.path || !generatedDir || Object.keys(generatedIndexes).length === 0) return;
+        // Debounce save to avoid too many requests
+        if (saveIndexesTimeoutRef.current) {
+            clearTimeout(saveIndexesTimeoutRef.current);
+        }
+        saveIndexesTimeoutRef.current = setTimeout(() => {
+            fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-images`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ generated_dir: generatedDir, indexes: generatedIndexes }),
+            }).catch(() => { /* ignore */ });
+        }, 500);
+        return () => {
+            if (saveIndexesTimeoutRef.current) {
+                clearTimeout(saveIndexesTimeoutRef.current);
+            }
+        };
+    }, [generatedIndexes, currentWorkspace?.path, generatedDir]);
 
     useEffect(() => {
         if (!workspaceSlug) return;
@@ -2130,6 +2195,14 @@ export default function Step3_DeconstructionReview({
                     >
                         生图设定
                     </button>
+                    <button
+                        onClick={() => setShowProviderModal(true)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition border border-slate-200"
+                        type="button"
+                    >
+                        <Settings size={14} />
+                        供应商
+                    </button>
                     {!hideAnnotations && (
                         <button
                             onClick={copyAllAnnotations}
@@ -2857,8 +2930,38 @@ export default function Step3_DeconstructionReview({
                     )}
 
                     {/* Shot List - Apple Glass Style */}
+                    {/* Top Pagination Controls */}
+                    {typeof round2Data !== 'string' && round2Data?.shots && round2Data.shots.length > shotsPerPage && (
+                        <div className="flex items-center justify-center gap-4 py-4 mb-6">
+                            <button
+                                onClick={() => setShotPage((p) => Math.max(0, p - 1))}
+                                disabled={shotPage === 0}
+                                className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                <ChevronLeft size={16} /> 上一页
+                            </button>
+                            <span className="text-sm text-slate-500">
+                                第 {shotPage + 1} / {Math.ceil(round2Data.shots.length / shotsPerPage)} 页
+                                <span className="ml-2 text-slate-400">（共 {round2Data.shots.length} 个镜头）</span>
+                            </span>
+                            <button
+                                onClick={() => setShotPage((p) => Math.min(Math.ceil((round2Data.shots?.length || 0) / shotsPerPage) - 1, p + 1))}
+                                disabled={shotPage >= Math.ceil((round2Data.shots?.length || 0) / shotsPerPage) - 1}
+                                className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                下一页 <ChevronRight size={16} />
+                            </button>
+                        </div>
+                    )}
                     <div className="space-y-12">
-                        {typeof round2Data !== 'string' && round2Data?.shots && round2Data.shots.map((shot: Round2Shot, index: number) => {
+                        {typeof round2Data !== 'string' && round2Data?.shots && (() => {
+                            const allShots = round2Data.shots;
+                            const totalPages = Math.ceil(allShots.length / shotsPerPage);
+                            const startIdx = shotPage * shotsPerPage;
+                            const endIdx = startIdx + shotsPerPage;
+                            const currentShots = allShots.slice(startIdx, endIdx);
+                            return currentShots.map((shot: Round2Shot, localIdx: number) => {
+                            const index = startIdx + localIdx;
                             const optimizedShot = getOptimizedShot(shot, index);
 
                             const preferredKeyframe = shot.keyframe && frameNameSet.has(shot.keyframe) ? shot.keyframe : null;
@@ -2922,9 +3025,38 @@ export default function Step3_DeconstructionReview({
                                             return current < list.length - 1;
                                         })()
                                     }
+                                    onSelectGeneratedIndex={handleSelectImageIndex}
+                                    workspacePath={currentWorkspace?.path}
+                                    generatedDir={generatedDir}
                                 />
                             );
-                        })}
+                        });
+                        })()}
+
+                        {/* Pagination Controls */}
+                        {typeof round2Data !== 'string' && round2Data?.shots && round2Data.shots.length > shotsPerPage && (
+                            <div className="flex items-center justify-center gap-4 py-6">
+                                <button
+                                    onClick={() => setShotPage((p) => Math.max(0, p - 1))}
+                                    disabled={shotPage === 0}
+                                    className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    <ChevronLeft size={16} /> 上一页
+                                </button>
+                                <span className="text-sm text-slate-500">
+                                    第 {shotPage + 1} / {Math.ceil(round2Data.shots.length / shotsPerPage)} 页
+                                    <span className="ml-2 text-slate-400">（共 {round2Data.shots.length} 个镜头）</span>
+                                </span>
+                                <button
+                                    onClick={() => setShotPage((p) => Math.min(Math.ceil((round2Data.shots?.length || 0) / shotsPerPage) - 1, p + 1))}
+                                    disabled={shotPage >= Math.ceil((round2Data.shots?.length || 0) / shotsPerPage) - 1}
+                                    className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    下一页 <ChevronRight size={16} />
+                                </button>
+                            </div>
+                        )}
+
                         {typeof round2Data === 'string' && (
                             <div className="glass-card p-6 border-amber-500/30 bg-amber-500/5">
                                 <div className="text-amber-400 text-base font-medium mb-3 flex items-center gap-2">
@@ -3506,6 +3638,10 @@ export default function Step3_DeconstructionReview({
                 </div>
             </div>
         )}
+        <ProviderConfigModal
+            isOpen={showProviderModal}
+            onClose={() => setShowProviderModal(false)}
+        />
         </>
     );
 }

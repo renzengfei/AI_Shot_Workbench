@@ -25,6 +25,8 @@
 
 ## 提交与 PR
 - 提交信息：使用 Conventional Commits（如 `feat: add youtube asset generation`，`fix: pause at cut points precisely`）。
+- 每次改动代码后必须提交 git，保持工作区干净，避免堆积未提交的修改。
+- 进行任何 git 回退（如 reset/revert/cherry-pick 等导致历史或工作区回滚）前必须征得用户明确同意。
 - PR：简述变更范围、复现/修复步骤，UI 变更附截图/GIF；关联相关任务/Issue。
 
 ## 安全与配置
