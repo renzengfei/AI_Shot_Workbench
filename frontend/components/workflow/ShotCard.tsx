@@ -228,8 +228,11 @@ interface ShotCardProps {
     generatedImageIndex?: number;
     onPrevGenerated?: (shot: Round2Shot, index: number) => void;
     onNextGenerated?: (shot: Round2Shot, index: number) => void;
-    onGenerateImage?: (shot: Round2Shot, index: number) => void;
+    onGenerateImage?: (shot: Round2Shot, index: number, providerId?: string) => void;
     isGenerating?: boolean;
+    providers?: Array<{ id: string; name: string; is_default?: boolean }>;
+    selectedProviderId?: string;
+    onProviderChange?: (shot: Round2Shot, index: number, providerId: string) => void;
     highlightGenerated?: boolean;
     newImages?: string[];
     onImageSeen?: (shot: Round2Shot, index: number, url: string) => void;
@@ -262,6 +265,9 @@ export const ShotCard = ({
     onNextGenerated,
     onGenerateImage,
     isGenerating = false,
+    providers = [],
+    selectedProviderId,
+    onProviderChange,
     highlightGenerated = false,
     newImages = [],
     onImageSeen,
@@ -814,19 +820,34 @@ export const ShotCard = ({
                                             <span className="text-slate-400">点击下方生成</span>
                                         )}
                                     </div>
-                                    {/* 生图按钮 */}
-                                    <div className="mt-2">
+                                    {/* 供应商选择器 + 生图按钮 */}
+                                    <div className="mt-2 flex items-center gap-2">
+                                        {providers.length > 0 && (
+                                            <select
+                                                value={selectedProviderId || providers.find(p => p.is_default)?.id || providers[0]?.id || ''}
+                                                onChange={(e) => onProviderChange?.(shot, index, e.target.value)}
+                                                disabled={isGenerating}
+                                                className="flex-shrink-0 px-2 py-2 rounded-lg text-xs font-medium bg-white/80 border border-slate-200/50 text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50 disabled:opacity-50"
+                                                title="选择生图供应商"
+                                            >
+                                                {providers.map(p => (
+                                                    <option key={p.id} value={p.id}>
+                                                        {p.name}{p.is_default ? ' ✓' : ''}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        )}
                                         <button
                                             onClick={() => {
                                                 // 先 blur 当前输入框，强制同步 debounce 中的数据
                                                 (document.activeElement as HTMLElement)?.blur();
                                                 // 延迟 50ms 确保 React 状态更新完成
                                                 setTimeout(() => {
-                                                    onGenerateImage?.(shot, index);
+                                                    onGenerateImage?.(shot, index, selectedProviderId);
                                                 }, 50);
                                             }}
                                             disabled={isGenerating}
-                                            className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shadow-md transition-all duration-200 active:scale-95 ${
+                                            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shadow-md transition-all duration-200 active:scale-95 ${
                                                 isGenerating
                                                     ? 'bg-slate-400 text-white cursor-not-allowed'
                                                     : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600'

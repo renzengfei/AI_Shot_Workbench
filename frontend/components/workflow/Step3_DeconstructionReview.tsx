@@ -169,6 +169,9 @@ export default function Step3_DeconstructionReview({
     const [generateError, setGenerateError] = useState<string | null>(null);
     const [generateErrors, setGenerateErrors] = useState<Record<number, string | undefined>>({});
     const [newlyGenerated, setNewlyGenerated] = useState<Record<number, string[]>>({});
+    // Provider selection per shot
+    const [providers, setProviders] = useState<Array<{ id: string; name: string; is_default?: boolean }>>([]);
+    const [shotProviders, setShotProviders] = useState<Record<number, string>>({});
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const [previewImage, setPreviewImage] = useState<{ url: string; name?: string } | null>(null);
     const canEdit = mode === 'review';
@@ -655,6 +658,11 @@ export default function Step3_DeconstructionReview({
     const handleClearNewImages = (shot: Round2Shot, idx: number) => {
         const shotId = shot.id ?? idx + 1;
         setNewlyGenerated((prev) => ({ ...prev, [shotId]: [] }));
+    };
+
+    const handleProviderChange = (shot: Round2Shot, idx: number, providerId: string) => {
+        const shotId = shot.id ?? idx + 1;
+        setShotProviders((prev) => ({ ...prev, [shotId]: providerId }));
     };
 
     const handleSelectImageIndex = (shot: Round2Shot, idx: number, targetIndex: number) => {
@@ -1204,6 +1212,16 @@ export default function Step3_DeconstructionReview({
     useEffect(() => {
         void loadWorkspaceImagePreset();
     }, [loadWorkspaceImagePreset]);
+
+    // Load providers list
+    useEffect(() => {
+        fetch(`${API_BASE}/api/providers`)
+            .then(resp => resp.ok ? resp.json() : { providers: [] })
+            .then((data: { providers?: Array<{ id: string; name: string; is_default?: boolean }> }) => {
+                setProviders(data.providers || []);
+            })
+            .catch(() => setProviders([]));
+    }, []);
 
     // Reset image caches when switching workspace or generatedDir
     useEffect(() => {
@@ -3080,6 +3098,9 @@ export default function Step3_DeconstructionReview({
                                     onPrevGenerated={handlePrevImage}
                                     onNextGenerated={handleNextImage}
                                     isGenerating={!!generatingShots[shot.id ?? index + 1]}
+                                    providers={providers}
+                                    selectedProviderId={shotProviders[shot.id ?? index + 1]}
+                                    onProviderChange={handleProviderChange}
                                     onGenerateImage={handleGenerateImage}
                                     highlightGenerated={!!(newlyGenerated[shot.id ?? index + 1]?.length)}
                                     newImages={newlyGenerated[shot.id ?? index + 1] || []}
