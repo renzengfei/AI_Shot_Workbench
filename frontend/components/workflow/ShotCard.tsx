@@ -901,11 +901,12 @@ export const ShotCard = ({
 
                             {/* 4. 首帧/视频描述 */}
                                 <div className={`flex-shrink-0 ${DESC_WIDTH} ${CARD_HEIGHT} ${CARD_RADIUS} border border-white/30 bg-white/50 backdrop-blur-xl shadow-md ${CARD_PADDING} flex flex-col ${CARD_GAP} transition-all duration-300 hover:bg-white/60 hover:shadow-lg overflow-y-auto`}>
-                                <div className="flex flex-col gap-2 basis-[58%] min-h-0">
+                                <div className="flex flex-col gap-2 basis-[58%] min-h-0 overflow-hidden">
                                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500 flex-shrink-0">
                                         <span>首帧描述</span>
                                         {renderAnnotationControl?.(`shot-${shot.id ?? index}-initial`, `Shot #${shot.id ?? index + 1} Initial Frame`)}
                                     </div>
+                                    <div className="flex-1 min-h-0 overflow-y-auto">
                                     {renderFieldWithRevision(
                                         structuredFrameOriginal || structuredFrameOptimized ? (
                                             <div className="p-3 rounded-lg border border-dashed border-slate-200 bg-white/60 text-sm text-slate-500">
@@ -926,6 +927,7 @@ export const ShotCard = ({
                                         initialFrameText,
                                         initialFrameTextOptimized,
                                     )}
+                                    </div>
                                 </div>
                                 <div className="flex flex-col gap-2 basis-[30%] min-h-0">
                                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-purple-500/80 flex-shrink-0">
