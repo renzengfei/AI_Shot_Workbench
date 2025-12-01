@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Lovart.ai 视频生成模块
-- 登录已有账号
+- 登录已有账号（复用注册时的指纹）
 - 上传图片
 - 输入提示词
 - 等待视频生成
@@ -19,6 +19,7 @@ from datetime import datetime
 
 from .account_pool import AccountPool, Account
 from .email_receiver import EmailReceiver
+from .fingerprint_manager import get_fingerprint_manager, BrowserFingerprint
 
 
 class VideoGenerator:
@@ -30,13 +31,31 @@ class VideoGenerator:
     def __init__(self, account_pool: AccountPool):
         self.account_pool = account_pool
         self.email_receiver = EmailReceiver(account_pool.imap_config)
+        self.fingerprint_manager = get_fingerprint_manager()
         self.driver = None
         self.current_account: Optional[Account] = None
+        self.current_fingerprint: Optional[BrowserFingerprint] = None
     
-    def launch_browser(self):
-        """启动浏览器"""
-        print("启动浏览器...")
-        self.driver = uc.Chrome(headless=False)
+    def launch_browser(self, account: Account = None):
+        """启动浏览器（使用账号对应的指纹）"""
+        self.close()
+        
+        if account:
+            # 获取账号对应的指纹
+            self.current_fingerprint = self.fingerprint_manager.get_or_create(account.email)
+            print(f"🔐 使用指纹: {self.current_fingerprint.fingerprint_id}")
+            
+            options = self.fingerprint_manager.get_chrome_options(self.current_fingerprint)
+            self.driver = uc.Chrome(options=options, headless=False)
+            
+            # 注入指纹 JS
+            self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+                'source': self.fingerprint_manager.get_fingerprint_js(self.current_fingerprint)
+            })
+        else:
+            print("启动浏览器...")
+            self.driver = uc.Chrome(headless=False)
+        
         self.driver.set_window_size(1400, 900)
     
     def close(self):
@@ -340,8 +359,8 @@ class VideoGenerator:
                 return None
         
         try:
-            # 启动浏览器
-            self.launch_browser()
+            # 启动浏览器（使用账号对应的指纹）
+            self.launch_browser(account)
             
             # 登录
             if not self.login(account):
