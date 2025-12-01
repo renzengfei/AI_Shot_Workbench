@@ -1397,7 +1397,9 @@ export default function Step3_DeconstructionReview({
         console.log('[DEBUG] Resetting caches, generatedDir:', generatedDir);
         setGeneratedImages({});
         setGeneratedIndexes({});
-        setSavedIndexes({});  // 同时重置保存的索引，避免使用错误目录的索引
+        // 不要清空 savedIndexes，让拉取 useEffect 异步加载后直接覆盖
+        // 同时清空 window 临时变量
+        (window as unknown as Record<string, unknown>).__savedImageFilenames = {};
         setNewlyGenerated({});
         setGeneratingShots({});
     }, [generatedDir, currentWorkspace?.path]);
