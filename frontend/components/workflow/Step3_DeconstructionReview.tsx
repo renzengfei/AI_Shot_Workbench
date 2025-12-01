@@ -294,6 +294,18 @@ export default function Step3_DeconstructionReview({
             if (typeof saved === 'number' && saved >= 0 && saved < mergedLen) {
                 return { ...prev, [shotId]: saved };
             }
+            // 尝试文件名匹配（saved === -1 表示文件名格式）
+            if (saved === -1) {
+                const savedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string | number> || {};
+                const filename = savedFilenames[String(shotId)];
+                if (typeof filename === 'string') {
+                    const imgs = generatedImagesRef.current[shotId] || [];
+                    const foundIdx = imgs.findIndex(url => url.endsWith(filename) || url.includes(`/${filename}`));
+                    if (foundIdx >= 0) {
+                        return { ...prev, [shotId]: foundIdx };
+                    }
+                }
+            }
             return { ...prev, [shotId]: Math.max(0, mergedLen - 1) };
         });
         setNewlyGenerated((prev) => {
@@ -344,6 +356,18 @@ export default function Step3_DeconstructionReview({
                 const saved = savedIndexesRef.current[shotId];
                 if (typeof saved === 'number' && saved >= 0 && saved < mergedLen) {
                     return { ...prev, [shotId]: saved };
+                }
+                // 尝试文件名匹配（saved === -1 表示文件名格式）
+                if (saved === -1) {
+                    const savedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string | number> || {};
+                    const filename = savedFilenames[String(shotId)];
+                    if (typeof filename === 'string') {
+                        const imgs = generatedImagesRef.current[shotId] || [];
+                        const foundIdx = imgs.findIndex(url => url.endsWith(filename) || url.includes(`/${filename}`));
+                        if (foundIdx >= 0) {
+                            return { ...prev, [shotId]: foundIdx };
+                        }
+                    }
                 }
                 return { ...prev, [shotId]: Math.max(0, mergedLen - 1) };
             });
