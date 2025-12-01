@@ -647,20 +647,76 @@ class VideoGenerator:
                 # 截图确认输入
                 self.driver.save_screenshot('/tmp/before_send.png')
                 
-                # 点击发送按钮
-                try:
-                    send_btn = self.driver.find_element(
-                        By.CSS_SELECTOR, 'button[data-testid="agent-send-button"]'
-                    )
-                    # 确保按钮可点击
-                    if not send_btn.get_attribute('disabled'):
-                        send_btn.click()
-                    else:
-                        print("   发送按钮被禁用，尝试 Enter")
-                        input_box.send_keys(Keys.ENTER)
-                except:
+                # 点击发送按钮（输入框右边的蓝色圆形按钮）
+                # 获取按钮坐标后使用 ActionChains 点击
+                from selenium.webdriver.common.action_chains import ActionChains
+                
+                btn_info = self.driver.execute_script('''
+                    // 找所有按钮，返回坐标信息
+                    const btns = document.querySelectorAll('button');
+                    const results = [];
+                    for (const btn of btns) {
+                        const rect = btn.getBoundingClientRect();
+                        const style = window.getComputedStyle(btn);
+                        results.push({
+                            x: rect.x + rect.width/2,
+                            y: rect.y + rect.height/2,
+                            width: rect.width,
+                            height: rect.height,
+                            bg: style.backgroundColor,
+                            className: btn.className,
+                            hasSvg: !!btn.querySelector('svg')
+                        });
+                    }
+                    return results;
+                ''')
+                
+                # 找实心蓝色背景的圆形按钮（发送按钮）
+                # 注意：半透明蓝色 rgba(61, 155, 255, 0.1) 是模型选择按钮，要跳过
+                send_btn = None
+                for btn in btn_info:
+                    bg = btn.get('bg', '')
+                    # 只找实心蓝色 rgb(...)，跳过半透明 rgba(..., 0.1)
+                    if 'rgba' in bg and ', 0.' in bg:
+                        continue  # 跳过半透明按钮
+                    # 各种实心蓝色变体
+                    if ('59, 130, 246' in bg or '37, 99, 235' in bg or 
+                        '96, 165, 250' in bg or '14, 165, 233' in bg or
+                        '61, 155, 255' in bg):  # Lovart 的蓝色
+                        send_btn = btn
+                        break
+                
+                clicked = False
+                if send_btn:
+                    print(f"   找到蓝色按钮: x={send_btn['x']}, y={send_btn['y']}, bg={send_btn['bg']}")
+                    # 使用坐标点击
+                    actions = ActionChains(self.driver)
+                    actions.move_by_offset(int(send_btn['x']), int(send_btn['y'])).click().perform()
+                    actions.reset_actions()
+                    clicked = 'coord_click'
+                else:
+                    # 打印所有按钮信息用于调试
+                    print(f"   未找到蓝色按钮，所有按钮: {len(btn_info)}")
+                    for i, btn in enumerate(btn_info[:10]):
+                        print(f"     {i}: bg={btn['bg'][:30]}, class={btn['className'][:30]}")
+                
+                print(f"   发送按钮点击: {clicked}")
+                
+                if not clicked:
                     # 备用: 按 Enter 发送
+                    print("   使用 Enter 键发送")
                     input_box.send_keys(Keys.ENTER)
+                
+                time.sleep(2)
+                
+                # 检查是否有新标签页打开（Lovart 在新标签页生成视频）
+                if len(self.driver.window_handles) > 1:
+                    # 切换到最新的标签页
+                    self.driver.switch_to.window(self.driver.window_handles[-1])
+                    print("   ✓ 切换到新标签页（视频生成页）")
+                    time.sleep(2)
+                
+                self.driver.save_screenshot('/tmp/after_send.png')
                 
                 print("✓ 提示词已发送")
                 return True
@@ -680,37 +736,62 @@ class VideoGenerator:
             视频 URL 或 None
         """
         print(f"等待视频生成 (最长 {timeout}s)...")
+        print(f"   当前页面: {self.driver.current_url}")
         
         start = time.time()
         while time.time() - start < timeout:
             try:
+                # 截图调试
+                if int(time.time() - start) % 30 == 0:
+                    self.driver.save_screenshot(f'/tmp/video_wait_{int(time.time()-start)}.png')
+                
                 # 查找 video 元素
                 videos = self.driver.find_elements(By.CSS_SELECTOR, 'video')
                 for video in videos:
                     src = video.get_attribute('src')
-                    if src and 'blob:' not in src:
-                        print(f"✓ 视频已生成")
-                        return src
+                    if src:
+                        # blob URL 需要特殊处理
+                        if 'blob:' in src:
+                            # 尝试获取视频的实际 URL（可能在 source 标签中）
+                            sources = video.find_elements(By.CSS_SELECTOR, 'source')
+                            for source in sources:
+                                real_src = source.get_attribute('src')
+                                if real_src and 'blob:' not in real_src:
+                                    print(f"✓ 视频已生成 (source)")
+                                    return real_src
+                        else:
+                            print(f"✓ 视频已生成")
+                            return src
                 
                 # 查找视频链接
-                links = self.driver.find_elements(By.CSS_SELECTOR, 'a[href*=".mp4"]')
+                links = self.driver.find_elements(By.CSS_SELECTOR, 'a[href*=".mp4"], a[href*="video"]')
                 for link in links:
                     href = link.get_attribute('href')
-                    if href:
+                    if href and '.mp4' in href:
                         print(f"✓ 找到视频链接")
                         return href
                 
-            except:
+                # 查找下载按钮
+                download_btns = self.driver.find_elements(By.CSS_SELECTOR, 
+                    'button[class*="download"], a[download], [data-testid*="download"]')
+                for btn in download_btns:
+                    href = btn.get_attribute('href')
+                    if href:
+                        print(f"✓ 找到下载链接")
+                        return href
+                
+            except Exception as e:
                 pass
             
             # 显示进度
             elapsed = int(time.time() - start)
-            if elapsed % 30 == 0:
+            if elapsed % 30 == 0 and elapsed > 0:
                 print(f"   等待中... {elapsed}s")
             
             time.sleep(5)
         
         print("✗ 视频生成超时")
+        self.driver.save_screenshot('/tmp/video_timeout.png')
         return None
     
     def download_video(self, video_url: str, output_path: str) -> bool:
