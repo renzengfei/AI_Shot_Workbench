@@ -94,6 +94,32 @@ class AccountPool:
         account.daily_used += 1
         self._save()
     
+    def mark_no_credits(self, account: Account):
+        """标记账号积分耗尽"""
+        account.status = "no_credits"
+        self._save()
+        print(f"   ⚠️ 账号 {account.email} 积分耗尽，已标记")
+    
+    def get_available_account_excluding(self, exclude_emails: list) -> Optional[Account]:
+        """获取可用账号，排除指定账号"""
+        today = date.today().isoformat()
+        
+        for acc in self.accounts:
+            if acc.email in exclude_emails:
+                continue
+            if acc.status != "active":
+                continue
+            
+            # 日期变了，重置计数
+            if acc.last_used_date != today:
+                acc.daily_used = 0
+                acc.last_used_date = today
+            
+            if acc.daily_used < self.DAILY_LIMIT:
+                return acc
+        
+        return None
+    
     def add_account(self, email: str, password: str, fingerprint_id: str = "") -> Account:
         """添加新账号"""
         from datetime import datetime

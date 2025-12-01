@@ -361,6 +361,52 @@ class VideoGenerator:
         self.close_popups()
         time.sleep(1)
     
+    def check_credits(self) -> int:
+        """检查账号积分，返回积分数量，失败返回 -1"""
+        try:
+            # 尝试从页面获取积分显示
+            credits = self.driver.execute_script('''
+                // 查找显示积分的元素（通常在导航栏或用户信息处）
+                // 方法1: 查找包含数字的积分显示
+                const allText = document.body.innerText;
+                
+                // 查找 "积分" 或 "credits" 相关的数字
+                const creditPatterns = [
+                    /(\d+)\s*积分/,
+                    /积分[：:]\s*(\d+)/,
+                    /credits?[：:\s]*(\d+)/i,
+                    /(\d+)\s*credits?/i
+                ];
+                
+                for (const pattern of creditPatterns) {
+                    const match = allText.match(pattern);
+                    if (match) {
+                        return parseInt(match[1], 10);
+                    }
+                }
+                
+                // 方法2: 查找特定的积分元素
+                const creditElements = document.querySelectorAll('[class*="credit"], [class*="point"], [class*="balance"]');
+                for (const el of creditElements) {
+                    const num = parseInt(el.textContent.replace(/[^\d]/g, ''), 10);
+                    if (!isNaN(num)) {
+                        return num;
+                    }
+                }
+                
+                return -1;  // 未找到
+            ''')
+            
+            if credits is not None and credits >= 0:
+                print(f"   💰 当前积分: {credits}")
+                return credits
+            
+            return -1
+            
+        except Exception as e:
+            print(f"   ⚠️ 检查积分失败: {e}")
+            return -1
+    
     def upload_image(self, image_path: str) -> bool:
         """上传图片（点击附件按钮后上传）"""
         print(f"上传图片: {image_path}")
@@ -938,47 +984,73 @@ class VideoGenerator:
                 print("✗ 没有可用账号")
                 return None
         
-        try:
-            # 启动浏览器（使用账号对应的指纹）
-            self.launch_browser(account)
-            
-            # 登录
-            if not self.login(account):
+        # 已尝试的账号列表（用于积分为 0 时切换）
+        tried_accounts = []
+        max_retries = 3
+        
+        for retry in range(max_retries):
+            try:
+                # 启动浏览器（使用账号对应的指纹）
+                self.launch_browser(account)
+                
+                # 登录
+                if not self.login(account):
+                    return None
+                
+                # 直接访问 Home 页面
+                self.navigate_to_home()
+                time.sleep(2)
+                
+                # 检查积分
+                credits = self.check_credits()
+                if credits == 0:
+                    print(f"   ⚠️ 账号 {account.email} 积分为 0，尝试切换账号...")
+                    self.account_pool.mark_no_credits(account)
+                    tried_accounts.append(account.email)
+                    self.close()
+                    
+                    # 获取下一个可用账号
+                    account = self.account_pool.get_available_account_excluding(tried_accounts)
+                    if not account:
+                        print("✗ 所有账号积分都为 0，无可用账号")
+                        return None
+                    
+                    print(f"   🔄 切换到账号: {account.email}")
+                    continue  # 重新开始循环
+                
+                # 上传图片（在输入提示词前上传）
+                if not self.upload_image(image_path):
+                    return None
+                
+                # 发送提示词（自动添加 Hailuo 2.3 前缀）
+                if not self.send_prompt(prompt):
+                    return None
+                
+                # 等待视频生成
+                video_url = self.wait_for_video(timeout=300)
+                if not video_url:
+                    return None
+                
+                # 下载视频
+                if not self.download_video(video_url, output_path):
+                    return None
+                
+                # 标记账号已使用
+                self.account_pool.mark_used(account)
+                
+                print(f"\n✓ 视频生成成功: {output_path}")
+                return output_path
+                
+            except Exception as e:
+                print(f"\n✗ 生成失败: {e}")
                 return None
-            
-            # 直接访问 Home 页面
-            self.navigate_to_home()
-            time.sleep(2)
-            
-            # 上传图片（在输入提示词前上传）
-            if not self.upload_image(image_path):
-                return None
-            
-            # 发送提示词（自动添加 Hailuo 2.3 前缀）
-            if not self.send_prompt(prompt):
-                return None
-            
-            # 等待视频生成
-            video_url = self.wait_for_video(timeout=300)
-            if not video_url:
-                return None
-            
-            # 下载视频
-            if not self.download_video(video_url, output_path):
-                return None
-            
-            # 标记账号已使用
-            self.account_pool.mark_used(account)
-            
-            print(f"\n✓ 视频生成成功: {output_path}")
-            return output_path
-            
-        except Exception as e:
-            print(f"\n✗ 生成失败: {e}")
-            return None
-            
-        finally:
-            self.close()
+                
+            finally:
+                self.close()
+        
+        # 如果所有重试都因为积分问题失败
+        print("✗ 已尝试所有可用账号，均无法生成")
+        return None
 
 
 # 测试
