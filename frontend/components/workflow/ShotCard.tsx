@@ -248,6 +248,10 @@ interface ShotCardProps {
     onSelectGeneratedIndex?: (shot: Round2Shot, shotIndex: number, imageIndex: number) => void;
     workspacePath?: string;
     generatedDir?: string;
+    // 生视频相关
+    onGenerateVideo?: (shot: Round2Shot, index: number) => void;
+    isGeneratingVideo?: boolean;
+    videoTaskStatus?: 'pending' | 'processing' | 'completed' | 'failed' | null;
 }
 
 export const ShotCard = ({
@@ -283,6 +287,9 @@ export const ShotCard = ({
     onSelectGeneratedIndex,
     workspacePath = '',
     generatedDir,
+    onGenerateVideo,
+    isGeneratingVideo = false,
+    videoTaskStatus = null,
 }: ShotCardProps) => {
     const shotId = shot.id ?? index + 1;
     const canEdit = mode === 'review';
@@ -945,6 +952,27 @@ export const ShotCard = ({
                                                         <><Wand2 size={12} />生图</>
                                                     )}
                                                 </button>
+                                                {/* 生视频按钮 */}
+                                                {onGenerateVideo && (
+                                                    <button
+                                                        onClick={() => onGenerateVideo(shot, index)}
+                                                        disabled={isGeneratingVideo || !hasGeneratedImages}
+                                                        title={!hasGeneratedImages ? '请先生成图片' : '使用当前图片生成视频'}
+                                                        className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case ${
+                                                            isGeneratingVideo
+                                                                ? 'bg-slate-400 text-white cursor-not-allowed'
+                                                                : !hasGeneratedImages
+                                                                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                                                                    : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600'
+                                                        }`}
+                                                    >
+                                                        {isGeneratingVideo ? (
+                                                            <><Loader2 size={12} className="animate-spin" />{videoTaskStatus === 'processing' ? '生成中' : '排队中'}</>
+                                                        ) : (
+                                                            <><Video size={12} />生视频</>
+                                                        )}
+                                                    </button>
+                                                )}
                                             </div>
                                         )}
                                     </div>
