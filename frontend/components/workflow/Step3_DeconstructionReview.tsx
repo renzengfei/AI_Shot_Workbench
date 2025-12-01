@@ -164,6 +164,7 @@ export default function Step3_DeconstructionReview({
     const generatedImagesRef = useRef<Record<number, string[]>>({});
     const [generatedIndexes, setGeneratedIndexes] = useState<Record<number, number>>({});
     const [savedIndexes, setSavedIndexes] = useState<Record<number, number>>({});
+    const [savedIndexesLoaded, setSavedIndexesLoaded] = useState(false); // 区分"加载中"vs"加载完成但为空"
     const savedIndexesRef = useRef<Record<number, number>>({});
     const [generatingShots, setGeneratingShots] = useState<Record<number, boolean>>({});
     const [generateError, setGenerateError] = useState<string | null>(null);
@@ -1396,7 +1397,7 @@ export default function Step3_DeconstructionReview({
     useEffect(() => {
         setGeneratedImages({});
         setGeneratedIndexes({});
-        // 不要清空 savedIndexes，让拉取 useEffect 异步加载后直接覆盖
+        setSavedIndexesLoaded(false); // 重置加载状态
         // 同时清空 window 临时变量
         (window as unknown as Record<string, unknown>).__savedImageFilenames = {};
         setNewlyGenerated({});
@@ -1456,14 +1457,8 @@ export default function Step3_DeconstructionReview({
                     }
                 });
                 setGeneratedImages(normalized);
-                // 注意：selected-images 的加载和应用由单独的 useEffect 处理（第 1539-1622 行）
-                // 这里只设置默认索引（最后一张图片），后续会被 savedIndexes 覆盖
-                const defaultIndexes: Record<number, number> = {};
-                Object.entries(normalized).forEach(([k, arr]) => {
-                    const shotId = Number(k);
-                    defaultIndexes[shotId] = Math.max(0, arr.length - 1);
-                });
-                setGeneratedIndexes(defaultIndexes);
+                // 不设置默认索引，等 selected-images API 返回后再统一设置
+                // 这样可以避免先显示默认图片再切换到正确图片的"闪烁"问题
             } else {
                 setGeneratedImages({});
                 setGeneratedIndexes({});
@@ -1498,6 +1493,7 @@ export default function Step3_DeconstructionReview({
     useEffect(() => {
         if (!currentWorkspace?.path || !generatedDir) {
             setSavedIndexes({});
+            setSavedIndexesLoaded(true); // 无需加载，直接标记完成
             return;
         }
         fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-images?generated_dir=${encodeURIComponent(generatedDir)}`)
@@ -1519,10 +1515,14 @@ export default function Step3_DeconstructionReview({
                     });
                 }
                 setSavedIndexes(mapped);
+                setSavedIndexesLoaded(true); // 标记加载完成
                 // 存储文件名到临时变量，供后续匹配
                 (window as unknown as Record<string, unknown>).__savedImageFilenames = data.indexes || {};
             })
-            .catch(() => setSavedIndexes({}));
+            .catch(() => {
+                setSavedIndexes({});
+                setSavedIndexesLoaded(true); // 即使失败也标记完成
+            });
     }, [currentWorkspace?.path, generatedDir]);
 
     // 保持 ref 最新
@@ -1530,40 +1530,49 @@ export default function Step3_DeconstructionReview({
         savedIndexesRef.current = savedIndexes;
     }, [savedIndexes]);
 
-    // 当远端已保存的索引到达后，强制应用到对应镜头（支持文件名匹配）
+    // 当远端已保存的索引到达后，应用到对应镜头（支持文件名匹配）
+    // 同时为没有保存记录的 shot 设置默认索引（最后一张图片）
     useEffect(() => {
-        if (!Object.keys(savedIndexes).length) return;
+        // 必须等 savedIndexes 加载完成且有图片列表才设置索引，避免闪烁
+        if (!savedIndexesLoaded || !Object.keys(generatedImages).length) return;
+        
         const savedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string | number> || {};
         setGeneratedIndexes((prev) => {
             let changed = false;
             const next = { ...prev };
-            Object.entries(savedIndexes).forEach(([k, v]) => {
+            
+            // 遍历所有有图片的 shot
+            Object.entries(generatedImages).forEach(([k, imgs]) => {
                 const id = Number(k);
-                const imgs = generatedImages[id];
                 if (!imgs || !imgs.length) return;
                 
-                let targetIdx = v;
-                // 如果 v === -1，说明是文件名格式，需要匹配
-                if (v === -1) {
-                    const filename = savedFilenames[k];
+                // 检查是否有保存的选择
+                const savedValue = savedIndexes[id];
+                let targetIdx: number;
+                
+                if (savedValue === -1) {
+                    // 文件名格式，需要匹配
+                    const filename = savedFilenames[String(id)];
                     if (typeof filename === 'string') {
                         const foundIdx = imgs.findIndex(url => url.endsWith(filename) || url.includes(`/${filename}`));
-                        if (foundIdx >= 0) {
-                            targetIdx = foundIdx;
-                        } else {
-                            return; // 文件名未找到，跳过
-                        }
+                        targetIdx = foundIdx >= 0 ? foundIdx : Math.max(0, imgs.length - 1);
                     } else {
-                        return;
+                        targetIdx = Math.max(0, imgs.length - 1);
                     }
+                } else if (typeof savedValue === 'number' && savedValue >= 0 && savedValue < imgs.length) {
+                    // 旧格式：直接是索引
+                    targetIdx = savedValue;
+                } else {
+                    // 没有保存记录或无效，使用默认值（最后一张）
+                    targetIdx = Math.max(0, imgs.length - 1);
                 }
                 
-                // 只要保存的索引在有效范围内，就强制应用（覆盖默认值）
-                if (targetIdx >= 0 && targetIdx < imgs.length && prev[id] !== targetIdx) {
+                if (prev[id] !== targetIdx) {
                     next[id] = targetIdx;
                     changed = true;
                 }
             });
+            
             return changed ? next : prev;
         });
     }, [savedIndexes, generatedImages]);
