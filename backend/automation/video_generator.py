@@ -77,12 +77,28 @@ class VideoGenerator:
             time.sleep(5)
             
             # 检查是否已登录（指纹浏览器可能保存了 session）
-            page = self.driver.page_source
-            if '升级' in page or '积分' in page or 'home' in self.driver.current_url:
+            # 更严格的检测：检查是否有"注册"按钮（未登录时显示）
+            is_logged_in = self.driver.execute_script('''
+                // 如果有"注册"按钮，说明未登录
+                const btns = document.querySelectorAll('button');
+                for (const btn of btns) {
+                    if (btn.textContent.trim() === '注册') {
+                        return false;  // 未登录
+                    }
+                }
+                // 检查是否有用户头像或积分显示
+                const hasAvatar = document.querySelector('img[alt*="avatar"], [class*="avatar"]');
+                const hasCredits = document.querySelector('[class*="credit"], [class*="point"]');
+                return hasAvatar || hasCredits || window.location.href.includes('/home');
+            ''')
+            
+            if is_logged_in:
                 print("   ✓ 已登录（session 有效）")
                 self.close_popups()  # 关闭可能的弹窗
                 self.current_account = account
                 return True
+            
+            print("   未登录，执行登录流程...")
             
             # 点击注册/登录
             self.driver.execute_script('''
