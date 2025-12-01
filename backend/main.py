@@ -777,11 +777,11 @@ async def generate_images_internal(request: GenerateImageRequest) -> dict:
             path = os.path.join(generated_root, filename)
             with open(path, "wb") as f:
                 f.write(base64.b64decode(b64data))
-            # 为每张图片保存对应的 prompt 文件
+            # 为每张图片保存对应的 prompt 文件（包含供应商名称）
             prompt_filename = os.path.splitext(filename)[0] + ".prompt.txt"
             prompt_path = os.path.join(generated_root, prompt_filename)
             with open(prompt_path, "w", encoding="utf-8") as f:
-                f.write(final_prompt)
+                f.write(f"[Provider: {provider_config.name}]\n\n{final_prompt}")
             saved_images.append(filename)
             idx += 1
 
@@ -804,11 +804,11 @@ async def generate_images_internal(request: GenerateImageRequest) -> dict:
                     path = os.path.join(generated_root, filename)
                     with open(path, "wb") as f:
                         f.write(r.content)
-                    # 为每张图片保存对应的 prompt 文件
+                    # 为每张图片保存对应的 prompt 文件（包含供应商名称）
                     prompt_filename = os.path.splitext(filename)[0] + ".prompt.txt"
                     prompt_path = os.path.join(generated_root, prompt_filename)
                     with open(prompt_path, "w", encoding="utf-8") as f:
-                        f.write(final_prompt)
+                        f.write(f"[Provider: {provider_config.name}]\n\n{final_prompt}")
                     saved_images.append(filename)
                     idx += 1
                     return True
@@ -848,10 +848,10 @@ async def generate_images_internal(request: GenerateImageRequest) -> dict:
                 if url:
                     await save_from_url(url)
 
-        # 保存发送给生图API的完整prompt
+        # 保存发送给生图API的完整prompt（包含供应商名称）
         prompt_path = os.path.join(generated_root, "prompt.txt")
         with open(prompt_path, "w", encoding="utf-8") as f:
-            f.write(final_prompt)
+            f.write(f"[Provider: {provider_config.name}]\n\n{final_prompt}")
         
         # 保存文本响应
         text_path = os.path.join(generated_root, "content.txt")
