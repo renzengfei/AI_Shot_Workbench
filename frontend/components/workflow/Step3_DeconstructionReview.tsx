@@ -169,6 +169,9 @@ export default function Step3_DeconstructionReview({
     const [generateError, setGenerateError] = useState<string | null>(null);
     const [generateErrors, setGenerateErrors] = useState<Record<number, string | undefined>>({});
     const [newlyGenerated, setNewlyGenerated] = useState<Record<number, string[]>>({});
+    // Video generation state
+    const [generatingVideoShots, setGeneratingVideoShots] = useState<Record<number, boolean>>({});
+    const [videoTaskStatuses, setVideoTaskStatuses] = useState<Record<number, 'pending' | 'processing' | 'completed' | 'failed' | null>>({});
     // Provider selection per shot
     const [providers, setProviders] = useState<Array<{ id: string; name: string; is_default?: boolean }>>([]);
     const [shotProviders, setShotProviders] = useState<Record<number, string>>({});
@@ -1168,6 +1171,111 @@ export default function Step3_DeconstructionReview({
                 delete pending[shotId];
                 writePendingGenerations(pending);
             }
+        }
+    };
+
+    // 生视频回调
+    const handleGenerateVideo = async (shot: Round2Shot, index: number) => {
+        if (!currentWorkspace?.path) {
+            showToast('请先选择工作空间', 'error');
+            return;
+        }
+        const shotId = shot.id ?? index + 1;
+        const imageUrls = generatedImages[shotId] || [];
+        if (imageUrls.length === 0) {
+            showToast('请先生成图片', 'error');
+            return;
+        }
+        
+        // 获取当前选中的图片
+        const currentIndex = generatedIndexes[shotId] ?? imageUrls.length - 1;
+        const imagePath = imageUrls[Math.min(currentIndex, imageUrls.length - 1)];
+        if (!imagePath) {
+            showToast('未找到图片', 'error');
+            return;
+        }
+        
+        // 获取视频描述
+        const prompt = shot.visual_changes || '让人物动起来';
+        
+        setGeneratingVideoShots(prev => ({ ...prev, [shotId]: true }));
+        setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'pending' }));
+        
+        try {
+            const resp = await fetch(`${API_BASE}/api/lovart/tasks`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    image_path: imagePath,
+                    prompt: prompt,
+                }),
+            });
+            
+            if (!resp.ok) {
+                throw new Error(`提交任务失败（${resp.status}）`);
+            }
+            
+            const data = await resp.json();
+            const taskId = data?.task?.task_id;
+            
+            if (!taskId) {
+                throw new Error('创建任务失败');
+            }
+            
+            showToast('视频任务已提交，正在后台生成...', 'success');
+            setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'processing' }));
+            
+            // 执行任务
+            await fetch(`${API_BASE}/api/lovart/tasks/${taskId}/run`, { method: 'POST' });
+            
+            // 简化轮询：5分钟超时
+            const pollTask = async () => {
+                const maxAttempts = 60; // 5分钟
+                for (let i = 0; i < maxAttempts; i++) {
+                    await new Promise(resolve => setTimeout(resolve, 5000));
+                    try {
+                        const statusResp = await fetch(`${API_BASE}/api/lovart/tasks/${taskId}`);
+                        const statusData = await statusResp.json();
+                        const status = statusData?.task?.status;
+                        
+                        if (status === 'completed') {
+                            setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'completed' }));
+                            setGeneratingVideoShots(prev => {
+                                const next = { ...prev };
+                                delete next[shotId];
+                                return next;
+                            });
+                            showToast('视频生成完成！', 'success');
+                            return;
+                        } else if (status === 'failed') {
+                            throw new Error(statusData?.task?.error || '生成失败');
+                        }
+                    } catch {
+                        // 忽略轮询错误
+                    }
+                }
+                throw new Error('生成超时');
+            };
+            
+            pollTask().catch(err => {
+                setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'failed' }));
+                setGeneratingVideoShots(prev => {
+                    const next = { ...prev };
+                    delete next[shotId];
+                    return next;
+                });
+                showToast(err.message || '视频生成失败', 'error');
+            });
+            
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : '视频生成失败';
+            showToast(msg, 'error');
+            setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'failed' }));
+            setGeneratingVideoShots(prev => {
+                const next = { ...prev };
+                delete next[shotId];
+                return next;
+            });
         }
     };
 
@@ -3189,6 +3297,9 @@ export default function Step3_DeconstructionReview({
                                     onSelectGeneratedIndex={handleSelectImageIndex}
                                     workspacePath={currentWorkspace?.path}
                                     generatedDir={generatedDir}
+                                    onGenerateVideo={handleGenerateVideo}
+                                    isGeneratingVideo={!!generatingVideoShots[shot.id ?? index + 1]}
+                                    videoTaskStatus={videoTaskStatuses[shot.id ?? index + 1]}
                                 />
                             );
                         });
