@@ -93,7 +93,8 @@ class EmailReceiver:
         to_email: str, 
         timeout: int = 120,
         poll_interval: int = 5,
-        since_minutes: int = 5
+        since_minutes: int = 2,
+        request_timestamp: float = None
     ) -> Optional[str]:
         """
         等待并获取发送到指定邮箱的验证码
@@ -103,6 +104,7 @@ class EmailReceiver:
             timeout: 超时时间（秒）
             poll_interval: 轮询间隔（秒）
             since_minutes: 只搜索最近 N 分钟内的邮件
+            request_timestamp: 请求验证码的时间戳，只接受此时间之后的邮件
         
         Returns:
             验证码字符串，或 None（超时）
@@ -111,7 +113,9 @@ class EmailReceiver:
             self.connect()
         
         start_time = time.time()
-        since_date = (datetime.now() - timedelta(minutes=since_minutes)).strftime("%d-%b-%Y")
+        # 使用请求时间戳或当前时间减去容错
+        min_email_time = datetime.fromtimestamp(request_timestamp - 30) if request_timestamp else (datetime.now() - timedelta(minutes=since_minutes))
+        since_date = min_email_time.strftime("%d-%b-%Y")
         
         while time.time() - start_time < timeout:
             try:
@@ -142,6 +146,17 @@ class EmailReceiver:
                     to_header = self._decode_header_value(msg.get("To", ""))
                     if to_email.lower() not in to_header.lower():
                         continue
+                    
+                    # 检查邮件时间（如果提供了 request_timestamp）
+                    if request_timestamp:
+                        date_header = msg.get("Date", "")
+                        try:
+                            from email.utils import parsedate_to_datetime
+                            email_time = parsedate_to_datetime(date_header)
+                            if email_time.timestamp() < request_timestamp - 30:
+                                continue  # 跳过请求时间之前的邮件
+                        except:
+                            pass  # 无法解析时间，继续检查
                     
                     # 提取验证码
                     body = self._get_email_body(msg)

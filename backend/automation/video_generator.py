@@ -68,135 +68,239 @@ class VideoGenerator:
         """登录已有账号"""
         print(f"\n登录账号: {account.email}")
         
-        # 打开页面
-        self.driver.get(self.BASE_URL)
-        time.sleep(5)
-        
-        # 点击注册/登录
-        self.driver.execute_script('''
-            for (const btn of document.querySelectorAll('button')) {
-                if (btn.textContent.includes('注册')) { btn.click(); break; }
-            }
-        ''')
-        time.sleep(3)
-        
-        # 输入邮箱
-        inputs = self.driver.find_elements(By.CSS_SELECTOR, 'input')
-        for inp in inputs:
-            placeholder = inp.get_attribute('placeholder')
-            if placeholder and '邮箱' in placeholder:
-                inp.send_keys(account.email)
-                break
-        
-        # 等待 Cloudflare
-        print("等待 Cloudflare...")
-        for _ in range(30):
-            if '成功' in self.driver.page_source:
-                break
-            time.sleep(1)
-        
-        # 点击继续
-        time.sleep(2)
-        btns = self.driver.find_elements(By.CSS_SELECTOR, 'button')
-        for btn in btns:
-            if '使用邮箱继续' in btn.text:
-                if not btn.get_attribute('disabled'):
-                    btn.click()
+        try:
+            # 打开页面
+            self.driver.get(self.BASE_URL)
+            time.sleep(5)
+            
+            # 点击注册/登录
+            self.driver.execute_script('''
+                for (const btn of document.querySelectorAll('button')) {
+                    if (btn.textContent.includes('注册')) { btn.click(); break; }
+                }
+            ''')
+            time.sleep(3)
+            
+            # 输入邮箱
+            inputs = self.driver.find_elements(By.CSS_SELECTOR, 'input')
+            for inp in inputs:
+                placeholder = inp.get_attribute('placeholder')
+                if placeholder and '邮箱' in placeholder:
+                    inp.clear()
+                    inp.send_keys(account.email)
+                    print(f"   邮箱已输入: {account.email}")
                     break
-        
-        time.sleep(3)
-        
-        # 获取验证码
-        print("获取验证码...")
-        self.email_receiver.connect()
-        code = self.email_receiver.wait_for_verification_code(
-            to_email=account.email,
-            timeout=120,
-            poll_interval=5
-        )
-        self.email_receiver.disconnect()
-        
-        if not code:
-            print("✗ 验证码获取失败")
+            
+            # 等待 Cloudflare
+            print("等待 Cloudflare...")
+            cf_passed = False
+            for _ in range(60):
+                page = self.driver.page_source
+                if '验证成功' in page or '成功' in page:
+                    cf_passed = True
+                    print("   ✓ Cloudflare 通过")
+                    break
+                time.sleep(1)
+            
+            if not cf_passed:
+                print("   ⚠️ Cloudflare 超时，继续尝试...")
+            
+            # 点击继续按钮（记录时间戳用于过滤旧邮件）
+            time.sleep(2)
+            request_time = time.time()  # 记录请求时间
+            clicked = False
+            for _ in range(10):
+                btns = self.driver.find_elements(By.CSS_SELECTOR, 'button')
+                for btn in btns:
+                    try:
+                        if '使用邮箱继续' in btn.text and not btn.get_attribute('disabled'):
+                            self.driver.execute_script("arguments[0].click()", btn)
+                            clicked = True
+                            print("   ✓ 点击继续")
+                            break
+                    except:
+                        pass
+                if clicked:
+                    break
+                time.sleep(1)
+            
+            time.sleep(3)
+            
+            # 获取验证码（只接受请求时间之后的邮件）
+            print("获取验证码...")
+            self.email_receiver.connect()
+            code = self.email_receiver.wait_for_verification_code(
+                to_email=account.email,
+                timeout=120,
+                poll_interval=5,
+                request_timestamp=request_time
+            )
+            self.email_receiver.disconnect()
+            
+            if not code:
+                print("✗ 验证码获取失败")
+                return False
+            
+            print(f"✓ 验证码: {code}")
+            
+            # 填写验证码
+            inputs = self.driver.find_elements(By.CSS_SELECTOR, 'input')
+            code_inputs = [i for i in inputs if i.get_attribute('maxlength') == '1']
+            
+            if len(code_inputs) >= 6:
+                for i, digit in enumerate(code[:6]):
+                    code_inputs[i].send_keys(digit)
+                    time.sleep(0.15)
+                print("   ✓ 验证码已填写")
+            else:
+                # 备选：尝试其他输入框
+                for i in range(6):
+                    try:
+                        inp = self.driver.find_element(
+                            By.CSS_SELECTOR, f'input[data-testid="undefined-input-{i}"]'
+                        )
+                        inp.send_keys(code[i])
+                        time.sleep(0.1)
+                    except:
+                        pass
+            
+            # 等待登录完成
+            print("等待登录...")
+            time.sleep(8)
+            
+            # 检查登录成功（多种检测方式）
+            page = self.driver.page_source
+            url = self.driver.current_url
+            
+            if any([
+                'AI设计师' in page,
+                'canvas' in url,
+                '立即设计' in page,
+                '工作台' in page
+            ]):
+                print("✓ 登录成功")
+                self.current_account = account
+                return True
+            
+            # 截图调试
+            try:
+                self.driver.save_screenshot('/tmp/lovart_login_debug.png')
+                print("   调试截图: /tmp/lovart_login_debug.png")
+            except:
+                pass
+            
+            print("✗ 登录失败")
             return False
-        
-        print(f"✓ 验证码: {code}")
-        
-        # 填写验证码
-        inputs = self.driver.find_elements(By.CSS_SELECTOR, 'input')
-        code_inputs = [i for i in inputs if i.get_attribute('maxlength') == '1']
-        if len(code_inputs) >= 6:
-            for i, digit in enumerate(code):
-                code_inputs[i].send_keys(digit)
-                time.sleep(0.1)
-        
-        time.sleep(5)
-        
-        # 检查登录成功
-        if 'AI设计师' in self.driver.page_source or 'canvas' in self.driver.current_url:
-            print("✓ 登录成功")
-            self.current_account = account
-            return True
-        
-        print("✗ 登录失败")
-        return False
+            
+        except Exception as e:
+            print(f"✗ 登录异常: {e}")
+            return False
     
     def navigate_to_canvas(self):
         """导航到画布页面"""
         print("打开画布...")
-        # 点击"立即设计"或直接访问 canvas
+        
+        # 先检查是否已在 canvas
+        if 'canvas' in self.driver.current_url or 'home' in self.driver.current_url:
+            print("   已在工作区")
+            time.sleep(2)
+            return
+        
+        # 点击"立即设计"或"开始设计"
         try:
             btns = self.driver.find_elements(By.CSS_SELECTOR, 'button')
             for btn in btns:
-                if '立即设计' in btn.text or '开始' in btn.text:
-                    btn.click()
-                    time.sleep(3)
+                text = btn.text
+                if any(kw in text for kw in ['立即设计', '开始设计', '开始创作', '进入']):
+                    self.driver.execute_script("arguments[0].click()", btn)
+                    print(f"   点击: {text}")
+                    time.sleep(5)
                     return
         except:
             pass
         
-        # 直接访问
-        self.driver.get(self.CANVAS_URL)
+        # 直接访问 home 页面（AI设计师入口）
+        home_url = "https://www.lovart.ai/zh/home"
+        print(f"   访问: {home_url}")
+        self.driver.get(home_url)
         time.sleep(5)
     
     def upload_image(self, image_path: str) -> bool:
-        """上传图片"""
+        """上传图片（点击附件按钮后上传）"""
         print(f"上传图片: {image_path}")
         
-        if not os.path.exists(image_path):
-            print(f"✗ 文件不存在: {image_path}")
+        abs_path = os.path.abspath(image_path)
+        if not os.path.exists(abs_path):
+            print(f"✗ 文件不存在: {abs_path}")
             return False
         
-        # 找到文件输入
         try:
-            file_input = self.driver.find_element(By.CSS_SELECTOR, 'input[type="file"]')
-            file_input.send_keys(os.path.abspath(image_path))
-            print("✓ 图片已上传")
-            time.sleep(3)
-            return True
-        except:
-            pass
-        
-        # 备选：点击上传按钮
-        try:
-            # 找附件/上传按钮
-            self.driver.execute_script('''
-                const btns = document.querySelectorAll('button');
+            # 方法1: 直接找隐藏的 file input
+            file_inputs = self.driver.find_elements(By.CSS_SELECTOR, 'input[type="file"]')
+            for fi in file_inputs:
+                try:
+                    fi.send_keys(abs_path)
+                    print("   ✓ 直接上传成功")
+                    time.sleep(3)
+                    return True
+                except:
+                    pass
+            
+            # 方法2: 点击附件按钮（回形针图标）
+            print("   尝试点击附件按钮...")
+            clicked = self.driver.execute_script('''
+                // 找 rounded-full 按钮（附件按钮）
+                const btns = document.querySelectorAll('button.rounded-full');
                 for (const btn of btns) {
-                    if (btn.querySelector('svg') && btn.className.includes('rounded')) {
+                    if (btn.querySelector('svg')) {
                         btn.click();
-                        break;
+                        return true;
                     }
                 }
+                // 备选：找任何有 svg 的按钮在输入区域附近
+                const allBtns = document.querySelectorAll('button');
+                for (const btn of allBtns) {
+                    if (btn.querySelector('svg') && btn.className.includes('rounded')) {
+                        btn.click();
+                        return true;
+                    }
+                }
+                return false;
             ''')
-            time.sleep(1)
             
-            file_input = self.driver.find_element(By.CSS_SELECTOR, 'input[type="file"]')
-            file_input.send_keys(os.path.abspath(image_path))
-            print("✓ 图片已上传（备选方案）")
+            if clicked:
+                time.sleep(1)
+                # 现在应该有 file input 可见了
+                file_input = self.driver.find_element(By.CSS_SELECTOR, 'input[type="file"]')
+                file_input.send_keys(abs_path)
+                print("   ✓ 通过附件按钮上传成功")
+                time.sleep(3)
+                return True
+            
+            # 方法3: 创建并触发 file input
+            print("   尝试 JS 创建上传...")
+            self.driver.execute_script('''
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.id = '__test_file_input__';
+                input.style.display = 'none';
+                document.body.appendChild(input);
+            ''')
+            time.sleep(0.5)
+            
+            test_input = self.driver.find_element(By.ID, '__test_file_input__')
+            test_input.send_keys(abs_path)
+            print("   ✓ JS 上传成功")
             time.sleep(3)
             return True
+            
         except Exception as e:
+            # 截图调试
+            try:
+                self.driver.save_screenshot('/tmp/lovart_upload_debug.png')
+                print(f"   调试截图: /tmp/lovart_upload_debug.png")
+            except:
+                pass
             print(f"✗ 上传失败: {e}")
             return False
     
