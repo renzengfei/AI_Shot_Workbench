@@ -1415,3 +1415,54 @@ async def set_default_provider(provider_id: str):
     if not success:
         raise HTTPException(status_code=404, detail="供应商不存在")
     return {"success": True}
+
+
+# ============================================================
+# Lovart.ai 视频生成 API
+# ============================================================
+
+from services.lovart_service import get_lovart_service, VideoGenerationRequest
+
+
+@app.get("/api/lovart/stats")
+async def lovart_stats():
+    """获取 Lovart 账号和任务统计"""
+    service = get_lovart_service()
+    return {
+        "accounts": service.get_account_stats(),
+        "tasks": service.get_task_stats()
+    }
+
+
+@app.post("/api/lovart/tasks")
+async def lovart_add_task(request: VideoGenerationRequest):
+    """添加视频生成任务"""
+    service = get_lovart_service()
+    task = service.add_video_task(request)
+    return {"success": True, "task": task}
+
+
+@app.post("/api/lovart/tasks/batch")
+async def lovart_add_tasks_batch(requests: List[VideoGenerationRequest]):
+    """批量添加视频生成任务"""
+    service = get_lovart_service()
+    tasks = service.add_video_tasks_batch(requests)
+    return {"success": True, "tasks": tasks, "count": len(tasks)}
+
+
+@app.get("/api/lovart/tasks")
+async def lovart_list_tasks(status: Optional[str] = None):
+    """获取任务列表"""
+    service = get_lovart_service()
+    tasks = service.get_all_tasks(status)
+    return {"tasks": tasks, "count": len(tasks)}
+
+
+@app.get("/api/lovart/tasks/{task_id}")
+async def lovart_get_task(task_id: str):
+    """获取任务详情"""
+    service = get_lovart_service()
+    task = service.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    return {"task": task}
