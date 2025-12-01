@@ -1474,11 +1474,28 @@ export default function Step3_DeconstructionReview({
                 if (currentWorkspace?.path && generatedDir) {
                     fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-images?generated_dir=${encodeURIComponent(generatedDir)}`)
                         .then(resp => resp.ok ? resp.json() : { indexes: {} })
-                        .then((data: { indexes?: Record<string, number> }) => {
+                        .then((data: { indexes?: Record<string, string | number> }) => {
                             const savedIndexes: Record<number, number> = {};
                             if (data.indexes) {
                                 Object.entries(data.indexes).forEach(([k, v]) => {
-                                    savedIndexes[Number(k)] = v;
+                                    const shotId = Number(k);
+                                    if (typeof v === 'number') {
+                                        // 旧格式：直接是索引
+                                        savedIndexes[shotId] = v;
+                                    } else if (typeof v === 'string') {
+                                        // 新格式：文件名，需要在图片列表中查找索引
+                                        const imgs = normalized[shotId];
+                                        if (imgs) {
+                                            const foundIdx = imgs.findIndex(url => url.endsWith(v) || url.includes(`/${v}`));
+                                            if (foundIdx >= 0) {
+                                                savedIndexes[shotId] = foundIdx;
+                                                console.log(`[DEBUG] Shot ${shotId}: matched filename "${v}" to index ${foundIdx}`);
+                                            } else {
+                                                console.log(`[DEBUG] Shot ${shotId}: filename "${v}" not found, using last`);
+                                                savedIndexes[shotId] = Math.max(0, imgs.length - 1);
+                                            }
+                                        }
+                                    }
                                 });
                             }
                             applyIndexes(savedIndexes);
