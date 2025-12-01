@@ -934,7 +934,7 @@ export const ShotCard = ({
                                                         value={selectedProviderId || providers.find(p => p.is_default)?.id || providers[0]?.id || ''}
                                                         onChange={(e) => onProviderChange?.(shot, index, e.target.value)}
                                                         disabled={isGenerating}
-                                                        className="px-2 py-1 rounded-lg text-[10px] font-medium bg-white/80 border border-slate-200/50 text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50 disabled:opacity-50 normal-case"
+                                                        className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/80 border border-slate-200/50 text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50 disabled:opacity-50 normal-case h-[34px]"
                                                         title="选择生图供应商"
                                                     >
                                                         {providers.map(p => (
@@ -952,7 +952,7 @@ export const ShotCard = ({
                                                         }, 50);
                                                     }}
                                                     disabled={isGenerating}
-                                                    className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case ${
+                                                    className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${
                                                         isGenerating
                                                             ? 'bg-slate-400 text-white cursor-not-allowed'
                                                             : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600'
@@ -1002,7 +1002,7 @@ export const ShotCard = ({
                                                 onClick={() => onGenerateVideo(shot, index)}
                                                 disabled={isGeneratingVideo || !hasGeneratedImages}
                                                 title={!hasGeneratedImages ? '请先生成图片' : '使用当前图片生成视频'}
-                                                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case ${
+                                                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${
                                                     isGeneratingVideo
                                                         ? 'bg-slate-400 text-white cursor-not-allowed'
                                                         : !hasGeneratedImages
