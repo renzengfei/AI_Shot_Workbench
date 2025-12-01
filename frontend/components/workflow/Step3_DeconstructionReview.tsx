@@ -1202,12 +1202,19 @@ export default function Step3_DeconstructionReview({
         setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'pending' }));
         
         try {
+            // 构建输出路径：workspace/assets/videos/shot_{id}/
+            const timestamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14);
+            const outputPath = currentWorkspace?.path
+                ? `${currentWorkspace.path}/assets/videos/shot_${shotId}/video_${timestamp}.mp4`
+                : undefined;
+            
             const resp = await fetch(`${API_BASE}/api/lovart/tasks`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     image_path: imagePath,
                     prompt: prompt,
+                    output_path: outputPath,
                 }),
             });
             

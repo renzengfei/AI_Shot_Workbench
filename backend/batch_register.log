@@ -1,30 +1,32 @@
 <frozen runpy>:128: RuntimeWarning: 'automation.batch_register' found in sys.modules after import of package 'automation', but prior to execution of 'automation.batch_register'; this may result in unpredictable behaviour
-当前账号数: 1
+当前账号数: 2
 
 ############################################################
-# Lovart 批量注册
+# Lovart 批量注册（独立指纹模式）
 # 目标数量: 150
 # 间隔: 1-5 分钟
 ############################################################
 
-启动浏览器...
 
-[1/150] 19:08:02
+[1/150] 20:28:43
+🔐 指纹: 4venolfz3nx4
+   UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) Ap...
+   屏幕: 1920x1080
 
 ==================================================
-注册账号: fanghaopan@aigoogle.top
+注册账号: lilan@aigoogle.top
 ==================================================
 1. 打开 Lovart.ai
 2. 点击注册按钮
 3. 输入邮箱
-   ✓ 邮箱: fanghaopan@aigoogle.top
+   ✓ 邮箱: lilan@aigoogle.top
 4. 等待 Cloudflare 验证...
    ✓ Cloudflare 验证通过
 5. 点击「使用邮箱继续」
    ✓ 已点击
 6. 等待验证码邮件...
-✓ 找到验证码: 947270 (发送到 fanghaopan@aigoogle.top)
-   ✓ 收到验证码: 947270
+✓ 找到验证码: 997079 (发送到 lilan@aigoogle.top)
+   ✓ 收到验证码: 997079
 7. 填写验证码
    ✓ 验证码已填写
 8. 等待注册完成...
@@ -32,4 +34,730 @@
 
 ✓ 成功 (1/1)
 
-⏳ 等待 3 分 41 秒后继续...
+⏳ 等待 3 分 53 秒后继续...
+
+[2/150] 20:33:41
+🔐 指纹: h9d6rkg21yam
+   UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap...
+   屏幕: 1440x900
+
+✗ 浏览器异常: <urlopen error [SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1077)>
+
+⏳ 等待 2 分 2 秒后继续...
+
+[3/150] 20:35:45
+🔐 指纹: mbbv1zs8crza
+   UA: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36...
+   屏幕: 1440x900
+
+✗ 浏览器异常: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=143.0.7499.40)
+Stacktrace:
+0   undetected_chromedriver             0x00000001027ff698 undetected_chromedriver + 6153880
+1   undetected_chromedriver             0x00000001027f6b6a undetected_chromedriver + 6118250
+2   undetected_chromedriver             0x000000010228ba5b undetected_chromedriver + 436827
+3   undetected_chromedriver             0x000000010225fcf0 undetected_chromedriver + 257264
+4   undetected_chromedriver             0x000000010230ce08 undetected_chromedriver + 966152
+5   undetected_chromedriver             0x000000010232c69c undetected_chromedriver + 1095324
+6   undetected_chromedriver             0x00000001022d0b6f undetected_chromedriver + 719727
+7   undetected_chromedriver             0x00000001022d1871 undetected_chromedriver + 723057
+8   undetected_chromedriver             0x00000001027bc011 undetected_chromedriver + 5877777
+9   undetected_chromedriver             0x00000001027c04c2 undetected_chromedriver + 5895362
+10  undetected_chromedriver             0x0000000102798155 undetected_chromedriver + 5730645
+11  undetected_chromedriver             0x00000001027c0f6f undetected_chromedriver + 5898095
+12  undetected_chromedriver             0x0000000102787dc4 undetected_chromedriver + 5664196
+13  undetected_chromedriver             0x00000001027e3b48 undetected_chromedriver + 6040392
+14  undetected_chromedriver             0x00000001027e3d0d undetected_chromedriver + 6040845
+15  undetected_chromedriver             0x00000001027f6751 undetected_chromedriver + 6117201
+16  libsystem_pthread.dylib             0x00007ff81b98de4d _pthread_start + 115
+17  libsystem_pthread.dylib             0x00007ff81b989857 thread_start + 15
+
+
+⏳ 等待 4 分 49 秒后继续...
+
+[4/150] 20:40:42
+🔐 指纹: v1oe07m6j00z
+   UA: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36...
+   屏幕: 2560x1440
+
+==================================================
+注册账号: tangning14@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: tangning14@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 583624 (发送到 tangning14@aigoogle.top)
+   ✓ 收到验证码: 583624
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (2/4)
+
+⏳ 等待 3 分 15 秒后继续...
+
+[5/150] 20:45:07
+🔐 指纹: zeuedjr4cdig
+   UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) Ap...
+   屏幕: 1440x900
+
+==================================================
+注册账号: fanshanhao@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: fanshanhao@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 079660 (发送到 fanshanhao@aigoogle.top)
+   ✓ 收到验证码: 079660
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (3/5)
+
+⏳ 等待 3 分 54 秒后继续...
+
+[6/150] 20:50:03
+🔐 指纹: mzsnp3k4bm5d
+   UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) Ap...
+   屏幕: 2560x1440
+
+==================================================
+注册账号: wuzhihong@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: wuzhihong@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 189136 (发送到 wuzhihong@aigoogle.top)
+   ✓ 收到验证码: 189136
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (4/6)
+
+⏳ 等待 4 分 47 秒后继续...
+
+[7/150] 20:55:47
+🔐 指纹: z40kl8y9pbsy
+   UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb...
+   屏幕: 2560x1440
+
+==================================================
+注册账号: chaowenren@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: chaowenren@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 550870 (发送到 chaowenren@aigoogle.top)
+   ✓ 收到验证码: 550870
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (5/7)
+
+⏳ 等待 5 分 0 秒后继续...
+
+[8/150] 21:01:49
+🔐 指纹: wp07lb4e83o8
+   UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb...
+   屏幕: 1920x1080
+
+==================================================
+注册账号: chengmingdong@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: chengmingdong@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 724742 (发送到 chengmingdong@aigoogle.top)
+   ✓ 收到验证码: 724742
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (6/8)
+
+⏳ 等待 2 分 22 秒后继续...
+
+[9/150] 21:05:09
+🔐 指纹: 3w86v1248otz
+   UA: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36...
+   屏幕: 1440x900
+
+==================================================
+注册账号: huping@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: huping@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 650747 (发送到 huping@aigoogle.top)
+   ✓ 收到验证码: 650747
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (7/9)
+
+⏳ 等待 2 分 26 秒后继续...
+
+[10/150] 21:08:27
+🔐 指纹: xssydnr151fc
+   UA: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36...
+   屏幕: 1280x800
+
+==================================================
+注册账号: heyi@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: heyi@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 335969 (发送到 heyi@aigoogle.top)
+   ✓ 收到验证码: 335969
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (8/10)
+
+⏳ 等待 1 分 10 秒后继续...
+
+[11/150] 21:10:35
+🔐 指纹: 3t2fseonlb90
+   UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) Ap...
+   屏幕: 1366x768
+
+==================================================
+注册账号: yangwang@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: yangwang@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 801411 (发送到 yangwang@aigoogle.top)
+   ✓ 收到验证码: 801411
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (9/11)
+
+⏳ 等待 2 分 41 秒后继续...
+
+[12/150] 21:14:14
+🔐 指纹: bqorl0iyo03c
+   UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap...
+   屏幕: 1280x800
+
+✗ 浏览器异常: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=143.0.7499.40)
+Stacktrace:
+0   undetected_chromedriver             0x0000000104fae698 undetected_chromedriver + 6153880
+1   undetected_chromedriver             0x0000000104fa5b6a undetected_chromedriver + 6118250
+2   undetected_chromedriver             0x0000000104a3aa5b undetected_chromedriver + 436827
+3   undetected_chromedriver             0x0000000104a0ecf0 undetected_chromedriver + 257264
+4   undetected_chromedriver             0x0000000104abbe08 undetected_chromedriver + 966152
+5   undetected_chromedriver             0x0000000104adb69c undetected_chromedriver + 1095324
+6   undetected_chromedriver             0x0000000104a7fb6f undetected_chromedriver + 719727
+7   undetected_chromedriver             0x0000000104a80871 undetected_chromedriver + 723057
+8   undetected_chromedriver             0x0000000104f6b011 undetected_chromedriver + 5877777
+9   undetected_chromedriver             0x0000000104f6f4c2 undetected_chromedriver + 5895362
+10  undetected_chromedriver             0x0000000104f47155 undetected_chromedriver + 5730645
+11  undetected_chromedriver             0x0000000104f6ff6f undetected_chromedriver + 5898095
+12  undetected_chromedriver             0x0000000104f36dc4 undetected_chromedriver + 5664196
+13  undetected_chromedriver             0x0000000104f92b48 undetected_chromedriver + 6040392
+14  undetected_chromedriver             0x0000000104f92d0d undetected_chromedriver + 6040845
+15  undetected_chromedriver             0x0000000104fa5751 undetected_chromedriver + 6117201
+16  libsystem_pthread.dylib             0x00007ff81b98de4d _pthread_start + 115
+17  libsystem_pthread.dylib             0x00007ff81b989857 thread_start + 15
+
+
+⏳ 等待 4 分 7 秒后继续...
+
+[13/150] 21:18:29
+🔐 指纹: nfgzj5aey8tb
+   UA: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36...
+   屏幕: 1366x768
+
+==================================================
+注册账号: hankai@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: hankai@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 157293 (发送到 hankai@aigoogle.top)
+   ✓ 收到验证码: 157293
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (10/13)
+
+⏳ 等待 4 分 11 秒后继续...
+
+[14/150] 21:23:38
+🔐 指纹: rfvu530ed435
+   UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb...
+   屏幕: 1440x900
+
+✗ 浏览器异常: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=143.0.7499.40)
+Stacktrace:
+0   undetected_chromedriver             0x00000001048c3698 undetected_chromedriver + 6153880
+1   undetected_chromedriver             0x00000001048bab6a undetected_chromedriver + 6118250
+2   undetected_chromedriver             0x000000010434fa5b undetected_chromedriver + 436827
+3   undetected_chromedriver             0x0000000104323cf0 undetected_chromedriver + 257264
+4   undetected_chromedriver             0x00000001043d0e08 undetected_chromedriver + 966152
+5   undetected_chromedriver             0x00000001043f069c undetected_chromedriver + 1095324
+6   undetected_chromedriver             0x0000000104394b6f undetected_chromedriver + 719727
+7   undetected_chromedriver             0x0000000104395871 undetected_chromedriver + 723057
+8   undetected_chromedriver             0x0000000104880011 undetected_chromedriver + 5877777
+9   undetected_chromedriver             0x00000001048844c2 undetected_chromedriver + 5895362
+10  undetected_chromedriver             0x000000010485c155 undetected_chromedriver + 5730645
+11  undetected_chromedriver             0x0000000104884f6f undetected_chromedriver + 5898095
+12  undetected_chromedriver             0x000000010484bdc4 undetected_chromedriver + 5664196
+13  undetected_chromedriver             0x00000001048a7b48 undetected_chromedriver + 6040392
+14  undetected_chromedriver             0x00000001048a7d0d undetected_chromedriver + 6040845
+15  undetected_chromedriver             0x00000001048ba751 undetected_chromedriver + 6117201
+16  libsystem_pthread.dylib             0x00007ff81b98de4d _pthread_start + 115
+17  libsystem_pthread.dylib             0x00007ff81b989857 thread_start + 15
+
+
+⏳ 等待 4 分 12 秒后继续...
+
+[15/150] 21:27:58
+🔐 指纹: ivenxb5r16y1
+   UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb...
+   屏幕: 1440x900
+
+==================================================
+注册账号: fanna35@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: fanna35@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 272550 (发送到 fanna35@aigoogle.top)
+   ✓ 收到验证码: 272550
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (11/15)
+
+⏳ 等待 3 分 27 秒后继续...
+
+[16/150] 21:32:22
+🔐 指纹: 2rgebklaziss
+   UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb...
+   屏幕: 1366x768
+
+==================================================
+注册账号: nasu@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: nasu@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 132311 (发送到 nasu@aigoogle.top)
+   ✓ 收到验证码: 132311
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (12/16)
+
+⏳ 等待 2 分 51 秒后继续...
+
+[17/150] 21:36:10
+🔐 指纹: a6tm7lenqhy8
+   UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap...
+   屏幕: 1920x1080
+
+==================================================
+注册账号: chenqiang33@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: chenqiang33@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 196982 (发送到 chenqiang33@aigoogle.top)
+   ✓ 收到验证码: 196982
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (13/17)
+
+⏳ 等待 2 分 9 秒后继续...
+
+[18/150] 21:39:16
+🔐 指纹: s7quaz8zde3j
+   UA: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36...
+   屏幕: 1280x800
+
+==================================================
+注册账号: caoyubin@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: caoyubin@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 294203 (发送到 caoyubin@aigoogle.top)
+   ✓ 收到验证码: 294203
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (14/18)
+
+⏳ 等待 4 分 58 秒后继续...
+
+[19/150] 21:45:19
+🔐 指纹: qepz3ki4h2v5
+   UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap...
+   屏幕: 1280x800
+
+==================================================
+注册账号: pengqiangsu@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: pengqiangsu@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 027802 (发送到 pengqiangsu@aigoogle.top)
+   ✓ 收到验证码: 027802
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (15/19)
+
+⏳ 等待 4 分 29 秒后继续...
+
+[20/150] 21:50:39
+🔐 指纹: vdigphwufs9l
+   UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap...
+   屏幕: 2560x1440
+
+==================================================
+注册账号: tingningma@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: tingningma@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 119207 (发送到 tingningma@aigoogle.top)
+   ✓ 收到验证码: 119207
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (16/20)
+
+⏳ 等待 3 分 55 秒后继续...
+
+[21/150] 21:55:36
+🔐 指纹: fhjunroyir2s
+   UA: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36...
+   屏幕: 1920x1080
+
+==================================================
+注册账号: jiajin@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: jiajin@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 930506 (发送到 jiajin@aigoogle.top)
+   ✓ 收到验证码: 930506
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (17/21)
+
+⏳ 等待 2 分 42 秒后继续...
+
+[22/150] 21:59:22
+🔐 指纹: up7s9k98zh1o
+   UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb...
+   屏幕: 2560x1440
+
+==================================================
+注册账号: wuhua86@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: wuhua86@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 317842 (发送到 wuhua86@aigoogle.top)
+   ✓ 收到验证码: 317842
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (18/22)
+
+⏳ 等待 3 分 21 秒后继续...
+
+[23/150] 22:03:42
+🔐 指纹: jnet4vmsmc6s
+   UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap...
+   屏幕: 1536x864
+
+✗ 浏览器异常: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=143.0.7499.40)
+Stacktrace:
+0   undetected_chromedriver             0x0000000102cef698 undetected_chromedriver + 6153880
+1   undetected_chromedriver             0x0000000102ce6b6a undetected_chromedriver + 6118250
+2   undetected_chromedriver             0x000000010277ba5b undetected_chromedriver + 436827
+3   undetected_chromedriver             0x000000010274fcf0 undetected_chromedriver + 257264
+4   undetected_chromedriver             0x00000001027fce08 undetected_chromedriver + 966152
+5   undetected_chromedriver             0x000000010281c69c undetected_chromedriver + 1095324
+6   undetected_chromedriver             0x00000001027c0b6f undetected_chromedriver + 719727
+7   undetected_chromedriver             0x00000001027c1871 undetected_chromedriver + 723057
+8   undetected_chromedriver             0x0000000102cac011 undetected_chromedriver + 5877777
+9   undetected_chromedriver             0x0000000102cb04c2 undetected_chromedriver + 5895362
+10  undetected_chromedriver             0x0000000102c88155 undetected_chromedriver + 5730645
+11  undetected_chromedriver             0x0000000102cb0f6f undetected_chromedriver + 5898095
+12  undetected_chromedriver             0x0000000102c77dc4 undetected_chromedriver + 5664196
+13  undetected_chromedriver             0x0000000102cd3b48 undetected_chromedriver + 6040392
+14  undetected_chromedriver             0x0000000102cd3d0d undetected_chromedriver + 6040845
+15  undetected_chromedriver             0x0000000102ce6751 undetected_chromedriver + 6117201
+16  libsystem_pthread.dylib             0x00007ff81b98de4d _pthread_start + 115
+17  libsystem_pthread.dylib             0x00007ff81b989857 thread_start + 15
+
+
+⏳ 等待 1 分 36 秒后继续...
+
+[24/150] 22:05:26
+🔐 指纹: w1lf1x9q9yw7
+   UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb...
+   屏幕: 2560x1440
+
+✗ 浏览器异常: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=143.0.7499.40)
+Stacktrace:
+0   undetected_chromedriver             0x0000000104e22698 undetected_chromedriver + 6153880
+1   undetected_chromedriver             0x0000000104e19b6a undetected_chromedriver + 6118250
+2   undetected_chromedriver             0x00000001048aea5b undetected_chromedriver + 436827
+3   undetected_chromedriver             0x0000000104882cf0 undetected_chromedriver + 257264
+4   undetected_chromedriver             0x000000010492fe08 undetected_chromedriver + 966152
+5   undetected_chromedriver             0x000000010494f69c undetected_chromedriver + 1095324
+6   undetected_chromedriver             0x00000001048f3b6f undetected_chromedriver + 719727
+7   undetected_chromedriver             0x00000001048f4871 undetected_chromedriver + 723057
+8   undetected_chromedriver             0x0000000104ddf011 undetected_chromedriver + 5877777
+9   undetected_chromedriver             0x0000000104de34c2 undetected_chromedriver + 5895362
+10  undetected_chromedriver             0x0000000104dbb155 undetected_chromedriver + 5730645
+11  undetected_chromedriver             0x0000000104de3f6f undetected_chromedriver + 5898095
+12  undetected_chromedriver             0x0000000104daadc4 undetected_chromedriver + 5664196
+13  undetected_chromedriver             0x0000000104e06b48 undetected_chromedriver + 6040392
+14  undetected_chromedriver             0x0000000104e06d0d undetected_chromedriver + 6040845
+15  undetected_chromedriver             0x0000000104e19751 undetected_chromedriver + 6117201
+16  libsystem_pthread.dylib             0x00007ff81b98de4d _pthread_start + 115
+17  libsystem_pthread.dylib             0x00007ff81b989857 thread_start + 15
+
+
+⏳ 等待 4 分 52 秒后继续...
+
+[25/150] 22:10:26
+🔐 指纹: mvhgtpjm7pli
+   UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb...
+   屏幕: 2560x1440
+
+==================================================
+注册账号: jiefengxie@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: jiefengxie@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 320798 (发送到 jiefengxie@aigoogle.top)
+   ✓ 收到验证码: 320798
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (19/25)
+
+⏳ 等待 2 分 8 秒后继续...
+
+[26/150] 22:13:40
+🔐 指纹: njavg1ecw3p0
+   UA: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36...
+   屏幕: 1680x1050
+
+==================================================
+注册账号: xinpeng@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: xinpeng@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 514900 (发送到 xinpeng@aigoogle.top)
+   ✓ 收到验证码: 514900
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (20/26)
+
+⏳ 等待 1 分 58 秒后继续...
+
+[27/150] 22:16:35
+🔐 指纹: va8ttlkod1mg
+   UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb...
+   屏幕: 2560x1440
+
+==================================================
+注册账号: guowen@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: guowen@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 974958 (发送到 guowen@aigoogle.top)
+   ✓ 收到验证码: 974958
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (21/27)
+
+⏳ 等待 4 分 35 秒后继续...
+/opt/homebrew/Cellar/python@3.14/3.14.0_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/resource_tracker.py:297: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown: {'/mp-3ejxc3uk'}
+  warnings.warn(

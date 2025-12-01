@@ -1,0 +1,29 @@
+{
+  "cuts": [
+    0,
+    1.9,
+    4.433,
+    6.767,
+    9.3,
+    11.833,
+    14.4,
+    17.036,
+    17.586,
+    18.433,
+    20.1,
+    21.533,
+    22.9,
+    24.1,
+    26.633,
+    29.2
+  ],
+  "video_url": "http://localhost:8000/uploads/%23shorts%23rumi%23huntrix%23kpop%23funny.mp4",
+  "file_name": "#shorts#rumi#huntrix#kpop#funny.mp4",
+  "duration": 29.280363,
+  "session_id": "e0139aff26c0",
+  "edit_video_url": "http://localhost:8000/uploads/%23shorts%23rumi%23huntrix%23kpop%23funny.mp4",
+  "source_url": "https://www.youtube.com/shorts/PLKDWrRyFxg",
+  "hidden_segments": [
+    17.036
+  ]
+}

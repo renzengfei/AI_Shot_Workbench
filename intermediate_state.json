@@ -1,0 +1,74 @@
+{
+    "skeleton_changes": [
+        {
+            "shot_id": 2,
+            "action": "DELETE",
+            "reason": "Redundant transition. Crowd context is established in Shot 3."
+        },
+        {
+            "shot_id": 4,
+            "action": "DELETE",
+            "reason": "Weak action (stomping). Move directly to solution finding (Shot 5) for faster pace."
+        },
+        {
+            "shot_id": 6,
+            "action": "DELETE",
+            "reason": "Weak reaction (smiling). Does not add viral value."
+        },
+        {
+            "shot_id": 13,
+            "action": "DELETE",
+            "reason": "Redundant reaction. Cut directly from Protagonist seeing (Shot 12) to Reveal (Shot 14) for impact."
+        }
+    ],
+    "viral_modifications": [
+        {
+            "original": "蓝色液体",
+            "replacement": "发光的紫色粘液 (Glowing Purple Slime)",
+            "reason": "Anomaly + Mystery. Purple is often associated with poison/magic in gaming.",
+            "affected_shots": [
+                1
+            ],
+            "element_type": "Anomaly/Mystery"
+        },
+        {
+            "original": "泳圈",
+            "replacement": "黄金甜甜圈 (Golden Donuts)",
+            "reason": "Money (Gold) + Anomaly (Giant Donuts). Visual interest.",
+            "affected_shots": [
+                5,
+                7,
+                8,
+                9,
+                11
+            ],
+            "element_type": "Money/Anomaly"
+        },
+        {
+            "original": "冰淇淋",
+            "replacement": "成堆的美金 (Pile of Cash)",
+            "reason": "Money element. Godzilla eating cash is absurd and hits the 'Money' desire.",
+            "affected_shots": [
+                14
+            ],
+            "element_type": "Money/Absurd"
+        }
+    ],
+    "hook_alternatives": [
+        {
+            "type": "Conservative",
+            "description": "Keep Blue Liquid, enhance flow dynamics.",
+            "viral_score": 70
+        },
+        {
+            "type": "Aggressive",
+            "description": "Glowing Purple Slime + Eyes Popping Out (Cartoon style).",
+            "viral_score": 90
+        },
+        {
+            "type": "Revolutionary",
+            "description": "Protagonist head explodes into water (Safe version) or turns into a fountain.",
+            "viral_score": 95
+        }
+    ]
+}

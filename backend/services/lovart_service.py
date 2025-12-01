@@ -75,6 +75,11 @@ class LovartService:
         else:
             output_path = request.output_path
         
+        # 确保输出目录存在
+        output_dir = os.path.dirname(output_path)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+        
         # 添加任务
         task = self.batch_generator.add_task(
             image_path=request.image_path,
