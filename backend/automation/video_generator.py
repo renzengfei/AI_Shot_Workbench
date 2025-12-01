@@ -624,24 +624,43 @@ class VideoGenerator:
             
             if input_box:
                 input_box.click()
-                time.sleep(0.5)
+                time.sleep(0.3)
                 
-                # 使用 JS 输入（更可靠）
-                tag_name = input_box.tag_name.lower()
-                if tag_name in ['input', 'textarea']:
-                    input_box.clear()
-                    input_box.send_keys(full_prompt)
-                else:
-                    # contenteditable div
-                    self.driver.execute_script(
-                        "arguments[0].innerText = arguments[1]", 
-                        input_box, full_prompt
-                    )
-                time.sleep(0.5)
-                
-                # 按 Enter 发送
                 from selenium.webdriver.common.keys import Keys
-                input_box.send_keys(Keys.ENTER)
+                import subprocess
+                
+                # 使用剪贴板粘贴（对 Lexical 编辑器更可靠）
+                # 复制提示词到剪贴板
+                subprocess.run(['pbcopy'], input=full_prompt.encode('utf-8'), check=True)
+                
+                # 移动到末尾（Cmd+End）
+                input_box.send_keys(Keys.COMMAND + Keys.ARROW_DOWN)
+                time.sleep(0.2)
+                
+                # 添加空格分隔
+                input_box.send_keys(' ')
+                
+                # 粘贴（Cmd+V）
+                input_box.send_keys(Keys.COMMAND + 'v')
+                time.sleep(0.8)
+                
+                # 截图确认输入
+                self.driver.save_screenshot('/tmp/before_send.png')
+                
+                # 点击发送按钮
+                try:
+                    send_btn = self.driver.find_element(
+                        By.CSS_SELECTOR, 'button[data-testid="agent-send-button"]'
+                    )
+                    # 确保按钮可点击
+                    if not send_btn.get_attribute('disabled'):
+                        send_btn.click()
+                    else:
+                        print("   发送按钮被禁用，尝试 Enter")
+                        input_box.send_keys(Keys.ENTER)
+                except:
+                    # 备用: 按 Enter 发送
+                    input_box.send_keys(Keys.ENTER)
                 
                 print("✓ 提示词已发送")
                 return True
