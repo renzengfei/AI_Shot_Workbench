@@ -16,6 +16,8 @@ class Account:
     daily_used: int = 0
     last_used_date: str = ""
     status: str = "active"  # active, banned, cooldown
+    fingerprint_id: str = ""  # 关联的浏览器指纹 ID
+    created_at: str = ""  # 创建时间
 
 @dataclass
 class ImapConfig:
@@ -92,9 +94,15 @@ class AccountPool:
         account.daily_used += 1
         self._save()
     
-    def add_account(self, email: str, password: str) -> Account:
+    def add_account(self, email: str, password: str, fingerprint_id: str = "") -> Account:
         """添加新账号"""
-        acc = Account(email=email, password=password)
+        from datetime import datetime
+        acc = Account(
+            email=email, 
+            password=password,
+            fingerprint_id=fingerprint_id,
+            created_at=datetime.now().isoformat()
+        )
         self.accounts.append(acc)
         self._save()
         return acc

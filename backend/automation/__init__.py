@@ -8,11 +8,13 @@ from .batch_register import BatchRegister
 from .batch_video import BatchVideoGenerator, VideoTask
 from .browser_pool import BrowserPool, get_browser_pool
 from .parallel_register import ParallelRegister
+from .fingerprint_manager import FingerprintManager, BrowserFingerprint, get_fingerprint_manager
 
 __all__ = [
     "AccountPool", "Account", "ImapConfig", 
     "EmailReceiver", "LovartAutomation", "LovartUC",
     "VideoGenerator", "BatchRegister",
     "BatchVideoGenerator", "VideoTask",
-    "BrowserPool", "get_browser_pool", "ParallelRegister"
+    "BrowserPool", "get_browser_pool", "ParallelRegister",
+    "FingerprintManager", "BrowserFingerprint", "get_fingerprint_manager"
 ]

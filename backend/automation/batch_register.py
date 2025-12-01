@@ -5,6 +5,7 @@ Lovart.ai 批量注册工具
 - 自动获取验证码
 - 随机间隔 1-5 分钟
 - 保存账号到 accounts.json
+- 每个账号独立指纹
 """
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
@@ -20,6 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from automation.account_pool import AccountPool
 from automation.email_receiver import EmailReceiver
+from automation.fingerprint_manager import get_fingerprint_manager, BrowserFingerprint
 
 
 class BatchRegister:
@@ -30,14 +32,35 @@ class BatchRegister:
     def __init__(self, account_pool: AccountPool):
         self.account_pool = account_pool
         self.email_receiver = EmailReceiver(account_pool.imap_config)
+        self.fingerprint_manager = get_fingerprint_manager()
         self.driver = None
+        self.current_fingerprint = None
         self.registered_count = 0
         self.failed_count = 0
     
-    def launch_browser(self):
-        """启动浏览器"""
-        print("启动浏览器...")
-        self.driver = uc.Chrome(headless=False)
+    def launch_browser(self, email: str = None):
+        """启动浏览器（使用指纹）"""
+        # 先关闭旧浏览器
+        self.close_browser()
+        
+        # 获取或创建指纹
+        if email:
+            self.current_fingerprint = self.fingerprint_manager.get_or_create(email)
+            print(f"🔐 指纹: {self.current_fingerprint.fingerprint_id}")
+            print(f"   UA: {self.current_fingerprint.user_agent[:50]}...")
+            print(f"   屏幕: {self.current_fingerprint.screen_width}x{self.current_fingerprint.screen_height}")
+            
+            options = self.fingerprint_manager.get_chrome_options(self.current_fingerprint)
+            self.driver = uc.Chrome(options=options, headless=False)
+            
+            # 注入指纹 JS
+            self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+                'source': self.fingerprint_manager.get_fingerprint_js(self.current_fingerprint)
+            })
+        else:
+            print("启动浏览器...")
+            self.driver = uc.Chrome(headless=False)
+        
         self.driver.set_window_size(1280, 800)
     
     def close_browser(self):
@@ -169,8 +192,9 @@ class BatchRegister:
             if 'AI设计师' in page_source or 'canvas' in self.driver.current_url:
                 print("   ✓ 注册成功！")
                 
-                # 保存账号
-                self.account_pool.add_account(email, password)
+                # 保存账号（包含指纹 ID）
+                fp_id = self.current_fingerprint.fingerprint_id if self.current_fingerprint else ""
+                self.account_pool.add_account(email, password, fingerprint_id=fp_id)
                 return True
             else:
                 print("   ✗ 注册可能失败")
@@ -192,20 +216,21 @@ class BatchRegister:
             max_interval: 最大间隔（秒），默认 300 秒 = 5 分钟
         """
         print(f"\n{'#'*60}")
-        print(f"# Lovart 批量注册")
+        print(f"# Lovart 批量注册（独立指纹模式）")
         print(f"# 目标数量: {count}")
         print(f"# 间隔: {min_interval//60}-{max_interval//60} 分钟")
         print(f"{'#'*60}\n")
         
-        self.launch_browser()
-        
-        try:
-            for i in range(count):
-                print(f"\n[{i+1}/{count}] {datetime.now().strftime('%H:%M:%S')}")
-                
-                # 生成账号
-                email = self.account_pool.generate_email()
-                password = self.account_pool.generate_password()
+        for i in range(count):
+            print(f"\n[{i+1}/{count}] {datetime.now().strftime('%H:%M:%S')}")
+            
+            # 生成账号
+            email = self.account_pool.generate_email()
+            password = self.account_pool.generate_password()
+            
+            try:
+                # 每个账号启动独立浏览器（独立指纹）
+                self.launch_browser(email)
                 
                 # 注册
                 success = self.register_single(email, password)
@@ -216,23 +241,30 @@ class BatchRegister:
                 else:
                     self.failed_count += 1
                     print(f"\n✗ 失败 ({self.failed_count}/{i+1})")
+                    
+            except Exception as e:
+                print(f"\n✗ 浏览器异常: {e}")
+                self.failed_count += 1
                 
-                # 间隔（除了最后一个）
-                if i < count - 1:
-                    interval = random.randint(min_interval, max_interval)
-                    print(f"\n⏳ 等待 {interval//60} 分 {interval%60} 秒后继续...")
-                    time.sleep(interval)
-        
-        finally:
-            self.close_browser()
+            finally:
+                # 每次注册后关闭浏览器
+                self.close_browser()
             
-            # 打印统计
-            print(f"\n{'='*60}")
-            print(f"批量注册完成")
-            print(f"  成功: {self.registered_count}")
-            print(f"  失败: {self.failed_count}")
-            print(f"  账号保存在: accounts.json")
-            print(f"{'='*60}")
+            # 间隔（除了最后一个）
+            if i < count - 1:
+                interval = random.randint(min_interval, max_interval)
+                print(f"\n⏳ 等待 {interval//60} 分 {interval%60} 秒后继续...")
+                time.sleep(interval)
+        
+        # 打印统计
+        print(f"\n{'='*60}")
+        print(f"批量注册完成")
+        print(f"  成功: {self.registered_count}")
+        print(f"  失败: {self.failed_count}")
+        print(f"  指纹数: {self.fingerprint_manager.stats()['total']}")
+        print(f"  账号保存在: accounts.json")
+        print(f"  指纹保存在: fingerprints/fingerprints.json")
+        print(f"{'='*60}")
 
 
 def main():
