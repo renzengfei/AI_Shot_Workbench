@@ -13,3 +13,4 @@ workspaces/*/assets/
 workspaces/*/export/
 workspaces/*/*/
 frontend/.next
+backend/automation/chrome_profile/
