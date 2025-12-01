@@ -1394,7 +1394,6 @@ export default function Step3_DeconstructionReview({
 
     // Reset image caches when switching workspace or generatedDir
     useEffect(() => {
-        console.log('[DEBUG] Resetting caches, generatedDir:', generatedDir);
         setGeneratedImages({});
         setGeneratedIndexes({});
         // 不要清空 savedIndexes，让拉取 useEffect 异步加载后直接覆盖
@@ -1457,55 +1456,14 @@ export default function Step3_DeconstructionReview({
                     }
                 });
                 setGeneratedImages(normalized);
-                // Load saved indexes from server, fallback to last image for each shot
-                const applyIndexes = (savedIndexes: Record<number, number>) => {
-                    const idxMap: Record<number, number> = {};
-                    Object.entries(normalized).forEach(([k, arr]) => {
-                        const shotId = Number(k);
-                        const saved = savedIndexes[shotId];
-                        if (typeof saved === 'number' && saved >= 0 && saved < arr.length) {
-                            idxMap[shotId] = saved;
-                        } else {
-                            idxMap[shotId] = Math.max(0, arr.length - 1);
-                        }
-                    });
-                    setGeneratedIndexes(idxMap);
-                };
-                if (currentWorkspace?.path && generatedDir) {
-                    fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-images?generated_dir=${encodeURIComponent(generatedDir)}`)
-                        .then(resp => resp.ok ? resp.json() : { indexes: {} })
-                        .then((data: { indexes?: Record<string, string | number> }) => {
-                            const savedIndexes: Record<number, number> = {};
-                            console.log('[DEBUG] selected-images data:', data.indexes);
-                            console.log('[DEBUG] normalized keys:', Object.keys(normalized));
-                            if (data.indexes) {
-                                Object.entries(data.indexes).forEach(([k, v]) => {
-                                    const shotId = Number(k);
-                                    // 尝试多种 key 格式：整数和浮点数
-                                    const imgs = normalized[shotId] || normalized[Math.floor(shotId)] || normalized[`${shotId}.0` as unknown as number];
-                                    console.log(`[DEBUG] Shot ${shotId}: imgs count = ${imgs?.length || 0}, value = "${v}"`);
-                                    if (typeof v === 'number') {
-                                        // 旧格式：直接是索引
-                                        savedIndexes[shotId] = v;
-                                    } else if (typeof v === 'string' && imgs) {
-                                        // 新格式：文件名，需要在图片列表中查找索引
-                                        const foundIdx = imgs.findIndex(url => url.endsWith(v) || url.includes(`/${v}`));
-                                        if (foundIdx >= 0) {
-                                            savedIndexes[shotId] = foundIdx;
-                                            console.log(`[DEBUG] Shot ${shotId}: matched filename "${v}" to index ${foundIdx}`);
-                                        } else {
-                                            console.log(`[DEBUG] Shot ${shotId}: filename "${v}" not found in`, imgs.slice(0, 3));
-                                            savedIndexes[shotId] = Math.max(0, imgs.length - 1);
-                                        }
-                                    }
-                                });
-                            }
-                            applyIndexes(savedIndexes);
-                        })
-                        .catch(() => applyIndexes({}));
-                } else {
-                    applyIndexes({});
-                }
+                // 注意：selected-images 的加载和应用由单独的 useEffect 处理（第 1539-1622 行）
+                // 这里只设置默认索引（最后一张图片），后续会被 savedIndexes 覆盖
+                const defaultIndexes: Record<number, number> = {};
+                Object.entries(normalized).forEach(([k, arr]) => {
+                    const shotId = Number(k);
+                    defaultIndexes[shotId] = Math.max(0, arr.length - 1);
+                });
+                setGeneratedIndexes(defaultIndexes);
             } else {
                 setGeneratedImages({});
                 setGeneratedIndexes({});
@@ -1576,17 +1534,13 @@ export default function Step3_DeconstructionReview({
     useEffect(() => {
         if (!Object.keys(savedIndexes).length) return;
         const savedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string | number> || {};
-        console.log('[DEBUG] Applying savedIndexes:', savedIndexes, 'filenames:', savedFilenames);
         setGeneratedIndexes((prev) => {
             let changed = false;
             const next = { ...prev };
             Object.entries(savedIndexes).forEach(([k, v]) => {
                 const id = Number(k);
                 const imgs = generatedImages[id];
-                if (!imgs || !imgs.length) {
-                    console.log(`[DEBUG] Shot ${id}: no images loaded yet`);
-                    return;
-                }
+                if (!imgs || !imgs.length) return;
                 
                 let targetIdx = v;
                 // 如果 v === -1，说明是文件名格式，需要匹配
@@ -1596,25 +1550,18 @@ export default function Step3_DeconstructionReview({
                         const foundIdx = imgs.findIndex(url => url.endsWith(filename) || url.includes(`/${filename}`));
                         if (foundIdx >= 0) {
                             targetIdx = foundIdx;
-                            console.log(`[DEBUG] Shot ${id}: matched filename "${filename}" to index ${foundIdx}`);
                         } else {
-                            console.log(`[DEBUG] Shot ${id}: filename "${filename}" not found in images`);
-                            return;
+                            return; // 文件名未找到，跳过
                         }
                     } else {
                         return;
                     }
                 }
                 
-                // 只要保存的索引在有效范围内，就强制应用（覆盖 fallback 值）
-                if (targetIdx >= 0 && targetIdx < imgs.length) {
-                    if (prev[id] !== targetIdx) {
-                        console.log(`[DEBUG] Shot ${id}: updating index from ${prev[id]} to ${targetIdx}`);
-                        next[id] = targetIdx;
-                        changed = true;
-                    } else {
-                        console.log(`[DEBUG] Shot ${id}: index already correct (${targetIdx})`);
-                    }
+                // 只要保存的索引在有效范围内，就强制应用（覆盖默认值）
+                if (targetIdx >= 0 && targetIdx < imgs.length && prev[id] !== targetIdx) {
+                    next[id] = targetIdx;
+                    changed = true;
                 }
             });
             return changed ? next : prev;
