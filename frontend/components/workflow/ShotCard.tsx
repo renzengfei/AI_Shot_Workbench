@@ -902,9 +902,51 @@ export const ShotCard = ({
                             {/* 4. 首帧/视频描述 */}
                                 <div className={`flex-shrink-0 ${DESC_WIDTH} ${CARD_HEIGHT} ${CARD_RADIUS} border border-white/30 bg-white/50 backdrop-blur-xl shadow-md ${CARD_PADDING} flex flex-col ${CARD_GAP} transition-all duration-300 hover:bg-white/60 hover:shadow-lg overflow-y-auto`}>
                                 <div className="flex flex-col gap-2 basis-[58%] min-h-0 overflow-hidden">
-                                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500 flex-shrink-0">
-                                        <span>首帧描述</span>
-                                        {renderAnnotationControl?.(`shot-${shot.id ?? index}-initial`, `Shot #${shot.id ?? index + 1} Initial Frame`)}
+                                    <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500 flex-shrink-0">
+                                        <div className="flex items-center gap-2">
+                                            <span>首帧描述</span>
+                                            {renderAnnotationControl?.(`shot-${shot.id ?? index}-initial`, `Shot #${shot.id ?? index + 1} Initial Frame`)}
+                                        </div>
+                                        {/* 生图按钮 */}
+                                        {showGeneration && (
+                                            <div className="flex items-center gap-2">
+                                                {providers.length > 0 && (
+                                                    <select
+                                                        value={selectedProviderId || providers.find(p => p.is_default)?.id || providers[0]?.id || ''}
+                                                        onChange={(e) => onProviderChange?.(shot, index, e.target.value)}
+                                                        disabled={isGenerating}
+                                                        className="px-2 py-1 rounded-lg text-[10px] font-medium bg-white/80 border border-slate-200/50 text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50 disabled:opacity-50 normal-case"
+                                                        title="选择生图供应商"
+                                                    >
+                                                        {providers.map(p => (
+                                                            <option key={p.id} value={p.id}>
+                                                                {p.name}{p.is_default ? ' ✓' : ''}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                )}
+                                                <button
+                                                    onClick={() => {
+                                                        (document.activeElement as HTMLElement)?.blur();
+                                                        setTimeout(() => {
+                                                            onGenerateImage?.(shot, index, selectedProviderId);
+                                                        }, 50);
+                                                    }}
+                                                    disabled={isGenerating}
+                                                    className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case ${
+                                                        isGenerating
+                                                            ? 'bg-slate-400 text-white cursor-not-allowed'
+                                                            : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600'
+                                                    }`}
+                                                >
+                                                    {isGenerating ? (
+                                                        <><Loader2 size={12} className="animate-spin" />生成中</>
+                                                    ) : (
+                                                        <><Wand2 size={12} />生图</>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="flex-1 min-h-0 overflow-y-auto">
                                     {renderFieldWithRevision(
