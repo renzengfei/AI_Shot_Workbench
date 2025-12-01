@@ -81,15 +81,40 @@ class VideoGenerator:
             ''')
             time.sleep(3)
             
-            # 输入邮箱
-            inputs = self.driver.find_elements(By.CSS_SELECTOR, 'input')
-            for inp in inputs:
-                placeholder = inp.get_attribute('placeholder')
-                if placeholder and '邮箱' in placeholder:
-                    inp.clear()
-                    inp.send_keys(account.email)
+            # 输入邮箱（多种选择器尝试）
+            email_entered = False
+            for _ in range(10):
+                try:
+                    # 方法1: type="email"
+                    email_input = self.driver.find_element(By.CSS_SELECTOR, 'input[type="email"]')
+                    email_input.clear()
+                    email_input.send_keys(account.email)
+                    email_entered = True
                     print(f"   邮箱已输入: {account.email}")
                     break
+                except:
+                    pass
+                
+                # 方法2: placeholder 包含邮箱
+                inputs = self.driver.find_elements(By.CSS_SELECTOR, 'input')
+                for inp in inputs:
+                    try:
+                        placeholder = inp.get_attribute('placeholder') or ''
+                        input_type = inp.get_attribute('type') or ''
+                        if '邮箱' in placeholder or 'email' in input_type.lower():
+                            inp.clear()
+                            inp.send_keys(account.email)
+                            email_entered = True
+                            print(f"   邮箱已输入: {account.email}")
+                            break
+                    except:
+                        pass
+                if email_entered:
+                    break
+                time.sleep(1)
+            
+            if not email_entered:
+                print("   ⚠️ 未找到邮箱输入框")
             
             # 等待 Cloudflare
             print("等待 Cloudflare...")
@@ -196,13 +221,34 @@ class VideoGenerator:
             print(f"✗ 登录异常: {e}")
             return False
     
+    def close_popups(self):
+        """关闭可能的弹窗"""
+        try:
+            self.driver.execute_script('''
+                // 点击"放弃免费积分"或关闭按钮
+                const btns = document.querySelectorAll('button');
+                for (const btn of btns) {
+                    if (btn.textContent.includes('放弃')) {
+                        btn.click(); return;
+                    }
+                }
+                // 点击 X 关闭
+                const closeBtn = document.querySelector('[class*="close"]');
+                if (closeBtn) closeBtn.click();
+            ''')
+            time.sleep(0.5)
+        except:
+            pass
+    
     def navigate_to_canvas(self):
         """导航到画布页面"""
         print("打开画布...")
+        self.close_popups()
         
         # 先检查是否已在 canvas
         if 'canvas' in self.driver.current_url or 'home' in self.driver.current_url:
             print("   已在工作区")
+            self.close_popups()
             time.sleep(2)
             return
         
@@ -228,6 +274,10 @@ class VideoGenerator:
     def upload_image(self, image_path: str) -> bool:
         """上传图片（点击附件按钮后上传）"""
         print(f"上传图片: {image_path}")
+        
+        # 先关闭弹窗
+        self.close_popups()
+        time.sleep(1)
         
         abs_path = os.path.abspath(image_path)
         if not os.path.exists(abs_path):
