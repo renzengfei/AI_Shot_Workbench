@@ -287,25 +287,21 @@ export default function Step3_DeconstructionReview({
             mergedLen = merged.length;
             return { ...prev, [shotId]: merged };
         });
-        // 只有当该 shot 没有已保存的索引时才设置为最后一张
+        // 设置默认浏览索引（如果还没有的话）
+        // 注意：选中图片的匹配由专门的 useEffect 处理（依赖 savedIndexes + generatedImages）
         setGeneratedIndexes((prev) => {
             if (typeof prev[shotId] === 'number') return prev;
-            const saved = savedIndexesRef.current[shotId];
-            if (typeof saved === 'number' && saved >= 0 && saved < mergedLen) {
-                return { ...prev, [shotId]: saved };
-            }
-            // 尝试文件名匹配（saved === -1 表示文件名格式）
-            if (saved === -1) {
-                const savedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string | number> || {};
-                const filename = savedFilenames[String(shotId)];
-                if (typeof filename === 'string') {
-                    const imgs = generatedImagesRef.current[shotId] || [];
-                    const foundIdx = imgs.findIndex(url => url.endsWith(filename) || url.includes(`/${filename}`));
-                    if (foundIdx >= 0) {
-                        return { ...prev, [shotId]: foundIdx };
-                    }
+            // 先尝试从 window 临时变量中获取文件名匹配
+            const savedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string | number> || {};
+            const filename = savedFilenames[String(shotId)];
+            if (typeof filename === 'string') {
+                const imgs = generatedImagesRef.current[shotId] || [];
+                const foundIdx = imgs.findIndex(url => url.endsWith(filename) || url.includes(`/${filename}`));
+                if (foundIdx >= 0) {
+                    return { ...prev, [shotId]: foundIdx };
                 }
             }
+            // 否则默认最后一张
             return { ...prev, [shotId]: Math.max(0, mergedLen - 1) };
         });
         setNewlyGenerated((prev) => {
@@ -350,25 +346,20 @@ export default function Step3_DeconstructionReview({
                 mergedLen = merged.length;
                 return { ...prev, [shotId]: merged };
             });
-            // 只有当该 shot 没有已保存的索引时才设置为最后一张
+            // 设置默认浏览索引（如果还没有的话）
             setGeneratedIndexes((prev) => {
                 if (typeof prev[shotId] === 'number') return prev;
-                const saved = savedIndexesRef.current[shotId];
-                if (typeof saved === 'number' && saved >= 0 && saved < mergedLen) {
-                    return { ...prev, [shotId]: saved };
-                }
-                // 尝试文件名匹配（saved === -1 表示文件名格式）
-                if (saved === -1) {
-                    const savedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string | number> || {};
-                    const filename = savedFilenames[String(shotId)];
-                    if (typeof filename === 'string') {
-                        const imgs = generatedImagesRef.current[shotId] || [];
-                        const foundIdx = imgs.findIndex(url => url.endsWith(filename) || url.includes(`/${filename}`));
-                        if (foundIdx >= 0) {
-                            return { ...prev, [shotId]: foundIdx };
-                        }
+                // 先尝试从 window 临时变量中获取文件名匹配
+                const savedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string | number> || {};
+                const filename = savedFilenames[String(shotId)];
+                if (typeof filename === 'string') {
+                    const imgs = generatedImagesRef.current[shotId] || [];
+                    const foundIdx = imgs.findIndex(url => url.endsWith(filename) || url.includes(`/${filename}`));
+                    if (foundIdx >= 0) {
+                        return { ...prev, [shotId]: foundIdx };
                     }
                 }
+                // 否则默认最后一张
                 return { ...prev, [shotId]: Math.max(0, mergedLen - 1) };
             });
             probedShotsRef.current.add(shotId);
