@@ -51,33 +51,48 @@ class LovartAutomation:
         if account_pool.imap_config:
             self.email_receiver = EmailReceiver(account_pool.imap_config)
     
-    async def launch_browser(self):
-        """启动浏览器（使用系统 Chrome）"""
+    async def launch_browser(self, user_data_dir: str = None):
+        """
+        启动浏览器（使用持久化配置文件绕过 Cloudflare）
+        
+        Args:
+            user_data_dir: Chrome 用户数据目录，用于保存登录状态和绕过 Cloudflare
+        """
         self._playwright = await async_playwright().start()
         
-        # 使用系统安装的 Chrome 浏览器
-        self.browser = await self._playwright.chromium.launch(
-            headless=self.headless,
-            channel="chrome",  # 使用系统 Chrome
-            args=[
-                "--disable-blink-features=AutomationControlled",
-                "--no-sandbox",
-            ]
-        )
+        # 默认用户数据目录
+        if not user_data_dir:
+            import os
+            user_data_dir = os.path.join(os.path.dirname(__file__), "chrome_profile")
+            os.makedirs(user_data_dir, exist_ok=True)
         
-        self.context = await self.browser.new_context(
+        # 使用持久化上下文（保存 cookies 和 Cloudflare 验证状态）
+        self.context = await self._playwright.chromium.launch_persistent_context(
+            user_data_dir=user_data_dir,
+            headless=self.headless,
+            channel="chrome",
             viewport={"width": 1920, "height": 1080},
             locale="zh-CN",
             timezone_id="Asia/Shanghai",
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+            ],
         )
         
         # 注入反检测脚本
         await self.context.add_init_script("""
             Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
             Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+            Object.defineProperty(navigator, 'languages', { get: () => ['zh-CN', 'zh', 'en'] });
         """)
         
-        self.page = await self.context.new_page()
+        # 使用现有页面或创建新页面
+        pages = self.context.pages
+        self.page = pages[0] if pages else await self.context.new_page()
+        self.browser = None  # persistent context 没有单独的 browser
+        
         return self.page
     
     async def close(self):
