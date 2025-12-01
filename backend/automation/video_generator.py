@@ -26,7 +26,10 @@ class VideoGenerator:
     """Lovart.ai 视频生成器"""
     
     BASE_URL = "https://www.lovart.ai/zh"
-    CANVAS_URL = "https://www.lovart.ai/canvas"
+    HOME_URL = "https://www.lovart.ai/zh/home"
+    
+    # 视频生成提示词前缀（使用 Hailuo 2.3 首尾帧功能）
+    VIDEO_PROMPT_PREFIX = "请严格采用Hailuo 2.3模型中的首尾帧功能，生成6秒的高清视频，请严格按照视频提示词进行生成："
     
     def __init__(self, account_pool: AccountPool):
         self.account_pool = account_pool
@@ -248,36 +251,26 @@ class VideoGenerator:
         except:
             pass
     
-    def navigate_to_canvas(self):
-        """导航到画布页面"""
-        print("打开画布...")
+    def navigate_to_home(self):
+        """导航到 Home 页面（视频生成入口）"""
+        print("打开 Home 页面...")
         self.close_popups()
         
-        # 先检查是否已在 canvas
-        if 'canvas' in self.driver.current_url or 'home' in self.driver.current_url:
-            print("   已在工作区")
+        # 检查是否已在 home
+        if '/home' in self.driver.current_url:
+            print("   已在 Home 页面")
             self.close_popups()
             time.sleep(2)
             return
         
-        # 点击"立即设计"或"开始设计"
-        try:
-            btns = self.driver.find_elements(By.CSS_SELECTOR, 'button')
-            for btn in btns:
-                text = btn.text
-                if any(kw in text for kw in ['立即设计', '开始设计', '开始创作', '进入']):
-                    self.driver.execute_script("arguments[0].click()", btn)
-                    print(f"   点击: {text}")
-                    time.sleep(5)
-                    return
-        except:
-            pass
-        
-        # 直接访问 home 页面（AI设计师入口）
-        home_url = "https://www.lovart.ai/zh/home"
-        print(f"   访问: {home_url}")
-        self.driver.get(home_url)
+        # 直接访问 home 页面
+        print(f"   访问: {self.HOME_URL}")
+        self.driver.get(self.HOME_URL)
         time.sleep(5)
+        
+        # 关闭可能的弹窗
+        self.close_popups()
+        time.sleep(1)
     
     def upload_image(self, image_path: str) -> bool:
         """上传图片（点击附件按钮后上传）"""
@@ -286,52 +279,6 @@ class VideoGenerator:
         # 先关闭弹窗
         self.close_popups()
         time.sleep(1)
-        
-        # 点击 Video 标签进入视频生成模式（更可靠的选择器）
-        video_clicked = False
-        for attempt in range(3):
-            try:
-                result = self.driver.execute_script('''
-                    // 方法1: 找包含 Video 图标和文字的按钮/标签
-                    const elements = document.querySelectorAll('[class*="tab"], [class*="Tag"], button, div');
-                    for (const el of elements) {
-                        const text = el.textContent?.trim();
-                        if (text === 'Video' || text === '🎬 Video' || text === '视频') {
-                            el.click();
-                            return 'clicked_text';
-                        }
-                    }
-                    
-                    // 方法2: 找 data-value="video" 或类似属性
-                    const videoTab = document.querySelector('[data-value="video"], [data-type="video"]');
-                    if (videoTab) {
-                        videoTab.click();
-                        return 'clicked_data';
-                    }
-                    
-                    // 方法3: 通过图标 SVG 路径识别（视频图标通常有播放按钮形状）
-                    const svgs = document.querySelectorAll('svg');
-                    for (const svg of svgs) {
-                        const parent = svg.closest('button, [role="button"], [class*="tab"]');
-                        if (parent && parent.textContent?.includes('Video')) {
-                            parent.click();
-                            return 'clicked_svg_parent';
-                        }
-                    }
-                    
-                    return null;
-                ''')
-                if result:
-                    print(f"   ✓ 点击 Video 标签 ({result})")
-                    video_clicked = True
-                    time.sleep(2)
-                    break
-            except Exception as e:
-                print(f"   尝试 {attempt+1}: {e}")
-            time.sleep(1)
-        
-        if not video_clicked:
-            print("   ⚠️ 未能点击 Video 标签，继续尝试上传...")
         
         abs_path = os.path.abspath(image_path)
         if not os.path.exists(abs_path):
@@ -516,9 +463,21 @@ class VideoGenerator:
         print("✗ 所有上传方法均失败")
         return False
     
-    def send_prompt(self, prompt: str) -> bool:
-        """发送提示词"""
-        print(f"发送提示词: {prompt[:50]}...")
+    def send_prompt(self, prompt: str, add_video_prefix: bool = True) -> bool:
+        """
+        发送提示词
+        
+        Args:
+            prompt: 视频动作描述
+            add_video_prefix: 是否添加 Hailuo 2.3 视频生成前缀
+        """
+        # 构建完整提示词
+        if add_video_prefix:
+            full_prompt = f"{self.VIDEO_PROMPT_PREFIX}{prompt}"
+        else:
+            full_prompt = prompt
+        
+        print(f"发送提示词: {full_prompt[:80]}...")
         
         try:
             # 找到输入框 (contenteditable div 或 textarea)
@@ -548,15 +507,33 @@ class VideoGenerator:
                 except:
                     pass
             
+            # 方法4: placeholder 包含 Lovart
+            if not input_box:
+                try:
+                    inputs = self.driver.find_elements(By.CSS_SELECTOR, 'input, textarea')
+                    for inp in inputs:
+                        placeholder = inp.get_attribute('placeholder') or ''
+                        if 'Lovart' in placeholder or '设计' in placeholder:
+                            input_box = inp
+                            break
+                except:
+                    pass
+            
             if input_box:
                 input_box.click()
                 time.sleep(0.5)
                 
                 # 使用 JS 输入（更可靠）
-                self.driver.execute_script(
-                    "arguments[0].innerText = arguments[1]", 
-                    input_box, prompt
-                )
+                tag_name = input_box.tag_name.lower()
+                if tag_name in ['input', 'textarea']:
+                    input_box.clear()
+                    input_box.send_keys(full_prompt)
+                else:
+                    # contenteditable div
+                    self.driver.execute_script(
+                        "arguments[0].innerText = arguments[1]", 
+                        input_box, full_prompt
+                    )
                 time.sleep(0.5)
                 
                 # 按 Enter 发送
@@ -682,15 +659,15 @@ class VideoGenerator:
             if not self.login(account):
                 return None
             
-            # 导航到画布
-            self.navigate_to_canvas()
-            time.sleep(3)
+            # 直接访问 Home 页面
+            self.navigate_to_home()
+            time.sleep(2)
             
-            # 上传图片
+            # 上传图片（在输入提示词前上传）
             if not self.upload_image(image_path):
                 return None
             
-            # 发送提示词
+            # 发送提示词（自动添加 Hailuo 2.3 前缀）
             if not self.send_prompt(prompt):
                 return None
             
