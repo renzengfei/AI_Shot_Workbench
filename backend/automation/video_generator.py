@@ -253,29 +253,13 @@ class VideoGenerator:
         from selenium.webdriver.common.keys import Keys
         from selenium.webdriver.common.action_chains import ActionChains
         
-        # 方法0: 点击页面右上角的 X 按钮（升级套餐弹窗）
+        # 方法0: 点击 paywall 关闭按钮（升级套餐弹窗）
         try:
-            # 弹窗 X 在右上角，坐标约 (995, 22)
-            self.driver.execute_script('''
-                // 点击所有可能是关闭按钮的元素
-                const closeButtons = document.querySelectorAll('button');
-                for (const btn of closeButtons) {
-                    const rect = btn.getBoundingClientRect();
-                    // 右上角区域的按钮
-                    if (rect.right > window.innerWidth - 100 && rect.top < 100) {
-                        btn.click();
-                        return true;
-                    }
-                }
-                // 或者点击带 X 文字的按钮
-                for (const btn of closeButtons) {
-                    if (btn.textContent.trim() === '×' || btn.innerHTML.includes('M6') || btn.innerHTML.includes('close')) {
-                        btn.click();
-                        return true;
-                    }
-                }
-            ''')
-            time.sleep(0.3)
+            close_btn = self.driver.find_element(By.CSS_SELECTOR, '[data-testid="paywall-close"]')
+            close_btn.click()
+            print("   关闭弹窗: paywall-close")
+            time.sleep(0.5)
+            return  # 成功关闭，直接返回
         except:
             pass
         
@@ -402,56 +386,52 @@ class VideoGenerator:
                 except:
                     pass
             
-            # 方法2: 点击附件按钮（回形针图标）
-            print("   尝试点击附件按钮...")
-            clicked = self.driver.execute_script('''
-                // 方法A: 找输入框附近的附件图标
-                const inputArea = document.querySelector('[contenteditable="true"]') || 
-                                  document.querySelector('input[placeholder*="Lovart"]') ||
-                                  document.querySelector('[data-testid="agent-message-input"]');
-                if (inputArea) {
-                    const parent = inputArea.closest('div');
-                    if (parent) {
-                        const btns = parent.querySelectorAll('button, [role="button"]');
-                        for (const btn of btns) {
-                            if (btn.querySelector('svg')) {
+            # 方法2: 使用 pyautogui 操作系统文件对话框
+            print("   尝试 pyautogui 上传...")
+            try:
+                import pyautogui
+                
+                # 点击附件按钮打开系统文件对话框
+                clicked = self.driver.execute_script('''
+                    const allBtns = document.querySelectorAll('button');
+                    for (const btn of allBtns) {
+                        if (btn.className.includes('rounded-full')) {
+                            const path = btn.querySelector('svg path');
+                            if (path && path.getAttribute('d')?.startsWith('M16')) {
                                 btn.click();
                                 return true;
                             }
                         }
                     }
-                }
+                    return false;
+                ''')
                 
-                // 方法B: 找所有带 svg 的按钮
-                const allBtns = document.querySelectorAll('button');
-                for (const btn of allBtns) {
-                    const svg = btn.querySelector('svg');
-                    if (svg && btn.className.includes('rounded')) {
-                        btn.click();
-                        return true;
-                    }
-                }
-                
-                // 方法C: 找附件图标（回形针）
-                const attachIcons = document.querySelectorAll('svg');
-                for (const svg of attachIcons) {
-                    const path = svg.querySelector('path');
-                    if (path && path.getAttribute('d')?.startsWith('M16')) {
-                        svg.parentElement.click();
-                        return true;
-                    }
-                }
-                return false;
-            ''')
-            
-            if clicked:
-                time.sleep(1)
-                # 现在应该有 file input 可见了
-                file_input = self.driver.find_element(By.CSS_SELECTOR, 'input[type="file"]')
-                file_input.send_keys(abs_path)
-                print("   ✓ 通过附件按钮上传成功")
-                time.sleep(3)
-                return True
+                if clicked:
+                    print("   ✓ 点击附件按钮成功")
+                    time.sleep(1.5)  # 等待系统对话框打开
+                    
+                    # macOS: 使用 Cmd+Shift+G 打开"前往文件夹"
+                    pyautogui.hotkey('command', 'shift', 'g')
+                    time.sleep(0.8)
+                    
+                    # 使用剪贴板粘贴路径（支持中文）
+                    import subprocess
+                    subprocess.run(['pbcopy'], input=abs_path.encode('utf-8'), check=True)
+                    pyautogui.hotkey('command', 'v')
+                    time.sleep(0.5)
+                    
+                    # 按回车确认路径
+                    pyautogui.press('enter')
+                    time.sleep(0.8)
+                    
+                    # 再按回车选择文件
+                    pyautogui.press('enter')
+                    time.sleep(2)
+                    
+                    print("   ✓ pyautogui 上传完成")
+                    return True
+            except Exception as e:
+                print(f"   pyautogui 失败: {e}")
             
             # 方法3: 遍历所有 file input（包括隐藏的）
             print("   尝试查找隐藏的 file input...")
