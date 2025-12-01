@@ -1466,3 +1466,55 @@ async def lovart_get_task(task_id: str):
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
     return {"task": task}
+
+
+@app.post("/api/lovart/tasks/{task_id}/run")
+async def lovart_run_task(task_id: str):
+    """执行单个视频生成任务（同步执行，会阻塞）"""
+    import threading
+    
+    service = get_lovart_service()
+    task = service.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    
+    if task.status not in ["pending", "failed"]:
+        raise HTTPException(status_code=400, detail=f"任务状态不允许执行: {task.status}")
+    
+    # 在后台线程执行（避免阻塞 API）
+    def run_task():
+        batch = service.batch_generator
+        for t in batch.tasks:
+            if t.task_id == task_id:
+                batch.process_single_task(t)
+                break
+    
+    thread = threading.Thread(target=run_task)
+    thread.start()
+    
+    return {"success": True, "message": "任务已开始执行", "task_id": task_id}
+
+
+@app.post("/api/lovart/process")
+async def lovart_start_processing():
+    """启动后台任务处理（处理所有待处理任务）"""
+    import threading
+    
+    service = get_lovart_service()
+    stats = service.get_task_stats()
+    
+    if stats['pending'] == 0:
+        return {"success": False, "message": "没有待处理任务"}
+    
+    # 在后台线程执行
+    def process_all():
+        service.batch_generator.process_all(interval=60)
+    
+    thread = threading.Thread(target=process_all, daemon=True)
+    thread.start()
+    
+    return {
+        "success": True,
+        "message": f"开始处理 {stats['pending']} 个任务",
+        "stats": stats
+    }
