@@ -699,13 +699,24 @@ export default function Step3_DeconstructionReview({
             setSavedIndexes((prev) => ({ ...prev, [shotId]: bounded })); // 同时更新本地状态
             // 保存文件名到后端
             const allSelections: Record<string, string> = {};
+            const savedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string | number> || {};
             Object.entries(savedIndexesRef.current).forEach(([k, v]) => {
                 const sid = Number(k);
-                const imgs = generatedImagesRef.current[sid] || [];
-                const fn = imgs[v]?.split('/').pop() || '';
+                let fn = '';
+                if (v === -1) {
+                    // 文件名格式：直接从临时变量获取
+                    const savedFn = savedFilenames[k];
+                    if (typeof savedFn === 'string') fn = savedFn;
+                } else {
+                    // 索引格式：通过索引查找文件名
+                    const imgs = generatedImagesRef.current[sid] || [];
+                    fn = imgs[v]?.split('/').pop() || '';
+                }
                 if (fn) allSelections[k] = fn;
             });
             allSelections[String(shotId)] = filename;
+            // 同步更新 window 临时变量
+            (window as unknown as Record<string, unknown>).__savedImageFilenames = { ...savedFilenames, [String(shotId)]: filename };
             fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-images`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
