@@ -73,13 +73,21 @@ class VideoGenerator:
             self.driver.get(self.BASE_URL)
             time.sleep(5)
             
+            # 检查是否已登录（指纹浏览器可能保存了 session）
+            page = self.driver.page_source
+            if '升级' in page or '积分' in page or 'home' in self.driver.current_url:
+                print("   ✓ 已登录（session 有效）")
+                self.close_popups()  # 关闭可能的弹窗
+                self.current_account = account
+                return True
+            
             # 点击注册/登录
             self.driver.execute_script('''
                 for (const btn of document.querySelectorAll('button')) {
                     if (btn.textContent.includes('注册')) { btn.click(); break; }
                 }
             ''')
-            time.sleep(3)
+            time.sleep(5)
             
             # 输入邮箱（多种选择器尝试）
             email_entered = False
@@ -279,6 +287,22 @@ class VideoGenerator:
         self.close_popups()
         time.sleep(1)
         
+        # 先点击 Video 标签进入视频生成模式
+        try:
+            self.driver.execute_script('''
+                const tabs = document.querySelectorAll('button, div, span');
+                for (const t of tabs) {
+                    if (t.textContent === 'Video' || t.textContent.includes('Video')) {
+                        t.click();
+                        return true;
+                    }
+                }
+            ''')
+            print("   点击 Video 标签")
+            time.sleep(2)
+        except:
+            pass
+        
         abs_path = os.path.abspath(image_path)
         if not os.path.exists(abs_path):
             print(f"✗ 文件不存在: {abs_path}")
@@ -299,19 +323,39 @@ class VideoGenerator:
             # 方法2: 点击附件按钮（回形针图标）
             print("   尝试点击附件按钮...")
             clicked = self.driver.execute_script('''
-                // 找 rounded-full 按钮（附件按钮）
-                const btns = document.querySelectorAll('button.rounded-full');
-                for (const btn of btns) {
-                    if (btn.querySelector('svg')) {
+                // 方法A: 找输入框附近的附件图标
+                const inputArea = document.querySelector('[contenteditable="true"]') || 
+                                  document.querySelector('input[placeholder*="Lovart"]') ||
+                                  document.querySelector('[data-testid="agent-message-input"]');
+                if (inputArea) {
+                    const parent = inputArea.closest('div');
+                    if (parent) {
+                        const btns = parent.querySelectorAll('button, [role="button"]');
+                        for (const btn of btns) {
+                            if (btn.querySelector('svg')) {
+                                btn.click();
+                                return true;
+                            }
+                        }
+                    }
+                }
+                
+                // 方法B: 找所有带 svg 的按钮
+                const allBtns = document.querySelectorAll('button');
+                for (const btn of allBtns) {
+                    const svg = btn.querySelector('svg');
+                    if (svg && btn.className.includes('rounded')) {
                         btn.click();
                         return true;
                     }
                 }
-                // 备选：找任何有 svg 的按钮在输入区域附近
-                const allBtns = document.querySelectorAll('button');
-                for (const btn of allBtns) {
-                    if (btn.querySelector('svg') && btn.className.includes('rounded')) {
-                        btn.click();
+                
+                // 方法C: 找附件图标（回形针）
+                const attachIcons = document.querySelectorAll('svg');
+                for (const svg of attachIcons) {
+                    const path = svg.querySelector('path');
+                    if (path && path.getAttribute('d')?.startsWith('M16')) {
+                        svg.parentElement.click();
                         return true;
                     }
                 }
@@ -327,22 +371,30 @@ class VideoGenerator:
                 time.sleep(3)
                 return True
             
-            # 方法3: 创建并触发 file input
-            print("   尝试 JS 创建上传...")
-            self.driver.execute_script('''
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.id = '__test_file_input__';
-                input.style.display = 'none';
-                document.body.appendChild(input);
+            # 方法3: 遍历所有 file input（包括隐藏的）
+            print("   尝试查找隐藏的 file input...")
+            all_inputs = self.driver.execute_script('''
+                const inputs = document.querySelectorAll('input[type="file"]');
+                return inputs.length;
             ''')
-            time.sleep(0.5)
+            print(f"   找到 {all_inputs} 个 file input")
             
-            test_input = self.driver.find_element(By.ID, '__test_file_input__')
-            test_input.send_keys(abs_path)
-            print("   ✓ JS 上传成功")
-            time.sleep(3)
-            return True
+            if all_inputs > 0:
+                # 使 file input 可见并发送文件
+                self.driver.execute_script('''
+                    const inputs = document.querySelectorAll('input[type="file"]');
+                    for (const inp of inputs) {
+                        inp.style.display = 'block';
+                        inp.style.visibility = 'visible';
+                        inp.style.opacity = '1';
+                    }
+                ''')
+                time.sleep(0.5)
+                file_input = self.driver.find_element(By.CSS_SELECTOR, 'input[type="file"]')
+                file_input.send_keys(abs_path)
+                print("   ✓ 隐藏 input 上传成功")
+                time.sleep(3)
+                return True
             
         except Exception as e:
             # 截图调试
