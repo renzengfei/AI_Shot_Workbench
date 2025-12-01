@@ -1,0 +1,17 @@
+{
+  "tasks": [
+    {
+      "task_id": "task_1_1764611014",
+      "image_path": "http://127.0.0.1:8000/workspaces/7/generated_漫展拉腿版/shots/2.0/image_url_44.png",
+      "prompt": "**推镜（Dolly In）**，【格子衬衫男主】大步流星地走向人群，试图从人群缝隙中探头张望，但被人群完全挡住，他焦急地踮起脚尖，原地跳跃了两下，仍然看不到，动作急促而沮丧。他注意到旁边的Coser们神情惊讶，都在看向前方围观人群的中心。",
+      "output_path": "/Users/renzengfei/资料/youtube文章/AI_Shot_Workbench/workspaces/7/assets/videos/shot_2/video_20251201174334.mp4",
+      "status": "failed",
+      "account_email": "zhaoruifang@aigoogle.top",
+      "video_url": null,
+      "error": "视频生成失败",
+      "created_at": "2025-12-02T01:43:34.650578",
+      "completed_at": ""
+    }
+  ],
+  "updated_at": "2025-12-02T01:44:05.405207"
+}

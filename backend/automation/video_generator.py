@@ -369,7 +369,25 @@ class VideoGenerator:
         self.close_popups()
         time.sleep(1)
         
-        abs_path = os.path.abspath(image_path)
+        # 处理 HTTP URL：如果是本地服务的 URL，转换为本地文件路径
+        if image_path.startswith('http://') or image_path.startswith('https://'):
+            # 提取 URL 中的路径部分，例如 http://127.0.0.1:8000/workspaces/7/... -> workspaces/7/...
+            from urllib.parse import urlparse, unquote
+            parsed = urlparse(image_path)
+            url_path = unquote(parsed.path)  # 解码 URL 编码的中文字符
+            
+            # 找到 workspaces 的位置并构建本地路径
+            if '/workspaces/' in url_path:
+                rel_path = url_path[url_path.index('/workspaces/') + 1:]  # 去掉开头的 /
+                # 获取项目根目录（backend 的上一级）
+                project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                abs_path = os.path.join(project_root, rel_path)
+            else:
+                print(f"✗ 无法解析 URL 路径: {image_path}")
+                return False
+        else:
+            abs_path = os.path.abspath(image_path)
+        
         if not os.path.exists(abs_path):
             print(f"✗ 文件不存在: {abs_path}")
             return False
