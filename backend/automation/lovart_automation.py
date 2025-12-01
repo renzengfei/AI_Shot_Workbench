@@ -12,28 +12,32 @@ from .email_receiver import EmailReceiver
 class LovartAutomation:
     """Lovart.ai 网页自动化：注册、登录、视频生成"""
     
-    LOVART_URL = "https://www.lovart.ai"
-    CANVAS_URL = "https://www.lovart.ai/canvas?agent=1"
+    BASE_URL = "https://www.lovart.ai/zh"
+    HOME_URL = "https://www.lovart.ai/zh/home"
     
-    # 页面元素选择器（根据实际页面调整）
+    # 页面元素选择器（来自文档）
     SELECTORS = {
         # 登录/注册
-        "login_button": 'button:has-text("Log in"), button:has-text("登录")',
-        "email_input": 'input[type="email"], input[name="email"]',
-        "password_input": 'input[type="password"], input[name="password"]',
-        "verification_code_input": 'input[placeholder*="code"], input[placeholder*="验证码"]',
-        "submit_button": 'button[type="submit"]',
-        "send_code_button": 'button:has-text("Send"), button:has-text("发送")',
+        "register_button": 'button:has(span.mantine-Button-label:text("注册"))',
+        "email_input": 'input[type="email"]',
+        "success_text": '#success-text',
+        "continue_button": 'button:has(span.mantine-Button-label:text("使用邮箱继续"))',
+        # 验证码输入框（6位）
+        "code_input_0": 'input[data-testid="undefined-input-0"]',
+        "code_input_1": 'input[data-testid="undefined-input-1"]',
+        "code_input_2": 'input[data-testid="undefined-input-2"]',
+        "code_input_3": 'input[data-testid="undefined-input-3"]',
+        "code_input_4": 'input[data-testid="undefined-input-4"]',
+        "code_input_5": 'input[data-testid="undefined-input-5"]',
         
         # Canvas 页面
-        "chat_input": 'textarea[placeholder], div[contenteditable="true"]',
-        "send_message_button": 'button[aria-label="send"], button:has-text("Send")',
-        "attachment_button": 'svg[d^="M21.44"], button:has(svg)',
+        "message_input": 'div[data-testid="agent-message-input"]',
+        "attachment_button": 'button.rounded-full:has(svg path[d^="M16 1.1"])',
         "file_input": 'input[type="file"]',
         
         # 视频结果
         "video_element": 'video',
-        "download_button": 'button:has-text("Download"), a[download]',
+        "download_button": 'button:has(svg path[d*="M7.858 2.023"])',
     }
     
     def __init__(self, account_pool: AccountPool, headless: bool = False):
@@ -48,18 +52,13 @@ class LovartAutomation:
             self.email_receiver = EmailReceiver(account_pool.imap_config)
     
     async def launch_browser(self):
-        """启动浏览器（带指纹伪装）"""
-        playwright = await async_playwright().start()
+        """启动浏览器（使用系统 Chrome）"""
+        self._playwright = await async_playwright().start()
         
-        # 指纹配置
-        user_agents = [
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
-        ]
-        
-        self.browser = await playwright.chromium.launch(
+        # 使用系统安装的 Chrome 浏览器
+        self.browser = await self._playwright.chromium.launch(
             headless=self.headless,
+            channel="chrome",  # 使用系统 Chrome
             args=[
                 "--disable-blink-features=AutomationControlled",
                 "--no-sandbox",
@@ -67,10 +66,9 @@ class LovartAutomation:
         )
         
         self.context = await self.browser.new_context(
-            user_agent=random.choice(user_agents),
             viewport={"width": 1920, "height": 1080},
-            locale="en-US",
-            timezone_id="America/New_York",
+            locale="zh-CN",
+            timezone_id="Asia/Shanghai",
         )
         
         # 注入反检测脚本
@@ -88,73 +86,69 @@ class LovartAutomation:
             await self.context.close()
         if self.browser:
             await self.browser.close()
+        if hasattr(self, '_playwright') and self._playwright:
+            await self._playwright.stop()
         if self.email_receiver:
             self.email_receiver.disconnect()
     
-    async def navigate_to_canvas(self):
-        """导航到 Canvas 页面"""
-        await self.page.goto(self.CANVAS_URL, wait_until="networkidle")
+    async def navigate_to_home(self):
+        """导航到首页"""
+        await self.page.goto(self.HOME_URL, wait_until="networkidle")
         await asyncio.sleep(2)
     
     async def is_logged_in(self) -> bool:
         """检查是否已登录"""
-        await self.page.goto(self.CANVAS_URL, wait_until="networkidle")
+        await self.page.goto(self.HOME_URL, wait_until="networkidle")
         await asyncio.sleep(2)
         
-        # 检查是否有登录按钮（未登录状态）
-        login_btn = await self.page.query_selector(self.SELECTORS["login_button"])
-        return login_btn is None
+        # 检查是否有注册按钮（未登录状态）
+        register_btn = await self.page.query_selector(self.SELECTORS["register_button"])
+        return register_btn is None
     
-    async def login(self, account: Account) -> bool:
-        """登录账号"""
-        print(f"登录账号: {account.email}")
+    async def login_or_register(self, account: Account) -> bool:
+        """登录或注册流程"""
+        print(f"开始登录/注册: {account.email}")
         
-        await self.page.goto(self.LOVART_URL, wait_until="networkidle")
-        
-        # 点击登录按钮
-        login_btn = await self.page.wait_for_selector(self.SELECTORS["login_button"], timeout=10000)
-        await login_btn.click()
+        await self.page.goto(self.BASE_URL, wait_until="networkidle")
         await asyncio.sleep(1)
         
+        # 点击注册按钮
+        try:
+            register_btn = await self.page.wait_for_selector(
+                self.SELECTORS["register_button"], timeout=10000
+            )
+            await register_btn.click()
+            await asyncio.sleep(1)
+        except Exception as e:
+            print(f"找不到注册按钮: {e}")
+            return False
+        
         # 输入邮箱
-        email_input = await self.page.wait_for_selector(self.SELECTORS["email_input"], timeout=5000)
+        email_input = await self.page.wait_for_selector(
+            self.SELECTORS["email_input"], timeout=5000
+        )
         await email_input.fill(account.email)
-        
-        # 输入密码
-        password_input = await self.page.wait_for_selector(self.SELECTORS["password_input"], timeout=5000)
-        await password_input.fill(account.password)
-        
-        # 点击提交
-        submit_btn = await self.page.wait_for_selector(self.SELECTORS["submit_button"], timeout=5000)
-        await submit_btn.click()
-        
-        await asyncio.sleep(3)
-        
-        # 验证登录成功
-        return await self.is_logged_in()
-    
-    async def register(self, account: Account) -> bool:
-        """注册新账号"""
-        print(f"注册新账号: {account.email}")
-        
-        await self.page.goto(self.LOVART_URL, wait_until="networkidle")
-        
-        # 点击注册/登录按钮
-        login_btn = await self.page.wait_for_selector(self.SELECTORS["login_button"], timeout=10000)
-        await login_btn.click()
         await asyncio.sleep(1)
         
-        # 输入邮箱
-        email_input = await self.page.wait_for_selector(self.SELECTORS["email_input"], timeout=5000)
-        await email_input.fill(account.email)
+        # 等待邮箱验证成功标识
+        try:
+            await self.page.wait_for_selector(
+                self.SELECTORS["success_text"], timeout=30000
+            )
+            print("✓ 邮箱验证成功")
+        except:
+            print("✗ 等待邮箱验证超时")
+            return False
         
-        # 点击发送验证码
-        send_code_btn = await self.page.wait_for_selector(self.SELECTORS["send_code_button"], timeout=5000)
-        await send_code_btn.click()
+        # 点击"使用邮箱继续"
+        continue_btn = await self.page.wait_for_selector(
+            self.SELECTORS["continue_button"], timeout=5000
+        )
+        await continue_btn.click()
+        await asyncio.sleep(2)
         
+        # 等待并获取验证码
         print("等待验证码邮件...")
-        
-        # 从邮箱获取验证码
         if self.email_receiver:
             self.email_receiver.connect()
             code = self.email_receiver.wait_for_verification_code(
@@ -163,32 +157,29 @@ class LovartAutomation:
                 poll_interval=5
             )
             
-            if not code:
-                print("✗ 获取验证码超时")
+            if not code or len(code) != 6:
+                print(f"✗ 获取验证码失败: {code}")
                 return False
             
-            # 输入验证码
-            code_input = await self.page.wait_for_selector(
-                self.SELECTORS["verification_code_input"], timeout=5000
-            )
-            await code_input.fill(code)
-        
-        # 输入密码
-        password_input = await self.page.wait_for_selector(self.SELECTORS["password_input"], timeout=5000)
-        await password_input.fill(account.password)
-        
-        # 点击提交
-        submit_btn = await self.page.wait_for_selector(self.SELECTORS["submit_button"], timeout=5000)
-        await submit_btn.click()
+            print(f"✓ 获取验证码: {code}")
+            
+            # 逐个输入验证码（6个输入框）
+            for i, digit in enumerate(code):
+                input_selector = self.SELECTORS[f"code_input_{i}"]
+                code_input = await self.page.wait_for_selector(input_selector, timeout=5000)
+                await code_input.fill(digit)
+                await asyncio.sleep(0.1)
         
         await asyncio.sleep(3)
         
-        # 验证注册成功
+        # 验证登录成功
         success = await self.is_logged_in()
         if success:
-            print(f"✓ 注册成功: {account.email}")
+            print(f"✓ 登录成功: {account.email}")
             # 保存到账号池
             self.account_pool.add_account(account.email, account.password)
+        else:
+            print(f"✗ 登录失败: {account.email}")
         
         return success
     
@@ -196,31 +187,41 @@ class LovartAutomation:
         """上传图片到 Canvas"""
         print(f"上传图片: {image_path}")
         
-        # 找到文件输入元素
-        file_input = await self.page.query_selector(self.SELECTORS["file_input"])
-        if file_input:
-            await file_input.set_input_files(image_path)
-        else:
-            # 点击附件按钮触发文件选择
-            attach_btn = await self.page.wait_for_selector(self.SELECTORS["attachment_button"], timeout=5000)
+        # 点击附件按钮触发文件选择
+        try:
+            attach_btn = await self.page.wait_for_selector(
+                self.SELECTORS["attachment_button"], timeout=5000
+            )
             async with self.page.expect_file_chooser() as fc_info:
                 await attach_btn.click()
             file_chooser = await fc_info.value
             await file_chooser.set_files(image_path)
+            print("✓ 图片已上传")
+        except Exception as e:
+            print(f"✗ 上传图片失败: {e}")
+            # 尝试直接找文件输入
+            file_input = await self.page.query_selector(self.SELECTORS["file_input"])
+            if file_input:
+                await file_input.set_input_files(image_path)
         
         await asyncio.sleep(2)
     
     async def send_prompt(self, prompt: str):
-        """发送提示词"""
+        """发送提示词到对话框"""
         print(f"发送提示词: {prompt[:50]}...")
         
-        chat_input = await self.page.wait_for_selector(self.SELECTORS["chat_input"], timeout=5000)
+        # 使用 contenteditable div
+        chat_input = await self.page.wait_for_selector(
+            self.SELECTORS["message_input"], timeout=5000
+        )
+        await chat_input.click()
         await chat_input.fill(prompt)
         
-        send_btn = await self.page.wait_for_selector(self.SELECTORS["send_message_button"], timeout=5000)
-        await send_btn.click()
+        # 按 Enter 发送
+        await self.page.keyboard.press("Enter")
         
         await asyncio.sleep(1)
+        print("✓ 提示词已发送")
     
     async def wait_for_video(self, timeout: int = 300) -> Optional[str]:
         """等待视频生成完成，返回视频 URL"""
@@ -297,19 +298,13 @@ class LovartAutomation:
             
             # 检查登录状态
             if not await self.is_logged_in():
-                # 尝试登录
-                existing = self.account_pool.get_account_by_email(account.email)
-                if existing:
-                    success = await self.login(existing)
-                else:
-                    success = await self.register(account)
-                
+                success = await self.login_or_register(account)
                 if not success:
                     print("✗ 登录/注册失败")
                     return None
             
-            # 导航到 Canvas
-            await self.navigate_to_canvas()
+            # 导航到首页
+            await self.navigate_to_home()
             
             # 上传图片
             await self.upload_image(image_path)
