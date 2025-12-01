@@ -287,21 +287,51 @@ class VideoGenerator:
         self.close_popups()
         time.sleep(1)
         
-        # 先点击 Video 标签进入视频生成模式
-        try:
-            self.driver.execute_script('''
-                const tabs = document.querySelectorAll('button, div, span');
-                for (const t of tabs) {
-                    if (t.textContent === 'Video' || t.textContent.includes('Video')) {
-                        t.click();
-                        return true;
+        # 点击 Video 标签进入视频生成模式（更可靠的选择器）
+        video_clicked = False
+        for attempt in range(3):
+            try:
+                result = self.driver.execute_script('''
+                    // 方法1: 找包含 Video 图标和文字的按钮/标签
+                    const elements = document.querySelectorAll('[class*="tab"], [class*="Tag"], button, div');
+                    for (const el of elements) {
+                        const text = el.textContent?.trim();
+                        if (text === 'Video' || text === '🎬 Video' || text === '视频') {
+                            el.click();
+                            return 'clicked_text';
+                        }
                     }
-                }
-            ''')
-            print("   点击 Video 标签")
-            time.sleep(2)
-        except:
-            pass
+                    
+                    // 方法2: 找 data-value="video" 或类似属性
+                    const videoTab = document.querySelector('[data-value="video"], [data-type="video"]');
+                    if (videoTab) {
+                        videoTab.click();
+                        return 'clicked_data';
+                    }
+                    
+                    // 方法3: 通过图标 SVG 路径识别（视频图标通常有播放按钮形状）
+                    const svgs = document.querySelectorAll('svg');
+                    for (const svg of svgs) {
+                        const parent = svg.closest('button, [role="button"], [class*="tab"]');
+                        if (parent && parent.textContent?.includes('Video')) {
+                            parent.click();
+                            return 'clicked_svg_parent';
+                        }
+                    }
+                    
+                    return null;
+                ''')
+                if result:
+                    print(f"   ✓ 点击 Video 标签 ({result})")
+                    video_clicked = True
+                    time.sleep(2)
+                    break
+            except Exception as e:
+                print(f"   尝试 {attempt+1}: {e}")
+            time.sleep(1)
+        
+        if not video_clicked:
+            print("   ⚠️ 未能点击 Video 标签，继续尝试上传...")
         
         abs_path = os.path.abspath(image_path)
         if not os.path.exists(abs_path):
@@ -387,6 +417,10 @@ class VideoGenerator:
                         inp.style.display = 'block';
                         inp.style.visibility = 'visible';
                         inp.style.opacity = '1';
+                        inp.style.position = 'fixed';
+                        inp.style.top = '0';
+                        inp.style.left = '0';
+                        inp.style.zIndex = '99999';
                     }
                 ''')
                 time.sleep(0.5)
@@ -396,15 +430,91 @@ class VideoGenerator:
                 time.sleep(3)
                 return True
             
+            # 方法4: 分析页面结构，调试输出
+            print("   分析页面结构...")
+            page_info = self.driver.execute_script('''
+                const info = {
+                    url: window.location.href,
+                    fileInputs: document.querySelectorAll('input[type="file"]').length,
+                    buttons: [],
+                    editables: []
+                };
+                
+                // 找所有按钮
+                document.querySelectorAll('button').forEach(btn => {
+                    if (btn.querySelector('svg')) {
+                        info.buttons.push({
+                            text: btn.textContent?.slice(0, 30),
+                            class: btn.className?.slice(0, 50)
+                        });
+                    }
+                });
+                
+                // 找可编辑区域
+                document.querySelectorAll('[contenteditable="true"], textarea').forEach(el => {
+                    info.editables.push({
+                        tag: el.tagName,
+                        class: el.className?.slice(0, 50)
+                    });
+                });
+                
+                return info;
+            ''')
+            print(f"   页面 URL: {page_info.get('url', 'N/A')}")
+            print(f"   file inputs: {page_info.get('fileInputs', 0)}")
+            print(f"   SVG 按钮: {len(page_info.get('buttons', []))}")
+            for btn in page_info.get('buttons', [])[:5]:
+                print(f"      - {btn}")
+            
+            # 方法5: 点击输入框旁边的第一个按钮
+            print("   尝试点击输入框旁的按钮...")
+            self.driver.execute_script('''
+                // 找到输入区域
+                const input = document.querySelector('[contenteditable="true"]') ||
+                              document.querySelector('textarea') ||
+                              document.querySelector('[placeholder*="Lovart"]');
+                if (input) {
+                    // 向上找父容器
+                    let container = input.parentElement;
+                    for (let i = 0; i < 5 && container; i++) {
+                        const btns = container.querySelectorAll('button');
+                        if (btns.length > 0) {
+                            btns[0].click();  // 点击第一个按钮（通常是附件）
+                            return true;
+                        }
+                        container = container.parentElement;
+                    }
+                }
+                return false;
+            ''')
+            time.sleep(1)
+            
+            # 再次尝试找 file input
+            file_inputs = self.driver.find_elements(By.CSS_SELECTOR, 'input[type="file"]')
+            if file_inputs:
+                file_inputs[0].send_keys(abs_path)
+                print("   ✓ 点击按钮后上传成功")
+                time.sleep(3)
+                return True
+            
         except Exception as e:
-            # 截图调试
-            try:
-                self.driver.save_screenshot('/tmp/lovart_upload_debug.png')
-                print(f"   调试截图: /tmp/lovart_upload_debug.png")
-            except:
-                pass
-            print(f"✗ 上传失败: {e}")
-            return False
+            print(f"✗ 上传异常: {e}")
+        
+        # 最终: 截图调试
+        try:
+            self.driver.save_screenshot('/tmp/lovart_upload_debug.png')
+            print(f"   调试截图: /tmp/lovart_upload_debug.png")
+            
+            # 保存页面 HTML 用于分析
+            html = self.driver.page_source
+            with open('/tmp/lovart_page.html', 'w', encoding='utf-8') as f:
+                f.write(html)
+            print(f"   页面 HTML: /tmp/lovart_page.html")
+        except:
+            pass
+        
+        print("✗ 所有上传方法均失败")
+        return False
     
     def send_prompt(self, prompt: str) -> bool:
         """发送提示词"""
