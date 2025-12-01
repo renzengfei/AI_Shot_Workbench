@@ -952,16 +952,16 @@ export const ShotCard = ({
                                                         }, 50);
                                                     }}
                                                     disabled={isGenerating}
-                                                    className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case ${
+                                                    className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case ${
                                                         isGenerating
                                                             ? 'bg-slate-400 text-white cursor-not-allowed'
                                                             : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600'
                                                     }`}
                                                 >
                                                     {isGenerating ? (
-                                                        <><Loader2 size={12} className="animate-spin" />生成中</>
+                                                        <><Loader2 size={14} className="animate-spin" />生成中</>
                                                     ) : (
-                                                        <><Wand2 size={12} />生图</>
+                                                        <><Wand2 size={14} />生图</>
                                                     )}
                                                 </button>
                                             </div>
@@ -1002,7 +1002,7 @@ export const ShotCard = ({
                                                 onClick={() => onGenerateVideo(shot, index)}
                                                 disabled={isGeneratingVideo || !hasGeneratedImages}
                                                 title={!hasGeneratedImages ? '请先生成图片' : '使用当前图片生成视频'}
-                                                className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[10px] font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case ${
+                                                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case ${
                                                     isGeneratingVideo
                                                         ? 'bg-slate-400 text-white cursor-not-allowed'
                                                         : !hasGeneratedImages
@@ -1011,9 +1011,9 @@ export const ShotCard = ({
                                                 }`}
                                             >
                                                 {isGeneratingVideo ? (
-                                                    <><Loader2 size={10} className="animate-spin" />{videoTaskStatus === 'processing' ? '生成中' : '排队中'}</>
+                                                    <><Loader2 size={14} className="animate-spin" />{videoTaskStatus === 'processing' ? '生成中' : '排队中'}</>
                                                 ) : (
-                                                    <><Video size={10} />生视频</>
+                                                    <><Video size={14} />生视频</>
                                                 )}
                                             </button>
                                         )}
