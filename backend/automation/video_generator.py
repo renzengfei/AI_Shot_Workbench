@@ -738,53 +738,119 @@ class VideoGenerator:
         print(f"等待视频生成 (最长 {timeout}s)...")
         print(f"   当前页面: {self.driver.current_url}")
         
+        # 已知的教学/示例视频 URL 模式（需要排除）
+        tutorial_patterns = ['tutorial', 'demo', 'example', 'guide', 'intro']
+        
+        # 记录初始的视频 URL（可能是教学视频）
+        initial_video_urls = set()
+        try:
+            for video in self.driver.find_elements(By.CSS_SELECTOR, 'video'):
+                src = video.get_attribute('src')
+                if src:
+                    initial_video_urls.add(src)
+            print(f"   初始视频数量: {len(initial_video_urls)}")
+        except:
+            pass
+        
         start = time.time()
+        last_progress = None
+        
         while time.time() - start < timeout:
             try:
-                # 截图调试
-                if int(time.time() - start) % 30 == 0:
-                    self.driver.save_screenshot(f'/tmp/video_wait_{int(time.time()-start)}.png')
+                elapsed = int(time.time() - start)
                 
-                # 查找 video 元素
+                # 截图调试
+                if elapsed % 30 == 0:
+                    self.driver.save_screenshot(f'/tmp/video_wait_{elapsed}.png')
+                
+                # 检查是否还在生成中（查找进度指示器）
+                generating = self.driver.execute_script('''
+                    // 检查各种生成中的指示器
+                    const loadingTexts = ['生成中', 'Generating', 'Loading', '处理中', 'Processing'];
+                    const bodyText = document.body.innerText;
+                    for (const text of loadingTexts) {
+                        if (bodyText.includes(text)) return text;
+                    }
+                    
+                    // 检查进度条
+                    const progress = document.querySelector('[class*="progress"], [role="progressbar"]');
+                    if (progress) {
+                        const width = progress.style.width || progress.getAttribute('aria-valuenow');
+                        if (width && width !== '100%' && width !== '100') {
+                            return 'progress: ' + width;
+                        }
+                    }
+                    
+                    // 检查加载动画
+                    const spinner = document.querySelector('[class*="spinner"], [class*="loading"], [class*="animate-spin"]');
+                    if (spinner && spinner.offsetParent !== null) {
+                        return 'spinner';
+                    }
+                    
+                    return null;
+                ''')
+                
+                if generating and generating != last_progress:
+                    print(f"   生成状态: {generating}")
+                    last_progress = generating
+                
+                # 如果还在生成中，继续等待
+                if generating:
+                    time.sleep(5)
+                    continue
+                
+                # 查找新的视频元素（排除初始的教学视频）
                 videos = self.driver.find_elements(By.CSS_SELECTOR, 'video')
                 for video in videos:
                     src = video.get_attribute('src')
-                    if src:
-                        # blob URL 需要特殊处理
-                        if 'blob:' in src:
-                            # 尝试获取视频的实际 URL（可能在 source 标签中）
-                            sources = video.find_elements(By.CSS_SELECTOR, 'source')
-                            for source in sources:
-                                real_src = source.get_attribute('src')
-                                if real_src and 'blob:' not in real_src:
+                    if not src:
+                        continue
+                    
+                    # 跳过初始视频和教学视频
+                    if src in initial_video_urls:
+                        continue
+                    if any(p in src.lower() for p in tutorial_patterns):
+                        continue
+                    
+                    # 检查是否是生成的视频（通常包含 assets-persist 和唯一 ID）
+                    if 'assets-persist' in src or 'generated' in src or len(src) > 100:
+                        print(f"✓ 视频已生成: {src[:80]}...")
+                        return src
+                    
+                    # blob URL 需要特殊处理
+                    if 'blob:' in src:
+                        sources = video.find_elements(By.CSS_SELECTOR, 'source')
+                        for source in sources:
+                            real_src = source.get_attribute('src')
+                            if real_src and 'blob:' not in real_src:
+                                if real_src not in initial_video_urls:
                                     print(f"✓ 视频已生成 (source)")
                                     return real_src
-                        else:
-                            print(f"✓ 视频已生成")
-                            return src
                 
-                # 查找视频链接
-                links = self.driver.find_elements(By.CSS_SELECTOR, 'a[href*=".mp4"], a[href*="video"]')
-                for link in links:
-                    href = link.get_attribute('href')
-                    if href and '.mp4' in href:
-                        print(f"✓ 找到视频链接")
-                        return href
-                
-                # 查找下载按钮
+                # 查找下载按钮（生成完成后通常会显示）
                 download_btns = self.driver.find_elements(By.CSS_SELECTOR, 
-                    'button[class*="download"], a[download], [data-testid*="download"]')
+                    '[data-testid*="download"], button[class*="download"], a[download]')
                 for btn in download_btns:
+                    # 检查按钮是否可见
+                    if not btn.is_displayed():
+                        continue
                     href = btn.get_attribute('href')
-                    if href:
+                    if href and '.mp4' in href:
                         print(f"✓ 找到下载链接")
                         return href
+                    # 尝试点击下载按钮获取链接
+                    try:
+                        onclick = btn.get_attribute('onclick')
+                        if onclick and 'download' in onclick.lower():
+                            btn.click()
+                            time.sleep(1)
+                    except:
+                        pass
                 
             except Exception as e:
-                pass
+                print(f"   检查异常: {e}")
             
             # 显示进度
-            elapsed = int(time.time() - start)
             if elapsed % 30 == 0 and elapsed > 0:
                 print(f"   等待中... {elapsed}s")
             
