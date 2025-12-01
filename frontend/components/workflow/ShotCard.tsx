@@ -921,7 +921,7 @@ export const ShotCard = ({
                             {/* 4. 首帧/视频描述 */}
                                 <div className={`flex-shrink-0 ${DESC_WIDTH} ${CARD_HEIGHT} ${CARD_RADIUS} border border-white/30 bg-white/50 backdrop-blur-xl shadow-md ${CARD_PADDING} flex flex-col ${CARD_GAP} transition-all duration-300 hover:bg-white/60 hover:shadow-lg overflow-y-auto`}>
                                 <div className="flex flex-col gap-2 basis-[58%] min-h-0 overflow-hidden">
-                                    <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500 flex-shrink-0">
+                                    <div className="flex items-center justify-between text-sm font-semibold text-blue-600 flex-shrink-0">
                                         <div className="flex items-center gap-2">
                                             <span>首帧描述</span>
                                             {renderAnnotationControl?.(`shot-${shot.id ?? index}-initial`, `Shot #${shot.id ?? index + 1} Initial Frame`)}
@@ -991,7 +991,7 @@ export const ShotCard = ({
                                     </div>
                                 </div>
                                 <div className="flex flex-col gap-2 basis-[30%] min-h-0">
-                                    <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-purple-500/80 flex-shrink-0">
+                                    <div className="flex items-center justify-between text-sm font-semibold text-purple-600 flex-shrink-0">
                                         <div className="flex items-center gap-2">
                                             <span>视频描述</span>
                                             {renderAnnotationControl?.(`shot-${shot.id ?? index}-visual`, `Shot #${shot.id ?? index + 1} Visual`)}
@@ -1072,39 +1072,37 @@ export const ShotCard = ({
                             {/* 6. 素材列表 (横向无限滚动) */}
                             <div className="flex flex-nowrap items-start gap-6">
                                 {activeStream === 'video' ? (
-                                    videoFlow.length > 0 ? (
-                                        videoFlow.map((videoUrl, vIdx) => {
-                                            const isChosen = activeVideo === videoUrl;
-                                            const genTime = getGenerationTime(videoUrl);
-                                            return (
-                                                <div
-                                                    key={`${videoUrl}-${vIdx}`}
-                                                    className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} border transition-all duration-300 ${isChosen ? 'border-purple-400/50 shadow-lg ring-1 ring-purple-400/20' : 'border-white/30 hover:shadow-md'} bg-white/50 backdrop-blur-xl ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
-                                                >
-                                                    <div className={mediaTitleClass}>{genTime || ' '}</div>
-                                                    <PreviewVideoPlayer
-                                                        src={videoUrl}
-                                                        volume={globalVolume}
-                                                        muted={isGlobalMuted}
-                                                        aspectRatio="aspect-[9/16]"
-                                                        className="w-full"
-                                                        lazy
-                                                    />
-                                                    <button
-                                                        onClick={() => setSelectedVideo(videoUrl)}
-                                                        className={`text-sm font-medium ${BTN_RADIUS} px-4 py-3 transition-all duration-200 active:scale-[0.98] ${isChosen ? 'bg-purple-500 text-white shadow-sm' : 'bg-white/60 border border-white/30 text-slate-600 hover:bg-white/80'}`}
-                                                    >
-                                                        {isChosen ? '✓ 已选择' : '选择'}
-                                                    </button>
-                                                </div>
-                                            );
-                                        })
+                                    generatedVideoUrl ? (
+                                        <div className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} border border-purple-400/50 shadow-lg ring-1 ring-purple-400/20 bg-white/50 backdrop-blur-xl ${CARD_PADDING} flex flex-col ${CARD_GAP}`}>
+                                            <div className={mediaTitleClass}>生成视频</div>
+                                            <PreviewVideoPlayer
+                                                src={generatedVideoUrl}
+                                                volume={globalVolume}
+                                                muted={isGlobalMuted}
+                                                aspectRatio="aspect-[9/16]"
+                                                className="w-full"
+                                                poster={activeImage || frameUrl || undefined}
+                                                lazy
+                                            />
+                                            <div className="text-sm font-medium text-center text-purple-500 py-2">✓ 已生成</div>
+                                        </div>
                                     ) : (
-                                            <div className={`w-full min-w-[360px] flex items-center justify-center text-sm text-slate-400 bg-white/30 ${CARD_RADIUS} border border-dashed border-slate-300/50 p-10 backdrop-blur-sm`}>
-                                                暂无生成视频
-                                            </div>
-                                        )
-                                    ) : sortedImages.length > 0 ? (
+                                        <div className={`w-full min-w-[360px] flex flex-col items-center justify-center gap-4 text-slate-400 bg-white/30 ${CARD_RADIUS} border border-dashed border-purple-300/50 p-10 backdrop-blur-sm`}>
+                                            {isGeneratingVideo ? (
+                                                <>
+                                                    <Loader2 size={36} className="animate-spin text-purple-400" />
+                                                    <span className="text-purple-400">{videoTaskStatus === 'processing' ? '视频生成中...' : '排队等待中...'}</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Video size={36} className="text-purple-300/60" />
+                                                    <span>暂无生成视频</span>
+                                                    <span className="text-xs text-slate-300">点击「生视频」按钮开始生成</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    )
+                                ) : sortedImages.length > 0 ? (
                                         sortedImages.map((url, idx) => {
                                         const originalIdx = generatedImageUrls.indexOf(url);
                                         const isActive = activeImage === url;
