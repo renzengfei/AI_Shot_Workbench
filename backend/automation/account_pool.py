@@ -99,10 +99,37 @@ class AccountPool:
         self._save()
         return acc
     
+    # 常用中文姓名拼音库
+    SURNAMES = [
+        "wang", "li", "zhang", "liu", "chen", "yang", "zhao", "huang", "zhou", "wu",
+        "xu", "sun", "hu", "zhu", "gao", "lin", "he", "guo", "ma", "luo", "liang",
+        "song", "zheng", "xie", "han", "tang", "feng", "yu", "dong", "xiao", "cheng",
+        "cao", "yuan", "deng", "pan", "du", "ye", "jiang", "wei", "su", "lu", "ren",
+        "shen", "peng", "fan", "fang", "shi", "xiong", "jin", "qin", "dai", "tan"
+    ]
+    GIVEN_NAMES = [
+        "wei", "fang", "na", "jing", "lei", "jun", "yong", "jie", "ping", "gang",
+        "qiang", "ming", "hua", "lin", "yan", "hong", "chao", "xin", "bo", "hao",
+        "yu", "tao", "peng", "feng", "bin", "kai", "long", "zhi", "chen", "rui",
+        "yi", "ning", "ting", "wen", "xuan", "yang", "ze", "jia", "xiang", "dong",
+        "zeng", "fei", "yun", "qing", "hai", "shan", "lan", "mei", "xue", "li"
+    ]
+    
     def generate_email(self, prefix: str = "") -> str:
-        """生成一个新的邮箱地址（用于注册）"""
+        """生成一个新的邮箱地址（用于注册），使用中文姓名拼音"""
         if not prefix:
-            prefix = "user" + "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+            surname = random.choice(self.SURNAMES)
+            given1 = random.choice(self.GIVEN_NAMES)
+            given2 = random.choice(self.GIVEN_NAMES)
+            # 随机选择格式：姓名 或 名姓 或 姓名+数字
+            formats = [
+                f"{surname}{given1}{given2}",      # zhangjunwei
+                f"{given1}{given2}{surname}",     # junweizhang
+                f"{surname}{given1}",              # zhangjun
+                f"{given1}{surname}",              # junzhang
+                f"{surname}{given1}{random.randint(1, 99)}",  # zhangjun88
+            ]
+            prefix = random.choice(formats)
         return f"{prefix}@{self.email_domain}"
     
     def generate_password(self, length: int = 12) -> str:
