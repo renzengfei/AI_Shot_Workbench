@@ -1476,24 +1476,26 @@ export default function Step3_DeconstructionReview({
                         .then(resp => resp.ok ? resp.json() : { indexes: {} })
                         .then((data: { indexes?: Record<string, string | number> }) => {
                             const savedIndexes: Record<number, number> = {};
+                            console.log('[DEBUG] selected-images data:', data.indexes);
+                            console.log('[DEBUG] normalized keys:', Object.keys(normalized));
                             if (data.indexes) {
                                 Object.entries(data.indexes).forEach(([k, v]) => {
                                     const shotId = Number(k);
+                                    // 尝试多种 key 格式：整数和浮点数
+                                    const imgs = normalized[shotId] || normalized[Math.floor(shotId)] || normalized[`${shotId}.0` as unknown as number];
+                                    console.log(`[DEBUG] Shot ${shotId}: imgs count = ${imgs?.length || 0}, value = "${v}"`);
                                     if (typeof v === 'number') {
                                         // 旧格式：直接是索引
                                         savedIndexes[shotId] = v;
-                                    } else if (typeof v === 'string') {
+                                    } else if (typeof v === 'string' && imgs) {
                                         // 新格式：文件名，需要在图片列表中查找索引
-                                        const imgs = normalized[shotId];
-                                        if (imgs) {
-                                            const foundIdx = imgs.findIndex(url => url.endsWith(v) || url.includes(`/${v}`));
-                                            if (foundIdx >= 0) {
-                                                savedIndexes[shotId] = foundIdx;
-                                                console.log(`[DEBUG] Shot ${shotId}: matched filename "${v}" to index ${foundIdx}`);
-                                            } else {
-                                                console.log(`[DEBUG] Shot ${shotId}: filename "${v}" not found, using last`);
-                                                savedIndexes[shotId] = Math.max(0, imgs.length - 1);
-                                            }
+                                        const foundIdx = imgs.findIndex(url => url.endsWith(v) || url.includes(`/${v}`));
+                                        if (foundIdx >= 0) {
+                                            savedIndexes[shotId] = foundIdx;
+                                            console.log(`[DEBUG] Shot ${shotId}: matched filename "${v}" to index ${foundIdx}`);
+                                        } else {
+                                            console.log(`[DEBUG] Shot ${shotId}: filename "${v}" not found in`, imgs.slice(0, 3));
+                                            savedIndexes[shotId] = Math.max(0, imgs.length - 1);
                                         }
                                     }
                                 });
