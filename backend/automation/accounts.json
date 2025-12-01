@@ -1,0 +1,10 @@
+{
+  "imap_config": {
+    "server": "imap.qq.com",
+    "port": 993,
+    "username": "303364682@qq.com",
+    "password": "ktlqkgleetjgbgdf"
+  },
+  "email_domain": "aigoogle.top",
+  "accounts": []
+}

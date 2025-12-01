@@ -1,0 +1,155 @@
+# account_pool.py - 账号池管理
+import json
+import os
+from datetime import date
+from typing import Optional
+from dataclasses import dataclass, asdict
+import random
+import string
+
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), "accounts.json")
+
+@dataclass
+class Account:
+    email: str
+    password: str
+    daily_used: int = 0
+    last_used_date: str = ""
+    status: str = "active"  # active, banned, cooldown
+
+@dataclass
+class ImapConfig:
+    server: str
+    port: int
+    username: str
+    password: str
+
+class AccountPool:
+    DAILY_LIMIT = 3  # 每账号每天最多生成 3 个视频
+    
+    def __init__(self, config_path: str = CONFIG_PATH):
+        self.config_path = config_path
+        self.accounts: list[Account] = []
+        self.imap_config: Optional[ImapConfig] = None
+        self.email_domain: str = ""
+        self._load()
+    
+    def _load(self):
+        """从 JSON 文件加载配置"""
+        if not os.path.exists(self.config_path):
+            return
+        
+        with open(self.config_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        
+        self.email_domain = data.get("email_domain", "")
+        
+        if "imap_config" in data:
+            cfg = data["imap_config"]
+            self.imap_config = ImapConfig(
+                server=cfg["server"],
+                port=cfg["port"],
+                username=cfg["username"],
+                password=cfg["password"]
+            )
+        
+        self.accounts = [
+            Account(**acc) for acc in data.get("accounts", [])
+        ]
+    
+    def _save(self):
+        """保存配置到 JSON 文件"""
+        data = {
+            "imap_config": asdict(self.imap_config) if self.imap_config else {},
+            "email_domain": self.email_domain,
+            "accounts": [asdict(acc) for acc in self.accounts]
+        }
+        with open(self.config_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    
+    def get_available_account(self) -> Optional[Account]:
+        """获取一个可用账号（未超过每日限额）"""
+        today = date.today().isoformat()
+        
+        for acc in self.accounts:
+            if acc.status != "active":
+                continue
+            
+            # 日期变了，重置计数
+            if acc.last_used_date != today:
+                acc.daily_used = 0
+                acc.last_used_date = today
+            
+            if acc.daily_used < self.DAILY_LIMIT:
+                return acc
+        
+        return None
+    
+    def mark_used(self, account: Account):
+        """标记账号已使用一次"""
+        today = date.today().isoformat()
+        account.last_used_date = today
+        account.daily_used += 1
+        self._save()
+    
+    def add_account(self, email: str, password: str) -> Account:
+        """添加新账号"""
+        acc = Account(email=email, password=password)
+        self.accounts.append(acc)
+        self._save()
+        return acc
+    
+    def generate_email(self, prefix: str = "") -> str:
+        """生成一个新的邮箱地址（用于注册）"""
+        if not prefix:
+            prefix = "user" + "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+        return f"{prefix}@{self.email_domain}"
+    
+    def generate_password(self, length: int = 12) -> str:
+        """生成随机密码"""
+        chars = string.ascii_letters + string.digits + "!@#$%"
+        return "".join(random.choices(chars, k=length))
+    
+    def get_account_by_email(self, email: str) -> Optional[Account]:
+        """根据邮箱查找账号"""
+        for acc in self.accounts:
+            if acc.email == email:
+                return acc
+        return None
+    
+    def get_stats(self) -> dict:
+        """获取账号池统计信息"""
+        today = date.today().isoformat()
+        total = len(self.accounts)
+        active = sum(1 for a in self.accounts if a.status == "active")
+        
+        available_today = 0
+        used_today = 0
+        for acc in self.accounts:
+            if acc.status != "active":
+                continue
+            if acc.last_used_date == today:
+                used_today += acc.daily_used
+                if acc.daily_used < self.DAILY_LIMIT:
+                    available_today += self.DAILY_LIMIT - acc.daily_used
+            else:
+                available_today += self.DAILY_LIMIT
+        
+        return {
+            "total_accounts": total,
+            "active_accounts": active,
+            "videos_available_today": available_today,
+            "videos_used_today": used_today
+        }
+
+
+# 测试
+if __name__ == "__main__":
+    pool = AccountPool()
+    print("账号池统计:", pool.get_stats())
+    print("IMAP 配置:", pool.imap_config)
+    print("邮箱域名:", pool.email_domain)
+    
+    # 生成示例
+    print("\n生成新邮箱:", pool.generate_email())
+    print("生成新密码:", pool.generate_password())
