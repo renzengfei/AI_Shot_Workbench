@@ -665,6 +665,7 @@ export default function Step3_DeconstructionReview({
         setShotProviders((prev) => ({ ...prev, [shotId]: providerId }));
     };
 
+    // 选择图片（点击「选择此图」按钮时调用），保存文件名到后端
     const handleSelectImageIndex = (shot: Round2Shot, idx: number, targetIndex: number) => {
         const shotId = shot.id ?? idx + 1;
         let list = generatedImages[shotId] || [];
@@ -675,6 +676,27 @@ export default function Step3_DeconstructionReview({
         if (!list.length) return;
         const bounded = Math.min(Math.max(0, targetIndex), list.length - 1);
         setGeneratedIndexes((prev) => ({ ...prev, [shotId]: bounded }));
+        
+        // 提取文件名并保存到后端（使用文件名更稳定）
+        const imageUrl = list[bounded];
+        const filename = imageUrl?.split('/').pop() || '';
+        if (filename && currentWorkspace?.path && generatedDir) {
+            setSavedIndexes((prev) => ({ ...prev, [shotId]: bounded })); // 同时更新本地状态
+            // 保存文件名到后端
+            const allSelections: Record<string, string> = {};
+            Object.entries(savedIndexesRef.current).forEach(([k, v]) => {
+                const sid = Number(k);
+                const imgs = generatedImagesRef.current[sid] || [];
+                const fn = imgs[v]?.split('/').pop() || '';
+                if (fn) allSelections[k] = fn;
+            });
+            allSelections[String(shotId)] = filename;
+            fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-images`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ generated_dir: generatedDir, indexes: allSelections }),
+            }).catch(() => { /* ignore */ });
+        }
     };
 
     const handleUploadReference = async (file?: File) => {
@@ -1335,27 +1357,7 @@ export default function Step3_DeconstructionReview({
         }
     }, [generatedImages, generatedStorageKey]);
 
-    // Persist selected image indexes到后端文件（带防抖）
-    const saveIndexesTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    useEffect(() => {
-        if (!currentWorkspace?.path || !generatedDir || Object.keys(generatedIndexes).length === 0) return;
-        // Debounce save to avoid too many requests
-        if (saveIndexesTimeoutRef.current) {
-            clearTimeout(saveIndexesTimeoutRef.current);
-        }
-        saveIndexesTimeoutRef.current = setTimeout(() => {
-            fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-images`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ generated_dir: generatedDir, indexes: generatedIndexes }),
-            }).catch(() => { /* ignore */ });
-        }, 500);
-        return () => {
-            if (saveIndexesTimeoutRef.current) {
-                clearTimeout(saveIndexesTimeoutRef.current);
-            }
-        };
-    }, [generatedIndexes, currentWorkspace?.path, generatedDir]);
+    // 注：自动保存已移除，改为在 handleSelectImageIndex 中点击「选择此图」时保存
 
     useEffect(() => {
         if (!workspaceSlug) return;
@@ -1366,7 +1368,7 @@ export default function Step3_DeconstructionReview({
         });
     }, [workspaceSlug, round2Data, loadExistingImagesForShot]);
 
-    // 拉取已保存的选中索引（即使本地没有缓存也要获取）
+    // 拉取已保存的选中图片（支持新格式文件名和旧格式索引）
     useEffect(() => {
         if (!currentWorkspace?.path || !generatedDir) {
             setSavedIndexes({});
@@ -1374,14 +1376,25 @@ export default function Step3_DeconstructionReview({
         }
         fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-images?generated_dir=${encodeURIComponent(generatedDir)}`)
             .then(resp => resp.ok ? resp.json() : { indexes: {} })
-            .then((data: { indexes?: Record<string, number> }) => {
+            .then((data: { indexes?: Record<string, string | number> }) => {
                 const mapped: Record<number, number> = {};
                 if (data.indexes) {
                     Object.entries(data.indexes).forEach(([k, v]) => {
-                        if (typeof v === 'number') mapped[Number(k)] = v;
+                        const shotId = Number(k);
+                        if (typeof v === 'number') {
+                            // 旧格式：直接是索引
+                            mapped[shotId] = v;
+                        } else if (typeof v === 'string') {
+                            // 新格式：文件名，需要等 generatedImages 加载后再匹配
+                            // 这里先存 -1 表示需要通过文件名匹配
+                            // 实际匹配在下面的 useEffect 中进行
+                            mapped[shotId] = -1;
+                        }
                     });
                 }
                 setSavedIndexes(mapped);
+                // 存储文件名到临时变量，供后续匹配
+                (window as unknown as Record<string, unknown>).__savedImageFilenames = data.indexes || {};
             })
             .catch(() => setSavedIndexes({}));
     }, [currentWorkspace?.path, generatedDir]);
@@ -1391,10 +1404,11 @@ export default function Step3_DeconstructionReview({
         savedIndexesRef.current = savedIndexes;
     }, [savedIndexes]);
 
-    // 当远端已保存的索引到达后，强制应用到对应镜头
+    // 当远端已保存的索引到达后，强制应用到对应镜头（支持文件名匹配）
     useEffect(() => {
         if (!Object.keys(savedIndexes).length) return;
-        console.log('[DEBUG] Applying savedIndexes:', savedIndexes);
+        const savedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string | number> || {};
+        console.log('[DEBUG] Applying savedIndexes:', savedIndexes, 'filenames:', savedFilenames);
         setGeneratedIndexes((prev) => {
             let changed = false;
             const next = { ...prev };
@@ -1405,14 +1419,33 @@ export default function Step3_DeconstructionReview({
                     console.log(`[DEBUG] Shot ${id}: no images loaded yet`);
                     return;
                 }
+                
+                let targetIdx = v;
+                // 如果 v === -1，说明是文件名格式，需要匹配
+                if (v === -1) {
+                    const filename = savedFilenames[k];
+                    if (typeof filename === 'string') {
+                        const foundIdx = imgs.findIndex(url => url.endsWith(filename) || url.includes(`/${filename}`));
+                        if (foundIdx >= 0) {
+                            targetIdx = foundIdx;
+                            console.log(`[DEBUG] Shot ${id}: matched filename "${filename}" to index ${foundIdx}`);
+                        } else {
+                            console.log(`[DEBUG] Shot ${id}: filename "${filename}" not found in images`);
+                            return;
+                        }
+                    } else {
+                        return;
+                    }
+                }
+                
                 // 只要保存的索引在有效范围内，就强制应用（覆盖 fallback 值）
-                if (v >= 0 && v < imgs.length) {
-                    if (prev[id] !== v) {
-                        console.log(`[DEBUG] Shot ${id}: updating index from ${prev[id]} to ${v}`);
-                        next[id] = v;
+                if (targetIdx >= 0 && targetIdx < imgs.length) {
+                    if (prev[id] !== targetIdx) {
+                        console.log(`[DEBUG] Shot ${id}: updating index from ${prev[id]} to ${targetIdx}`);
+                        next[id] = targetIdx;
                         changed = true;
                     } else {
-                        console.log(`[DEBUG] Shot ${id}: index already correct (${v})`);
+                        console.log(`[DEBUG] Shot ${id}: index already correct (${targetIdx})`);
                     }
                 }
             });
