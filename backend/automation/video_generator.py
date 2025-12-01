@@ -386,52 +386,70 @@ class VideoGenerator:
                 except:
                     pass
             
-            # 方法2: 使用 pyautogui 操作系统文件对话框
-            print("   尝试 pyautogui 上传...")
+            # 方法2: 使用 JavaScript 模拟拖拽上传
+            print("   尝试 JS 拖拽上传...")
             try:
-                import pyautogui
+                # 读取图片文件为 base64
+                import base64
+                with open(abs_path, 'rb') as f:
+                    file_data = base64.b64encode(f.read()).decode('utf-8')
                 
-                # 点击附件按钮打开系统文件对话框
-                clicked = self.driver.execute_script('''
-                    const allBtns = document.querySelectorAll('button');
-                    for (const btn of allBtns) {
-                        if (btn.className.includes('rounded-full')) {
-                            const path = btn.querySelector('svg path');
-                            if (path && path.getAttribute('d')?.startsWith('M16')) {
-                                btn.click();
-                                return true;
-                            }
-                        }
+                file_name = os.path.basename(abs_path)
+                
+                # 使用 JavaScript 模拟拖拽事件
+                result = self.driver.execute_script('''
+                    const base64Data = arguments[0];
+                    const fileName = arguments[1];
+                    
+                    // 将 base64 转换为 Blob
+                    const byteCharacters = atob(base64Data);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let i = 0; i < byteCharacters.length; i++) {
+                        byteNumbers[i] = byteCharacters.charCodeAt(i);
                     }
-                    return false;
-                ''')
+                    const byteArray = new Uint8Array(byteNumbers);
+                    const blob = new Blob([byteArray], { type: 'image/png' });
+                    
+                    // 创建 File 对象
+                    const file = new File([blob], fileName, { type: 'image/png' });
+                    
+                    // 找到输入框
+                    const dropTarget = document.querySelector('[data-testid="agent-message-input"]');
+                    if (!dropTarget) {
+                        return 'target_not_found';
+                    }
+                    
+                    // 创建 DataTransfer 对象
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(file);
+                    
+                    // 创建并触发 drop 事件
+                    const dropEvent = new DragEvent('drop', {
+                        bubbles: true,
+                        cancelable: true,
+                        dataTransfer: dataTransfer
+                    });
+                    
+                    // 先触发 dragenter 和 dragover
+                    const dragEnter = new DragEvent('dragenter', { bubbles: true, cancelable: true, dataTransfer: dataTransfer });
+                    const dragOver = new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dataTransfer });
+                    
+                    dropTarget.dispatchEvent(dragEnter);
+                    dropTarget.dispatchEvent(dragOver);
+                    dropTarget.dispatchEvent(dropEvent);
+                    
+                    return 'drop_triggered';
+                ''', file_data, file_name)
                 
-                if clicked:
-                    print("   ✓ 点击附件按钮成功")
-                    time.sleep(1.5)  # 等待系统对话框打开
-                    
-                    # macOS: 使用 Cmd+Shift+G 打开"前往文件夹"
-                    pyautogui.hotkey('command', 'shift', 'g')
-                    time.sleep(0.8)
-                    
-                    # 使用剪贴板粘贴路径（支持中文）
-                    import subprocess
-                    subprocess.run(['pbcopy'], input=abs_path.encode('utf-8'), check=True)
-                    pyautogui.hotkey('command', 'v')
-                    time.sleep(0.5)
-                    
-                    # 按回车确认路径
-                    pyautogui.press('enter')
-                    time.sleep(0.8)
-                    
-                    # 再按回车选择文件
-                    pyautogui.press('enter')
-                    time.sleep(2)
-                    
-                    print("   ✓ pyautogui 上传完成")
+                print(f"   拖拽结果: {result}")
+                
+                if result == 'drop_triggered':
+                    time.sleep(3)
+                    print("   ✓ 拖拽上传完成")
                     return True
+                    
             except Exception as e:
-                print(f"   pyautogui 失败: {e}")
+                print(f"   拖拽上传失败: {e}")
             
             # 方法3: 遍历所有 file input（包括隐藏的）
             print("   尝试查找隐藏的 file input...")
