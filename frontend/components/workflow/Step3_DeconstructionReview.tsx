@@ -172,6 +172,7 @@ export default function Step3_DeconstructionReview({
     // Video generation state
     const [generatingVideoShots, setGeneratingVideoShots] = useState<Record<number, boolean>>({});
     const [videoTaskStatuses, setVideoTaskStatuses] = useState<Record<number, 'pending' | 'processing' | 'completed' | 'failed' | null>>({});
+    const [generatedVideos, setGeneratedVideos] = useState<Record<number, string>>({});
     // Provider selection per shot
     const [providers, setProviders] = useState<Array<{ id: string; name: string; is_default?: boolean }>>([]);
     const [shotProviders, setShotProviders] = useState<Record<number, string>>({});
@@ -1246,6 +1247,11 @@ export default function Step3_DeconstructionReview({
                         const status = statusData?.task?.status;
                         
                         if (status === 'completed') {
+                            // 保存生成的视频 URL
+                            const videoUrl = statusData?.task?.output_path;
+                            if (videoUrl) {
+                                setGeneratedVideos(prev => ({ ...prev, [shotId]: videoUrl }));
+                            }
                             setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'completed' }));
                             setGeneratingVideoShots(prev => {
                                 const next = { ...prev };
@@ -3307,6 +3313,7 @@ export default function Step3_DeconstructionReview({
                                     onGenerateVideo={handleGenerateVideo}
                                     isGeneratingVideo={!!generatingVideoShots[shot.id ?? index + 1]}
                                     videoTaskStatus={videoTaskStatuses[shot.id ?? index + 1]}
+                                    generatedVideoUrl={generatedVideos[shot.id ?? index + 1]}
                                 />
                             );
                         });

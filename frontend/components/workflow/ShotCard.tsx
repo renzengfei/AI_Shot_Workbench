@@ -252,6 +252,7 @@ interface ShotCardProps {
     onGenerateVideo?: (shot: Round2Shot, index: number) => void;
     isGeneratingVideo?: boolean;
     videoTaskStatus?: 'pending' | 'processing' | 'completed' | 'failed' | null;
+    generatedVideoUrl?: string | null;
 }
 
 export const ShotCard = ({
@@ -290,6 +291,7 @@ export const ShotCard = ({
     onGenerateVideo,
     isGeneratingVideo = false,
     videoTaskStatus = null,
+    generatedVideoUrl = null,
 }: ShotCardProps) => {
     const shotId = shot.id ?? index + 1;
     const canEdit = mode === 'review';
@@ -884,23 +886,33 @@ export const ShotCard = ({
                                 </div>
                             )}
 
-                            {/* 3. 生成视频预览 - 放大 */}
+                            {/* 3. 生成视频预览 - 展示生成的视频，没有则显示占位 */}
                             {showGeneration && (
                                 <div className={`${mediaCardBase}`}>
-                                    <div className={mediaTitleClass}>{getGenerationTime(activeVideo || '') || '生成视频'}</div>
-                                    {activeVideo ? (
+                                    <div className={mediaTitleClass}>生成视频</div>
+                                    {generatedVideoUrl ? (
                                         <PreviewVideoPlayer
-                                            src={activeVideo}
+                                            src={generatedVideoUrl}
                                             volume={globalVolume}
                                             muted={isGlobalMuted}
                                             className="w-full"
                                             aspectRatio="aspect-[9/16]"
-                                            poster={frameUrl || undefined}
+                                            poster={activeImage || frameUrl || undefined}
                                             lazy
                                         />
                                     ) : (
-                                        <div className={`${mediaBaseClass} border border-slate-200 shadow-sm flex items-center justify-center text-base text-purple-300`}>
-                                            占位
+                                        <div className={`${mediaBaseClass} border border-dashed border-purple-300/50 shadow-sm flex flex-col items-center justify-center gap-3`}>
+                                            {isGeneratingVideo ? (
+                                                <>
+                                                    <Loader2 size={32} className="animate-spin text-purple-400" />
+                                                    <span className="text-sm text-purple-400">{videoTaskStatus === 'processing' ? '生成中...' : '排队中...'}</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Video size={32} className="text-purple-300/60" />
+                                                    <span className="text-sm text-purple-300/60">暂无生成视频</span>
+                                                </>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -952,27 +964,6 @@ export const ShotCard = ({
                                                         <><Wand2 size={12} />生图</>
                                                     )}
                                                 </button>
-                                                {/* 生视频按钮 */}
-                                                {onGenerateVideo && (
-                                                    <button
-                                                        onClick={() => onGenerateVideo(shot, index)}
-                                                        disabled={isGeneratingVideo || !hasGeneratedImages}
-                                                        title={!hasGeneratedImages ? '请先生成图片' : '使用当前图片生成视频'}
-                                                        className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case ${
-                                                            isGeneratingVideo
-                                                                ? 'bg-slate-400 text-white cursor-not-allowed'
-                                                                : !hasGeneratedImages
-                                                                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                                                                    : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600'
-                                                        }`}
-                                                    >
-                                                        {isGeneratingVideo ? (
-                                                            <><Loader2 size={12} className="animate-spin" />{videoTaskStatus === 'processing' ? '生成中' : '排队中'}</>
-                                                        ) : (
-                                                            <><Video size={12} />生视频</>
-                                                        )}
-                                                    </button>
-                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -1000,9 +991,32 @@ export const ShotCard = ({
                                     </div>
                                 </div>
                                 <div className="flex flex-col gap-2 basis-[30%] min-h-0">
-                                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-purple-500/80 flex-shrink-0">
-                                        <span>视频描述</span>
-                                        {renderAnnotationControl?.(`shot-${shot.id ?? index}-visual`, `Shot #${shot.id ?? index + 1} Visual`)}
+                                    <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-purple-500/80 flex-shrink-0">
+                                        <div className="flex items-center gap-2">
+                                            <span>视频描述</span>
+                                            {renderAnnotationControl?.(`shot-${shot.id ?? index}-visual`, `Shot #${shot.id ?? index + 1} Visual`)}
+                                        </div>
+                                        {/* 生视频按钮 */}
+                                        {onGenerateVideo && showGeneration && (
+                                            <button
+                                                onClick={() => onGenerateVideo(shot, index)}
+                                                disabled={isGeneratingVideo || !hasGeneratedImages}
+                                                title={!hasGeneratedImages ? '请先生成图片' : '使用当前图片生成视频'}
+                                                className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[10px] font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case ${
+                                                    isGeneratingVideo
+                                                        ? 'bg-slate-400 text-white cursor-not-allowed'
+                                                        : !hasGeneratedImages
+                                                            ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                                                            : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600'
+                                                }`}
+                                            >
+                                                {isGeneratingVideo ? (
+                                                    <><Loader2 size={10} className="animate-spin" />{videoTaskStatus === 'processing' ? '生成中' : '排队中'}</>
+                                                ) : (
+                                                    <><Video size={10} />生视频</>
+                                                )}
+                                            </button>
+                                        )}
                                     </div>
                                     {renderFieldWithRevision(
                                         <AutoTextArea
