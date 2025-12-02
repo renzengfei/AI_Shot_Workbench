@@ -34,6 +34,15 @@
 - 后端需安装 `ffmpeg`、`yt-dlp`、`scenedetect`。
 - 不要提交 cookies/token。YouTube cookies 可通过环境变量或 `backend/cookies.txt` 注入。
 
+## 网页自动化开发规范
+
+开发 Selenium/Playwright 等网页自动化程序时，**必须遵循以下规则**：
+
+1. **禁止猜测选择器**：不要自行编写 CSS 选择器或 XPath，必须让用户提供目标元素的 HTML 代码片段。
+2. **用户提供网页代码**：需要定位某个元素时，要求用户在浏览器中复制该元素的 HTML（右键 → 检查 → 复制 element），然后根据实际 HTML 编写选择器。
+3. **保守点击策略**：关闭弹窗等操作只使用精确选择器（如 `data-testid`、`aria-label`），禁止使用模糊选择器（如 `[class*="close"]`）或随机位置点击。
+4. **网页结构易变**：第三方网站的 DOM 结构随时可能变化，不要假设之前的选择器仍然有效。
+
 ## UI 设计规范 (Apple Glass Design System)
 
 本项目采用 "Apple Glass" 设计风格，旨在打造高端、通透、富有层次感的现代化界面。
