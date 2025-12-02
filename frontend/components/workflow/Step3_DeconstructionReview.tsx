@@ -314,8 +314,10 @@ export default function Step3_DeconstructionReview({
                 if (foundIdx >= 0) {
                     return { ...prev, [shotId]: foundIdx };
                 }
+                // 有保存记录但匹配失败，不自动选择其他图片
+                return prev;
             }
-            // 否则默认第一张（最新的，因为后端按时间倒序排列）
+            // 没有保存记录，默认第一张（最新的）
             return { ...prev, [shotId]: 0 };
         });
         setNewlyGenerated((prev) => {
@@ -1583,15 +1585,24 @@ export default function Step3_DeconstructionReview({
                     }
                     if (filename) {
                         const foundIdx = imgs.findIndex(url => url.endsWith(filename!) || url.includes(`/${filename}`));
-                        targetIdx = foundIdx >= 0 ? foundIdx : 0;
+                        if (foundIdx >= 0) {
+                            targetIdx = foundIdx;
+                        } else {
+                            // 有保存记录但匹配失败，跳过不设置
+                            return;
+                        }
                     } else {
+                        // 没有找到文件名记录，默认第一张
                         targetIdx = 0;
                     }
                 } else if (typeof savedValue === 'number' && savedValue >= 0 && savedValue < imgs.length) {
                     // 旧格式：直接是索引
                     targetIdx = savedValue;
+                } else if (typeof savedValue === 'number') {
+                    // 有保存记录但索引无效，跳过不设置
+                    return;
                 } else {
-                    // 没有保存记录或无效，使用默认值（第一张，最新的）
+                    // 没有保存记录，使用默认值（第一张，最新的）
                     targetIdx = 0;
                 }
                 
