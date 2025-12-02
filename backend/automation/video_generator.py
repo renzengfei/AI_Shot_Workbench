@@ -445,9 +445,44 @@ class VideoGenerator:
         self.close_popups()
         time.sleep(1)
     
-    def check_credits(self) -> int:
+    def check_credits(self, retry_after_popup: bool = True) -> int:
         """检查账号积分，返回积分数量，失败返回 -1"""
         try:
+            # 先检查是否在 paywall/升级页面（通过 URL 或特定元素）
+            is_paywall = self.driver.execute_script('''
+                // 检查是否有 paywall 弹窗
+                const paywallClose = document.querySelector('[data-testid="paywall-close"]');
+                if (paywallClose) return true;
+                
+                // 检查 URL 是否包含 pricing/upgrade 等
+                const url = window.location.href;
+                if (url.includes('pricing') || url.includes('upgrade') || url.includes('subscribe')) {
+                    return true;
+                }
+                
+                // 检查页面是否有"升级"、"订阅"等关键词占据主体
+                const bodyText = document.body.innerText;
+                if (bodyText.includes('升级套餐') || bodyText.includes('Upgrade') || bodyText.includes('Subscribe')) {
+                    // 如果页面主体是升级内容，可能是 paywall
+                    const hasCreditsDisplay = bodyText.match(/(\d{2,})\s*(积分|credits?)/i);
+                    if (!hasCreditsDisplay) return true;  // 没有积分显示，可能是 paywall
+                }
+                
+                return false;
+            ''')
+            
+            if is_paywall and retry_after_popup:
+                print("   ⚠️ 检测到 paywall 页面，尝试关闭并刷新...")
+                self.close_popups()
+                time.sleep(1)
+                # 刷新页面
+                self.driver.refresh()
+                time.sleep(3)
+                self.close_popups()
+                time.sleep(1)
+                # 递归重试（不再重试）
+                return self.check_credits(retry_after_popup=False)
+            
             # 尝试从页面获取积分显示（使用 r-string 避免转义警告）
             credits = self.driver.execute_script(r'''
                 // 查找显示积分的元素（通常在导航栏或用户信息处）
@@ -483,6 +518,14 @@ class VideoGenerator:
             
             if credits is not None and credits >= 0:
                 print(f"   💰 当前积分: {credits}")
+                # 如果积分为 0 且是首次检测，尝试刷新后再检测
+                if credits == 0 and retry_after_popup:
+                    print("   ⚠️ 积分为 0，刷新页面后重试...")
+                    self.driver.refresh()
+                    time.sleep(3)
+                    self.close_popups()
+                    time.sleep(1)
+                    return self.check_credits(retry_after_popup=False)
                 return credits
             
             return -1
