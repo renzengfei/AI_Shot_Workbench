@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 """
-并行批量注册 - 多 Chrome 实例同时工作
+并行批量注册 - 每次注册使用独立指纹
 """
+import undetected_chromedriver as uc
+from selenium.webdriver.common.by import By
 import time
 import random
 import threading
@@ -9,9 +11,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Optional
 
-from .browser_pool import BrowserPool, BrowserInstance
-from .account_pool import AccountPool, Account
+from .account_pool import AccountPool
 from .email_receiver import EmailReceiver
+from .fingerprint_manager import get_fingerprint_manager
+
+# 全局浏览器启动锁（确保串行启动）
+_browser_launch_lock = threading.Lock()
 
 
 class ParallelRegister:
@@ -41,8 +46,8 @@ class ParallelRegister:
         self.max_interval = max_interval
         
         self.account_pool = AccountPool()
-        self.browser_pool = BrowserPool(max_size=max_workers)
         self.email_receiver = EmailReceiver(self.account_pool.imap_config)
+        self.fingerprint_manager = get_fingerprint_manager()
         
         # 线程安全计数
         self.lock = threading.Lock()
@@ -50,6 +55,7 @@ class ParallelRegister:
         self.success_count = 0
         self.fail_count = 0
         self.email_index = 0
+        self._worker_id = 0
     
     def _get_next_email(self) -> str:
         """线程安全地获取下一个邮箱"""
@@ -58,13 +64,45 @@ class ParallelRegister:
             self.email_index += 1
             return email
     
-    def _register_single(self, browser: BrowserInstance, email: str) -> bool:
+    def _get_worker_id(self) -> int:
+        """线程安全地获取 worker ID"""
+        with self.lock:
+            wid = self._worker_id
+            self._worker_id += 1
+            return wid
+    
+    def _launch_browser(self, email: str):
+        """启动带指纹的浏览器"""
+        fingerprint = self.fingerprint_manager.get_or_create(email)
+        print(f"   🔐 指纹: {fingerprint.fingerprint_id}")
+        
+        options = self.fingerprint_manager.get_chrome_options(fingerprint)
+        
+        # 串行启动浏览器避免冲突
+        with _browser_launch_lock:
+            driver = uc.Chrome(options=options, headless=False, use_subprocess=True)
+            time.sleep(3)
+        
+        # 注入指纹 JS
+        driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+            'source': self.fingerprint_manager.get_fingerprint_js(fingerprint)
+        })
+        
+        driver.set_window_size(1280, 800)
+        return driver
+    
+    def _close_browser(self, driver):
+        """安全关闭浏览器"""
+        try:
+            if driver:
+                driver.quit()
+        except:
+            pass
+    
+    def _register_single(self, driver, worker_id: int, email: str) -> bool:
         """
         使用指定浏览器注册单个账号
         """
-        driver = browser.driver
-        worker_id = browser.id
-        
         try:
             print(f"\n[Worker-{worker_id}] 开始注册: {email}")
             
@@ -81,7 +119,6 @@ class ParallelRegister:
             time.sleep(3)
             
             # 3. 输入邮箱
-            from selenium.webdriver.common.by import By
             inputs = driver.find_elements(By.CSS_SELECTOR, 'input')
             for inp in inputs:
                 placeholder = inp.get_attribute('placeholder')
@@ -137,9 +174,10 @@ class ParallelRegister:
             
             # 8. 检查成功
             if 'AI设计师' in driver.page_source or 'canvas' in driver.current_url:
-                # 保存账号
+                # 保存账号（关联指纹）
                 password = f"Lovart{random.randint(1000,9999)}!"
-                self.account_pool.add_account(email, password)
+                fingerprint = self.fingerprint_manager.get_or_create(email)
+                self.account_pool.add_account(email, password, fingerprint.fingerprint_id)
                 
                 with self.lock:
                     self.success_count += 1
@@ -156,21 +194,36 @@ class ParallelRegister:
     
     def _worker(self, task_index: int):
         """
-        工作线程
+        工作线程 - 每次启动新浏览器（独立指纹），完成后关闭
         """
         email = self._get_next_email()
+        worker_id = self._get_worker_id()
+        driver = None
         
-        with self.browser_pool.get_browser() as browser:
-            success = self._register_single(browser, email)
+        try:
+            # 启动带指纹的浏览器
+            print(f"\n[Worker-{worker_id}] 🌐 启动浏览器...")
+            driver = self._launch_browser(email)
+            
+            # 执行注册
+            success = self._register_single(driver, worker_id, email)
             
             if not success:
                 with self.lock:
                     self.fail_count += 1
-            
-            # 随机间隔
-            interval = random.randint(self.min_interval, self.max_interval)
-            print(f"[Worker-{browser.id}] 等待 {interval}s...")
-            time.sleep(interval)
+        except Exception as e:
+            print(f"[Worker-{worker_id}] ✗ 任务异常: {e}")
+            with self.lock:
+                self.fail_count += 1
+        finally:
+            # 无论成功失败，都关闭浏览器
+            print(f"[Worker-{worker_id}] 🔒 关闭浏览器")
+            self._close_browser(driver)
+        
+        # 随机间隔（在关闭浏览器后等待）
+        interval = random.randint(self.min_interval, self.max_interval)
+        print(f"[Worker-{worker_id}] 等待 {interval}s...")
+        time.sleep(interval)
     
     def run(self, count: int):
         """
@@ -196,9 +249,6 @@ class ParallelRegister:
                     future.result()
                 except Exception as e:
                     print(f"任务异常: {e}")
-        
-        # 清理
-        self.browser_pool.close_all()
         
         # 统计
         elapsed = time.time() - start_time
