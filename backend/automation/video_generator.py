@@ -61,7 +61,8 @@ class VideoGenerator:
         
         self.driver.set_window_size(1400, 900)
         
-        # 隐藏窗口（想看时点击 Dock 上的 Chrome 图标）
+        # 等待浏览器完全启动后再隐藏窗口
+        time.sleep(1)
         from .browser_utils import hide_chrome_window
         hide_chrome_window()
     

@@ -933,6 +933,15 @@
       "status": "active",
       "fingerprint_id": "aur4t998aj2y",
       "created_at": "2025-12-02T15:52:19.203335"
+    },
+    {
+      "email": "xiaodonggang@aigoogle.top",
+      "password": "Cv7BV9MXP6Hu",
+      "daily_used": 0,
+      "last_used_date": "",
+      "status": "active",
+      "fingerprint_id": "ndhmj4l1up3e",
+      "created_at": "2025-12-02T16:00:22.748057"
     }
   ]
 }
