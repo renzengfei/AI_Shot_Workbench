@@ -354,32 +354,9 @@ export default function Step3_DeconstructionReview({
                 merged = Array.from(new Set([...(prev[shotId] || []), ...found]));
                 return { ...prev, [shotId]: merged };
             });
-            // 设置默认浏览索引（如果还没有的话）
-            // 使用刚计算的 merged 而不是 ref（因为 ref 可能还没更新）
-            setGeneratedIndexes((prev) => {
-                if (typeof prev[shotId] === 'number') return prev;
-                // 先尝试从 window 临时变量中获取文件名匹配
-                const savedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string | number> || {};
-                // 尝试多种 key 格式匹配：整数、浮点、字符串
-                const possibleKeys = [String(shotId), shotId.toFixed(1), String(Math.floor(shotId))];
-                let filename: string | undefined;
-                for (const key of possibleKeys) {
-                    const val = savedFilenames[key];
-                    if (typeof val === 'string') {
-                        filename = val;
-                        break;
-                    }
-                }
-                if (filename && merged.length) {
-                    const foundIdx = merged.findIndex(url => url.endsWith(filename!) || url.includes(`/${filename}`));
-                    if (foundIdx >= 0) {
-                        console.log(`[DEBUG loadExisting] Shot ${shotId}: matched filename "${filename}" to index ${foundIdx}`);
-                        return { ...prev, [shotId]: foundIdx };
-                    }
-                }
-                // 否则默认最后一张
-                return { ...prev, [shotId]: Math.max(0, merged.length - 1) };
-            });
+            // 注意：不在这里设置默认索引！
+            // 索引的设置由下方的 useEffect（依赖 savedIndexes, generatedImages, savedIndexesLoaded）统一处理
+            // 这样可以确保在 selected-images API 返回后再设置正确的索引
             probedShotsRef.current.add(shotId);
         } else {
             probedShotsRef.current.add(shotId);
@@ -1616,7 +1593,7 @@ export default function Step3_DeconstructionReview({
             
             return changed ? next : prev;
         });
-    }, [savedIndexes, generatedImages]);
+    }, [savedIndexes, generatedImages, savedIndexesLoaded]);
 
     const optimizedMapped = useMemo(() => {
         if (!optimizedStoryboard) return { r1: null as Round1Data | null, r2: null as Round2Data | null };

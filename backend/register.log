@@ -441,3 +441,12 @@ Stacktrace:
 
 
 ⏳ 等待 2 分 35 秒后继续...
+
+[16/100] 16:42:16
+🔐 指纹: es44i2jyrzz5
+   UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap...
+   屏幕: 1536x864
+
+✗ 浏览器异常: <urlopen error [SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1077)>
+
+⏳ 等待 3 分 41 秒后继续...
