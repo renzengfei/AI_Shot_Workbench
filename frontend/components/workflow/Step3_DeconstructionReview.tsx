@@ -749,8 +749,10 @@ export default function Step3_DeconstructionReview({
             const savedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string> || {};
             
             // 合并：保留原有选择 + 添加/更新当前选择
+            // 统一使用 x.0 格式的 key（如 "1.0", "2.0"）
             const allSelections: Record<string, string> = { ...savedFilenames };
-            allSelections[String(shotId)] = filename;
+            const shotKey = Number.isInteger(shotId) ? shotId.toFixed(1) : String(shotId);
+            allSelections[shotKey] = filename;
             
             // 同步更新 window 临时变量
             (window as unknown as Record<string, unknown>).__savedImageFilenames = allSelections;
