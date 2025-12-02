@@ -297,18 +297,26 @@ export default function Step3_DeconstructionReview({
         // 注意：选中图片的匹配由专门的 useEffect 处理（依赖 savedIndexes + generatedImages）
         setGeneratedIndexes((prev) => {
             if (typeof prev[shotId] === 'number') return prev;
-            // 先尝试从 window 临时变量中获取文件名匹配
+            // 先尝试从 window 临时变量中获取文件名匹配（尝试多种 key 格式）
             const savedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string | number> || {};
-            const filename = savedFilenames[String(shotId)];
-            if (typeof filename === 'string') {
+            const possibleKeys = [String(shotId), shotId.toFixed(1), String(Math.floor(shotId))];
+            let filename: string | undefined;
+            for (const key of possibleKeys) {
+                const val = savedFilenames[key];
+                if (typeof val === 'string') {
+                    filename = val;
+                    break;
+                }
+            }
+            if (filename) {
                 const imgs = generatedImagesRef.current[shotId] || [];
-                const foundIdx = imgs.findIndex(url => url.endsWith(filename) || url.includes(`/${filename}`));
+                const foundIdx = imgs.findIndex(url => url.endsWith(filename!) || url.includes(`/${filename}`));
                 if (foundIdx >= 0) {
                     return { ...prev, [shotId]: foundIdx };
                 }
             }
-            // 否则默认最后一张
-            return { ...prev, [shotId]: Math.max(0, mergedLen - 1) };
+            // 否则默认第一张（最新的，因为后端按时间倒序排列）
+            return { ...prev, [shotId]: 0 };
         });
         setNewlyGenerated((prev) => {
             const existing = prev[shotId] || [];
@@ -1575,16 +1583,16 @@ export default function Step3_DeconstructionReview({
                     }
                     if (filename) {
                         const foundIdx = imgs.findIndex(url => url.endsWith(filename!) || url.includes(`/${filename}`));
-                        targetIdx = foundIdx >= 0 ? foundIdx : Math.max(0, imgs.length - 1);
+                        targetIdx = foundIdx >= 0 ? foundIdx : 0;
                     } else {
-                        targetIdx = Math.max(0, imgs.length - 1);
+                        targetIdx = 0;
                     }
                 } else if (typeof savedValue === 'number' && savedValue >= 0 && savedValue < imgs.length) {
                     // 旧格式：直接是索引
                     targetIdx = savedValue;
                 } else {
-                    // 没有保存记录或无效，使用默认值（最后一张）
-                    targetIdx = Math.max(0, imgs.length - 1);
+                    // 没有保存记录或无效，使用默认值（第一张，最新的）
+                    targetIdx = 0;
                 }
                 
                 if (prev[id] !== targetIdx) {
