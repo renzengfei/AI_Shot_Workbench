@@ -306,6 +306,16 @@ class BatchVideoGenerator:
             available_accounts = len([a for a in self.account_pool.accounts if a.status == 'available'])
             actual_workers = min(max_workers, available_accounts, len(tasks))
             
+            # 如果没有可用账号，回退到串行执行
+            if actual_workers <= 0:
+                print("⚠️ 没有可用账号，回退到串行执行")
+                for task in tasks:
+                    if self.process_single_task(task):
+                        completed += 1
+                    else:
+                        failed += 1
+                return {'success': completed, 'failed': failed, 'skipped': len(task_ids) - len(tasks)}
+            
             with ThreadPoolExecutor(max_workers=actual_workers) as executor:
                 future_to_task = {
                     executor.submit(self.process_single_task, task): task 
