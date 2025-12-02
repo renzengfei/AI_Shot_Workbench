@@ -734,26 +734,18 @@ export default function Step3_DeconstructionReview({
         const filename = imageUrl?.split('/').pop() || '';
         if (filename && currentWorkspace?.path && generatedDir) {
             setSavedIndexes((prev) => ({ ...prev, [shotId]: bounded })); // 同时更新本地状态
-            // 保存文件名到后端
-            const allSelections: Record<string, string> = {};
-            const savedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string | number> || {};
-            Object.entries(savedIndexesRef.current).forEach(([k, v]) => {
-                const sid = Number(k);
-                let fn = '';
-                if (v === -1) {
-                    // 文件名格式：直接从临时变量获取
-                    const savedFn = savedFilenames[k];
-                    if (typeof savedFn === 'string') fn = savedFn;
-                } else {
-                    // 索引格式：通过索引查找文件名
-                    const imgs = generatedImagesRef.current[sid] || [];
-                    fn = imgs[v]?.split('/').pop() || '';
-                }
-                if (fn) allSelections[k] = fn;
-            });
+            
+            // 【关键修复】直接从 window 临时变量获取已保存的文件名，避免数据丢失
+            // 不再从 savedIndexesRef 重新构建，因为那样在数据未加载完时会导致覆盖
+            const savedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string> || {};
+            
+            // 合并：保留原有选择 + 添加/更新当前选择
+            const allSelections: Record<string, string> = { ...savedFilenames };
             allSelections[String(shotId)] = filename;
+            
             // 同步更新 window 临时变量
-            (window as unknown as Record<string, unknown>).__savedImageFilenames = { ...savedFilenames, [String(shotId)]: filename };
+            (window as unknown as Record<string, unknown>).__savedImageFilenames = allSelections;
+            
             fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-images`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
