@@ -60,6 +60,10 @@ class VideoGenerator:
             self.driver = uc.Chrome(headless=False)
         
         self.driver.set_window_size(1400, 900)
+        
+        # 隐藏窗口（想看时点击 Dock 上的 Chrome 图标）
+        from .browser_utils import hide_chrome_window
+        hide_chrome_window()
     
     def close(self):
         """关闭浏览器"""

@@ -29,11 +29,16 @@ class LovartUC:
     def launch_browser(self):
         """启动 undetected Chrome"""
         options = uc.ChromeOptions()
-        if self.headless:
-            options.add_argument('--headless')
+        # 不用 headless 模式，改用隐藏窗口来绕过 Cloudflare 检测
         
-        self.driver = uc.Chrome(options=options, headless=self.headless)
+        self.driver = uc.Chrome(options=options, headless=False)
         self.driver.set_window_size(1280, 800)
+        
+        # 隐藏窗口（想看时点击 Dock 上的 Chrome 图标）
+        if self.headless:
+            from .browser_utils import hide_chrome_window
+            hide_chrome_window()
+        
         return self.driver
     
     def close(self):

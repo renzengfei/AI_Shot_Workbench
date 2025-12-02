@@ -80,11 +80,8 @@ class BatchRegister:
         
         # 如果是"隐藏"模式，最小化窗口到 Dock（想看时点击 Dock 图标即可）
         if self.headless:
-            import subprocess
-            subprocess.run([
-                'osascript', '-e',
-                'tell application "System Events" to set visible of process "Google Chrome" to false'
-            ], capture_output=True)
+            from .browser_utils import hide_chrome_window
+            hide_chrome_window()
     
     def close_browser(self):
         """关闭浏览器"""

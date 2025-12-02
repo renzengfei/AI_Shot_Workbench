@@ -50,15 +50,19 @@ class BrowserPool:
         print(f"🌐 创建浏览器实例 #{self._next_id}...")
         
         options = uc.ChromeOptions()
-        if self.headless:
-            options.add_argument('--headless=new')
+        # 不用 headless 模式，改用隐藏窗口来绕过 Cloudflare 检测
         
         # 每个实例使用不同的用户数据目录
         user_data_dir = f"/tmp/chrome_pool_{self._next_id}"
         options.add_argument(f'--user-data-dir={user_data_dir}')
         
-        driver = uc.Chrome(options=options, headless=self.headless)
+        driver = uc.Chrome(options=options, headless=False)  # 不用 headless，改用隐藏窗口
         driver.set_window_size(1400, 900)
+        
+        # 隐藏窗口（想看时点击 Dock 上的 Chrome 图标）
+        if self.headless:
+            from .browser_utils import hide_chrome_window
+            hide_chrome_window()
         
         instance = BrowserInstance(
             id=self._next_id,
