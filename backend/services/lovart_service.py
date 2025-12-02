@@ -152,6 +152,20 @@ class LovartService:
         self._processing = False
         return {"status": "stopped"}
     
+    def clear_all_tasks(self) -> dict:
+        """清理所有任务（取消 pending/processing 状态的任务）"""
+        result = self.batch_generator.clear_all_tasks()
+        # 清理浏览器进程
+        import subprocess
+        import platform
+        if platform.system() == "Darwin":
+            try:
+                subprocess.run(["pkill", "-f", "chromedriver"], capture_output=True)
+                subprocess.run(["pkill", "-f", "Google Chrome for Testing"], capture_output=True)
+            except:
+                pass
+        return result
+    
     def _task_to_response(self, task: VideoTask) -> VideoTaskResponse:
         """转换任务为响应"""
         # 将绝对路径转换为 HTTP URL

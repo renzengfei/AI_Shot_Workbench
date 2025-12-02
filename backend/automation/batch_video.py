@@ -122,6 +122,19 @@ class BatchVideoGenerator:
         """获取失败任务"""
         return [t for t in self.tasks if t.status == 'failed']
     
+    def clear_all_tasks(self) -> dict:
+        """清理所有任务（将 pending/processing 改为 cancelled）"""
+        cleared = 0
+        for task in self.tasks:
+            if task.status in ('pending', 'processing'):
+                task.status = 'cancelled'
+                task.error = '用户取消'
+                cleared += 1
+        self.save_tasks()
+        # 释放所有账号
+        self.account_pool.release_all()
+        return {'cleared': cleared}
+    
     def process_single_task(self, task: VideoTask) -> bool:
         """处理单个任务"""
         print(f"\n{'='*60}")

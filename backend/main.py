@@ -38,6 +38,20 @@ logger = logging.getLogger("ai-shot-workbench")
 
 app = FastAPI(title="AI Shot Workbench API")
 
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """服务关闭时清理所有任务"""
+    print("🛑 服务关闭中，清理所有任务...")
+    try:
+        from services.lovart_service import get_lovart_service
+        service = get_lovart_service()
+        result = service.clear_all_tasks()
+        print(f"   ✓ 已清理 {result['cleared']} 个任务")
+    except Exception as e:
+        print(f"   ⚠️ 清理任务时出错: {e}")
+
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
@@ -1474,6 +1488,18 @@ async def lovart_cleanup():
         "success": True,
         "message": "浏览器进程清理完成",
         "killed": killed
+    }
+
+
+@app.post("/api/lovart/tasks/stop-all")
+async def lovart_stop_all_tasks():
+    """停止所有任务（取消 pending/processing 状态的任务）"""
+    service = get_lovart_service()
+    result = service.clear_all_tasks()
+    return {
+        "success": True,
+        "message": f"已取消 {result['cleared']} 个任务",
+        **result
     }
 
 

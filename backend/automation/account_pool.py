@@ -121,6 +121,13 @@ class AccountPool:
                 self._in_use.discard(account.email)
                 print(f"   🔓 释放账号: {account.email}")
     
+    def release_all(self):
+        """释放所有账号锁定"""
+        with self._lock:
+            count = len(self._in_use)
+            self._in_use.clear()
+            print(f"   🔓 释放所有账号 ({count} 个)")
+    
     def mark_used(self, account: Account):
         """标记账号已使用一次"""
         today = date.today().isoformat()

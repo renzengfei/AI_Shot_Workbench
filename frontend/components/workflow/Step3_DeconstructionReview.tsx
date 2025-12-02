@@ -1345,6 +1345,27 @@ export default function Step3_DeconstructionReview({
         }
     };
 
+    // 停止所有视频生成
+    const handleStopAllVideos = async () => {
+        try {
+            const resp = await fetch(`${API_BASE}/api/lovart/tasks/stop-all`, {
+                method: 'POST',
+            });
+            
+            if (resp.ok) {
+                // 清除所有生成中状态
+                setGeneratingVideoShots({});
+                setVideoTaskStatuses({});
+                showToast('已停止所有视频生成', 'success');
+            } else {
+                showToast('停止失败', 'error');
+            }
+        } catch (err) {
+            console.error('停止任务失败:', err);
+            showToast('停止失败', 'error');
+        }
+    };
+
     // 批量生成视频（多镜头并行）
     const handleBatchGenerateVideos = async () => {
         if (!currentWorkspace?.path || !round2Data || typeof round2Data === 'string') {
@@ -3398,16 +3419,23 @@ export default function Step3_DeconstructionReview({
                     {/* Batch Actions */}
                     {typeof round2Data !== 'string' && round2Data?.shots && round2Data.shots.length > 0 && (
                         <div className="flex items-center justify-end gap-3 py-4 mb-4 border-b border-slate-200">
-                            <button
-                                onClick={handleBatchGenerateVideos}
-                                disabled={Object.keys(generatingVideoShots).length > 0}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-purple-500 text-white hover:bg-purple-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
-                                {Object.keys(generatingVideoShots).length > 0 
-                                    ? `生成中 (${Object.keys(generatingVideoShots).length})...` 
-                                    : '批量生成视频'}
-                            </button>
+                            {Object.keys(generatingVideoShots).length > 0 ? (
+                                <button
+                                    onClick={handleStopAllVideos}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-red-500 text-white hover:bg-red-600 transition"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="6" width="12" height="12"></rect></svg>
+                                    停止生成 ({Object.keys(generatingVideoShots).length})
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={handleBatchGenerateVideos}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-purple-500 text-white hover:bg-purple-600 transition"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+                                    批量生成视频
+                                </button>
+                            )}
                             <span className="text-xs text-slate-400">
                                 {Object.values(generatedImages).filter(arr => arr && arr.length > 0).length} 个镜头有图片
                             </span>
