@@ -1137,9 +1137,11 @@ export const ShotCard = ({
                                                         >
                                                             {isSelected ? <><Check size={14} /> 已选择</> : '选择此视频'}
                                                         </button>
-                                                        <span className={`text-xs font-medium text-slate-400 px-2.5 py-2 bg-slate-100/80 ${BTN_RADIUS} border border-slate-200/30`}>
-                                                            {genTime || `#${idx + 1}`}
-                                                        </span>
+                                                        {genTime && (
+                                                            <span className={`text-xs font-medium text-slate-400 px-2.5 py-2 bg-slate-100/80 ${BTN_RADIUS} border border-slate-200/30`}>
+                                                                {genTime}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             );
