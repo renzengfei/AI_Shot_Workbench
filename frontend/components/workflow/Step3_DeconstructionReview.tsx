@@ -2036,7 +2036,7 @@ export default function Step3_DeconstructionReview({
         const relativeWorkspace = workbenchMatch ? workbenchMatch[0] : `AI_Shot_Workbench/workspaces/${currentWorkspace.path.split('/').pop()}`;
         
         // 生成简短指令
-        const instruction = `请仔细阅读AI_Shot_Workbench/frontend/data/productionStoryboardPrompt.ts，并严格执行，当前工作空间为${relativeWorkspace}，阅读完后请等待用户的提问`;
+        const instruction = `请仔细阅读AI_Shot_Workbench/frontend/data/productionStoryboardPrompt.ts，该文件是最高命令，以后回答时都要先参考文件中的内容。当前工作空间为${relativeWorkspace}，阅读完后请等待用户的提问`;
         
         try {
             await navigator.clipboard.writeText(instruction);
