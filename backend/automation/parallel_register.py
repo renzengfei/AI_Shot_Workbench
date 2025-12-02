@@ -77,19 +77,29 @@ class ParallelRegister:
         print(f"   🔐 指纹: {fingerprint.fingerprint_id}")
         
         options = self.fingerprint_manager.get_chrome_options(fingerprint)
+        driver = None
         
-        # 串行启动浏览器避免冲突
-        with _browser_launch_lock:
-            driver = uc.Chrome(options=options, headless=False, use_subprocess=True)
-            time.sleep(3)
-        
-        # 注入指纹 JS
-        driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-            'source': self.fingerprint_manager.get_fingerprint_js(fingerprint)
-        })
-        
-        driver.set_window_size(1280, 800)
-        return driver
+        try:
+            # 串行启动浏览器避免冲突
+            with _browser_launch_lock:
+                driver = uc.Chrome(options=options, headless=False, use_subprocess=True)
+                time.sleep(5)  # 等待更长时间确保稳定
+            
+            # 注入指纹 JS
+            driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+                'source': self.fingerprint_manager.get_fingerprint_js(fingerprint)
+            })
+            
+            driver.set_window_size(1280, 800)
+            return driver
+        except Exception as e:
+            # 如果启动过程中失败，确保关闭已创建的浏览器
+            if driver:
+                try:
+                    driver.quit()
+                except:
+                    pass
+            raise e
     
     def _close_browser(self, driver):
         """安全关闭浏览器"""
