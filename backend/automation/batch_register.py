@@ -233,14 +233,14 @@ class BatchRegister:
         finally:
             self.email_receiver.disconnect()
     
-    def batch_register(self, count: int, min_interval: int = 60, max_interval: int = 300):
+    def batch_register(self, count: int, min_interval: int = 60, max_interval: int = 180):
         """
         批量注册账号
         
         Args:
             count: 要注册的账号数量
             min_interval: 最小间隔（秒），默认 60 秒 = 1 分钟
-            max_interval: 最大间隔（秒），默认 300 秒 = 5 分钟
+            max_interval: 最大间隔（秒），默认 180 秒 = 3 分钟
         """
         print(f"\n{'#'*60}")
         print(f"# Lovart 批量注册（独立指纹模式）")
@@ -272,16 +272,20 @@ class BatchRegister:
             except Exception as e:
                 print(f"\n✗ 浏览器异常: {e}")
                 self.failed_count += 1
+                success = False
                 
             finally:
                 # 每次注册后关闭浏览器
                 self.close_browser()
             
-            # 间隔（除了最后一个）
+            # 间隔（只有成功时才等待，失败立即继续）
             if i < count - 1:
-                interval = random.randint(min_interval, max_interval)
-                print(f"\n⏳ 等待 {interval//60} 分 {interval%60} 秒后继续...")
-                time.sleep(interval)
+                if success:
+                    interval = random.randint(min_interval, max_interval)
+                    print(f"\n⏳ 等待 {interval//60} 分 {interval%60} 秒后继续...")
+                    time.sleep(interval)
+                else:
+                    print("\n⚡ 失败，立即进行下一次...")
         
         # 打印统计
         print(f"\n{'='*60}")
@@ -300,8 +304,8 @@ def main():
     
     parser = argparse.ArgumentParser(description='Lovart 批量注册工具')
     parser.add_argument('-n', '--count', type=int, default=5, help='注册数量（默认 5）')
-    parser.add_argument('--min', type=int, default=120, help='最小间隔秒数（默认 120）')
-    parser.add_argument('--max', type=int, default=240, help='最大间隔秒数（默认 240）')
+    parser.add_argument('--min', type=int, default=60, help='最小间隔秒数（默认 60）')
+    parser.add_argument('--max', type=int, default=180, help='最大间隔秒数（默认 180）')
     parser.add_argument('--headless', action='store_true', help='无头模式（不显示浏览器窗口）')
     
     args = parser.parse_args()
