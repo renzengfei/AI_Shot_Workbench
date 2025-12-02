@@ -796,7 +796,7 @@ class VideoGenerator:
             print(f"✗ 发送失败: {e}")
             return False
     
-    def wait_for_video(self, timeout: int = 300) -> Optional[str]:
+    def wait_for_video(self, timeout: int = 600) -> Optional[str]:
         """
         等待视频生成完成
         
@@ -869,20 +869,40 @@ class VideoGenerator:
                 
                 # 查找新的视频元素（排除初始的教学视频）
                 videos = self.driver.find_elements(By.CSS_SELECTOR, 'video')
+                
+                # 调试：列出所有视频
+                if elapsed % 30 == 0 and videos:
+                    print(f"   发现 {len(videos)} 个视频元素")
+                    for i, v in enumerate(videos):
+                        v_src = v.get_attribute('src') or '(无src)'
+                        is_initial = v_src in initial_video_urls
+                        print(f"     视频{i}: {'[初始]' if is_initial else '[新]'} {v_src[:60]}...")
+                
                 for video in videos:
                     src = video.get_attribute('src')
                     if not src:
                         continue
                     
-                    # 跳过初始视频和教学视频
+                    # 跳过初始视频
                     if src in initial_video_urls:
                         continue
+                    
+                    # 跳过教学视频
                     if any(p in src.lower() for p in tutorial_patterns):
                         continue
                     
-                    # 检查是否是生成的视频（通常包含 assets-persist 和唯一 ID）
-                    if 'assets-persist' in src or 'generated' in src or len(src) > 100:
-                        print(f"✓ 视频已生成: {src[:80]}...")
+                    # 检查是否是有效的视频 URL（放宽条件）
+                    is_valid_video = (
+                        'assets-persist' in src or 
+                        'generated' in src or 
+                        '.mp4' in src or
+                        'video' in src.lower() or
+                        'lovart' in src.lower() or
+                        len(src) > 100
+                    )
+                    
+                    if is_valid_video:
+                        print(f"✓ 视频已生成: {src[:100]}...")
                         return src
                     
                     # blob URL 需要特殊处理
@@ -892,7 +912,7 @@ class VideoGenerator:
                             real_src = source.get_attribute('src')
                             if real_src and 'blob:' not in real_src:
                                 if real_src not in initial_video_urls:
-                                    print(f"✓ 视频已生成 (source)")
+                                    print(f"✓ 视频已生成 (source): {real_src[:60]}...")
                                     return real_src
                 
                 # 查找下载按钮（生成完成后通常会显示）
@@ -1041,7 +1061,7 @@ class VideoGenerator:
                     return None
                 
                 # 等待视频生成
-                video_url = self.wait_for_video(timeout=300)
+                video_url = self.wait_for_video(timeout=600)  # 10分钟超时
                 if not video_url:
                     return None
                 
