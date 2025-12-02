@@ -989,12 +989,17 @@ async def list_generated_assets(workspace_path: str, shot_id: str, generated_dir
         raise HTTPException(status_code=400, detail="路径无效")
     if not os.path.isdir(norm_root):
         return {"files": []}
-    files = []
-    for fname in sorted(os.listdir(norm_root)):
+    # 获取所有文件并按修改时间倒序（最新的在前）
+    file_items = []
+    for fname in os.listdir(norm_root):
         fpath = os.path.join(norm_root, fname)
         if os.path.isfile(fpath):
+            mtime = os.path.getmtime(fpath)
             rel_base = os.path.relpath(fpath, os.path.abspath(WORKSPACES_DIR))
-            files.append(f"/workspaces/{rel_base}")
+            file_items.append((mtime, f"/workspaces/{rel_base}"))
+    # 按修改时间倒序排序
+    file_items.sort(key=lambda x: x[0], reverse=True)
+    files = [f[1] for f in file_items]
     return {"files": files}
 
 @app.get("/api/workspaces/{workspace_path:path}/selected-images")

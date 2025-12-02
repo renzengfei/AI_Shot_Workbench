@@ -394,8 +394,8 @@ export default function Step3_DeconstructionReview({
         if (allVideos.length > 0) {
             const unique = Array.from(new Set(allVideos));
             setGeneratedVideos(prev => ({ ...prev, [shotId]: unique }));
-            // 默认选中最后一个（最新的）
-            setSelectedVideoIndexes(prev => ({ ...prev, [shotId]: unique.length - 1 }));
+            // 默认选中第一个（最新的，因为后端按时间倒序排列）
+            setSelectedVideoIndexes(prev => ({ ...prev, [shotId]: 0 }));
         }
     }, [currentWorkspace?.path, generatedDir]);
 
