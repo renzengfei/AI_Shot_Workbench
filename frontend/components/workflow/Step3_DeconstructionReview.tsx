@@ -388,21 +388,28 @@ export default function Step3_DeconstructionReview({
     // 加载镜头的所有视频
     const loadVideosForShot = useCallback(async (shotId: number) => {
         if (!currentWorkspace?.path) return;
-        const url = `${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/generated?shot_id=${encodeURIComponent(String(shotId))}&generated_dir=${encodeURIComponent(generatedDir)}`;
-        try {
-            const resp = await fetch(url);
-            if (!resp.ok) return;
-            const data = await resp.json() as { files?: string[] };
-            const allFiles = data.files || [];
-            // 过滤出视频文件
-            const videos = allFiles.filter(f => f.endsWith('.mp4') || f.endsWith('.webm'));
-            if (videos.length > 0) {
-                setGeneratedVideos(prev => ({ ...prev, [shotId]: videos }));
-                // 默认选中最后一个（最新的）
-                setSelectedVideoIndexes(prev => ({ ...prev, [shotId]: videos.length - 1 }));
+        // 同时查询整数和小数格式的目录（如 1 和 1.0）
+        const labels = [String(shotId), shotId.toFixed(1)];
+        const allVideos: string[] = [];
+        for (const label of labels) {
+            try {
+                const url = `${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/generated?shot_id=${encodeURIComponent(label)}&generated_dir=${encodeURIComponent(generatedDir)}`;
+                const resp = await fetch(url);
+                if (!resp.ok) continue;
+                const data = await resp.json() as { files?: string[] };
+                const files = data.files || [];
+                // 过滤出视频文件
+                files.filter(f => f.endsWith('.mp4') || f.endsWith('.webm'))
+                    .forEach(f => allVideos.push(f));
+            } catch {
+                // ignore
             }
-        } catch {
-            // ignore
+        }
+        if (allVideos.length > 0) {
+            const unique = Array.from(new Set(allVideos));
+            setGeneratedVideos(prev => ({ ...prev, [shotId]: unique }));
+            // 默认选中最后一个（最新的）
+            setSelectedVideoIndexes(prev => ({ ...prev, [shotId]: unique.length - 1 }));
         }
     }, [currentWorkspace?.path, generatedDir]);
 
@@ -1508,8 +1515,9 @@ export default function Step3_DeconstructionReview({
         const shotIds = (round2Data.shots || []).map((s, idx) => s.id ?? idx + 1);
         shotIds.forEach((id) => {
             void loadExistingImagesForShot(id);
+            void loadVideosForShot(id);  // 同时加载视频列表
         });
-    }, [workspaceSlug, round2Data, loadExistingImagesForShot]);
+    }, [workspaceSlug, round2Data, loadExistingImagesForShot, loadVideosForShot]);
 
     // 拉取已保存的选中图片（支持新格式文件名和旧格式索引）
     useEffect(() => {
