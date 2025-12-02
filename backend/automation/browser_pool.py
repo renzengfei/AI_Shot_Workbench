@@ -56,7 +56,12 @@ class BrowserPool:
         user_data_dir = f"/tmp/chrome_pool_{self._next_id}"
         options.add_argument(f'--user-data-dir={user_data_dir}')
         
-        driver = uc.Chrome(options=options, headless=False)  # 不用 headless，改用隐藏窗口
+        # 使用 subprocess 避免冲突
+        driver = uc.Chrome(options=options, headless=False, use_subprocess=True)
+        
+        # 等待浏览器稳定
+        time.sleep(3)
+        
         driver.set_window_size(1400, 900)
         
         # 隐藏窗口（想看时点击 Dock 上的 Chrome 图标）
