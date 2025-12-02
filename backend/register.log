@@ -1,4 +1,4 @@
-当前账号数: 98
+当前账号数: 99
 
 ############################################################
 # Lovart 批量注册（独立指纹模式）
@@ -7,25 +7,25 @@
 ############################################################
 
 
-[1/100] 15:35:47
-🔐 指纹: dpl84r3rkxk0
+[1/100] 15:39:50
+🔐 指纹: ij6yb64zsoj9
    UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap...
-   屏幕: 1536x864
+   屏幕: 1680x1050
 
 ==================================================
-注册账号: pengbo4@aigoogle.top
+注册账号: wenzeluo@aigoogle.top
 ==================================================
 1. 打开 Lovart.ai
 2. 点击注册按钮
 3. 输入邮箱
-   ✓ 邮箱: pengbo4@aigoogle.top
+   ✓ 邮箱: wenzeluo@aigoogle.top
 4. 等待 Cloudflare 验证...
    ✓ Cloudflare 验证通过
 5. 点击「使用邮箱继续」
    ✓ 已点击
 6. 等待验证码邮件...
-✓ 找到验证码: 726640 (发送到 pengbo4@aigoogle.top)
-   ✓ 收到验证码: 726640
+✓ 找到验证码: 852458 (发送到 wenzeluo@aigoogle.top)
+   ✓ 收到验证码: 852458
 7. 填写验证码
    ✓ 验证码已填写
 8. 等待注册完成...
@@ -33,6 +33,39 @@
 
 ✓ 成功 (1/1)
 
-⏳ 等待 2 分 32 秒后继续...
-/opt/homebrew/Cellar/python@3.14/3.14.0_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/resource_tracker.py:297: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown: {'/mp-ctqw2vko'}
+⏳ 等待 2 分 18 秒后继续...
+
+[2/100] 15:43:26
+🔐 指纹: p17tdrr66vu6
+   UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap...
+   屏幕: 1280x800
+
+==================================================
+注册账号: hanning33@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: hanning33@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 923062 (发送到 hanning33@aigoogle.top)
+   ✓ 收到验证码: 923062
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (2/2)
+
+⏳ 等待 2 分 13 秒后继续...
+
+[3/100] 15:46:52
+🔐 指纹: agljr2y7h0sf
+   UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap...
+   屏幕: 1536x864
+/opt/homebrew/Cellar/python@3.14/3.14.0_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/resource_tracker.py:297: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown: {'/mp-l6hmklv0'}
   warnings.warn(
