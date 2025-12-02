@@ -212,6 +212,121 @@ class BatchVideoGenerator:
             'completed': len([t for t in self.tasks if t.status == 'completed']),
             'failed': len([t for t in self.tasks if t.status == 'failed']),
         }
+    
+    def process_parallel(self, max_workers: int = 3, retry_failed: bool = True):
+        """
+        并行处理多个任务（每个账号一个线程）
+        
+        Args:
+            max_workers: 最大并行数（建议不超过可用账号数）
+            retry_failed: 是否重试失败任务
+        """
+        tasks = self.get_pending_tasks()
+        if retry_failed:
+            tasks.extend(self.get_failed_tasks())
+        
+        if not tasks:
+            print("没有待处理任务")
+            return
+        
+        # 获取可用账号数
+        available_accounts = len([a for a in self.account_pool.accounts if a.status == 'available'])
+        actual_workers = min(max_workers, available_accounts, len(tasks))
+        
+        print(f"\n{'#'*60}")
+        print(f"# 并行视频生成")
+        print(f"# 任务数: {len(tasks)}")
+        print(f"# 并行数: {actual_workers}")
+        print(f"{'#'*60}\n")
+        
+        # 重置失败任务状态
+        for task in tasks:
+            if task.status == 'failed':
+                task.status = 'pending'
+                task.error = None
+        self.save_tasks()
+        
+        completed = 0
+        failed = 0
+        
+        with ThreadPoolExecutor(max_workers=actual_workers) as executor:
+            # 提交所有任务
+            future_to_task = {
+                executor.submit(self.process_single_task, task): task 
+                for task in tasks
+            }
+            
+            # 收集结果
+            for future in as_completed(future_to_task):
+                task = future_to_task[future]
+                try:
+                    success = future.result()
+                    if success:
+                        completed += 1
+                    else:
+                        failed += 1
+                except Exception as e:
+                    print(f"任务 {task.task_id} 异常: {e}")
+                    failed += 1
+        
+        print(f"\n{'='*60}")
+        print(f"并行生成完成")
+        print(f"  成功: {completed}")
+        print(f"  失败: {failed}")
+        print(f"{'='*60}")
+    
+    def process_tasks_by_ids(self, task_ids: List[str], parallel: bool = True, max_workers: int = 3) -> Dict:
+        """
+        处理指定的任务列表
+        
+        Args:
+            task_ids: 任务ID列表
+            parallel: 是否并行处理
+            max_workers: 最大并行数
+        
+        Returns:
+            处理结果统计
+        """
+        tasks = [t for t in self.tasks if t.task_id in task_ids and t.status in ['pending', 'failed']]
+        
+        if not tasks:
+            return {'success': 0, 'failed': 0, 'skipped': len(task_ids)}
+        
+        # 重置状态
+        for task in tasks:
+            if task.status == 'failed':
+                task.status = 'pending'
+                task.error = None
+        self.save_tasks()
+        
+        completed = 0
+        failed = 0
+        
+        if parallel and len(tasks) > 1:
+            available_accounts = len([a for a in self.account_pool.accounts if a.status == 'available'])
+            actual_workers = min(max_workers, available_accounts, len(tasks))
+            
+            with ThreadPoolExecutor(max_workers=actual_workers) as executor:
+                future_to_task = {
+                    executor.submit(self.process_single_task, task): task 
+                    for task in tasks
+                }
+                for future in as_completed(future_to_task):
+                    try:
+                        if future.result():
+                            completed += 1
+                        else:
+                            failed += 1
+                    except:
+                        failed += 1
+        else:
+            for task in tasks:
+                if self.process_single_task(task):
+                    completed += 1
+                else:
+                    failed += 1
+        
+        return {'success': completed, 'failed': failed, 'skipped': len(task_ids) - len(tasks)}
 
 
 # CLI

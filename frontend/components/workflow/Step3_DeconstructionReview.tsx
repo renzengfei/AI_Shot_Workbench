@@ -1314,6 +1314,146 @@ export default function Step3_DeconstructionReview({
         }
     };
 
+    // 批量生成视频（多镜头并行）
+    const handleBatchGenerateVideos = async () => {
+        if (!currentWorkspace?.path || !round2Data || typeof round2Data === 'string') {
+            showToast('请先选择工作空间', 'error');
+            return;
+        }
+        
+        const shots = round2Data.shots || [];
+        const tasksToCreate: Array<{ shotId: number; imagePath: string; prompt: string; outputPath: string }> = [];
+        
+        // 收集所有有图片的镜头
+        for (let i = 0; i < shots.length; i++) {
+            const shot = shots[i];
+            const shotId = shot.id ?? i + 1;
+            const imageUrls = generatedImages[shotId] || [];
+            
+            if (imageUrls.length === 0) continue;
+            if (generatingVideoShots[shotId]) continue; // 跳过正在生成的
+            
+            const currentIndex = generatedIndexes[shotId] ?? 0;
+            const imagePath = imageUrls[Math.min(currentIndex, imageUrls.length - 1)];
+            if (!imagePath) continue;
+            
+            const prompt = shot.visual_changes || '让人物动起来';
+            const timestamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14);
+            const shotDirName = Number.isInteger(shotId) ? `${shotId}.0` : String(shotId);
+            const outputPath = `${currentWorkspace.path}/${generatedDir}/shots/${shotDirName}/video_${timestamp}_${i}.mp4`;
+            
+            tasksToCreate.push({ shotId, imagePath, prompt, outputPath });
+        }
+        
+        if (tasksToCreate.length === 0) {
+            showToast('没有可生成的镜头（请先生成图片）', 'error');
+            return;
+        }
+        
+        showToast(`正在提交 ${tasksToCreate.length} 个视频生成任务...`, 'success');
+        
+        // 批量创建任务
+        const taskIds: string[] = [];
+        for (const task of tasksToCreate) {
+            try {
+                setGeneratingVideoShots(prev => ({ ...prev, [task.shotId]: true }));
+                setVideoTaskStatuses(prev => ({ ...prev, [task.shotId]: 'pending' }));
+                
+                const resp = await fetch(`${API_BASE}/api/lovart/tasks`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image_path: task.imagePath,
+                        prompt: task.prompt,
+                        output_path: task.outputPath,
+                    }),
+                });
+                
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data?.task?.task_id) {
+                        taskIds.push(data.task.task_id);
+                        setVideoTaskStatuses(prev => ({ ...prev, [task.shotId]: 'processing' }));
+                    }
+                }
+            } catch (err) {
+                console.error(`创建任务失败: shot ${task.shotId}`, err);
+            }
+        }
+        
+        if (taskIds.length === 0) {
+            showToast('任务创建失败', 'error');
+            return;
+        }
+        
+        // 批量执行（并行）
+        try {
+            await fetch(`${API_BASE}/api/lovart/tasks/run-batch`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    task_ids: taskIds,
+                    parallel: true,
+                    max_workers: 3,
+                }),
+            });
+            showToast(`已提交 ${taskIds.length} 个任务并行生成`, 'success');
+        } catch (err) {
+            showToast('批量执行失败', 'error');
+        }
+        
+        // 启动轮询检查所有任务状态
+        const pollAllTasks = async () => {
+            const maxAttempts = 120; // 10分钟
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                await new Promise(resolve => setTimeout(resolve, 5000));
+                
+                let allDone = true;
+                for (const taskId of taskIds) {
+                    try {
+                        const resp = await fetch(`${API_BASE}/api/lovart/tasks/${taskId}`);
+                        const data = await resp.json();
+                        const status = data?.task?.status;
+                        
+                        // 找到对应的 shotId
+                        const taskIdx = taskIds.indexOf(taskId);
+                        if (taskIdx >= 0 && taskIdx < tasksToCreate.length) {
+                            const shotId = tasksToCreate[taskIdx].shotId;
+                            
+                            if (status === 'completed') {
+                                setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'completed' }));
+                                setGeneratingVideoShots(prev => {
+                                    const next = { ...prev };
+                                    delete next[shotId];
+                                    return next;
+                                });
+                                void loadVideosForShot(shotId);
+                            } else if (status === 'failed') {
+                                setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'failed' }));
+                                setGeneratingVideoShots(prev => {
+                                    const next = { ...prev };
+                                    delete next[shotId];
+                                    return next;
+                                });
+                            } else if (status === 'processing' || status === 'pending') {
+                                allDone = false;
+                            }
+                        }
+                    } catch {
+                        // 忽略错误
+                    }
+                }
+                
+                if (allDone) {
+                    showToast('所有视频生成完成！', 'success');
+                    break;
+                }
+            }
+        };
+        
+        pollAllTasks();
+    };
+
     useEffect(() => {
         const fetchAssets = async () => {
             if (!workspaceSlug) return;
@@ -3224,6 +3364,24 @@ export default function Step3_DeconstructionReview({
                     )}
 
                     {/* Shot List - Apple Glass Style */}
+                    {/* Batch Actions */}
+                    {typeof round2Data !== 'string' && round2Data?.shots && round2Data.shots.length > 0 && (
+                        <div className="flex items-center justify-end gap-3 py-4 mb-4 border-b border-slate-200">
+                            <button
+                                onClick={handleBatchGenerateVideos}
+                                disabled={Object.keys(generatingVideoShots).length > 0}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-purple-500 text-white hover:bg-purple-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+                                {Object.keys(generatingVideoShots).length > 0 
+                                    ? `生成中 (${Object.keys(generatingVideoShots).length})...` 
+                                    : '批量生成视频'}
+                            </button>
+                            <span className="text-xs text-slate-400">
+                                {Object.values(generatedImages).filter(arr => arr && arr.length > 0).length} 个镜头有图片
+                            </span>
+                        </div>
+                    )}
                     {/* Top Pagination Controls */}
                     {typeof round2Data !== 'string' && round2Data?.shots && round2Data.shots.length > shotsPerPage && (
                         <div className="flex items-center justify-center gap-4 py-4 mb-6">

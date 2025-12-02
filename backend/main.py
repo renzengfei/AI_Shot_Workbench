@@ -1523,3 +1523,74 @@ async def lovart_start_processing():
         "message": f"开始处理 {stats['pending']} 个任务",
         "stats": stats
     }
+
+
+@app.post("/api/lovart/tasks/run-batch")
+async def lovart_run_tasks_batch(data: dict):
+    """
+    批量执行多个任务（支持并行）
+    
+    Body:
+        task_ids: 任务ID列表
+        parallel: 是否并行（默认 True）
+        max_workers: 最大并行数（默认 3）
+    """
+    import threading
+    
+    task_ids = data.get('task_ids', [])
+    parallel = data.get('parallel', True)
+    max_workers = data.get('max_workers', 3)
+    
+    if not task_ids:
+        raise HTTPException(status_code=400, detail="task_ids 不能为空")
+    
+    service = get_lovart_service()
+    
+    # 在后台线程执行
+    def run_tasks():
+        result = service.batch_generator.process_tasks_by_ids(
+            task_ids=task_ids,
+            parallel=parallel,
+            max_workers=max_workers
+        )
+        print(f"批量执行结果: {result}")
+    
+    thread = threading.Thread(target=run_tasks, daemon=True)
+    thread.start()
+    
+    return {
+        "success": True,
+        "message": f"开始执行 {len(task_ids)} 个任务",
+        "parallel": parallel,
+        "max_workers": max_workers
+    }
+
+
+@app.post("/api/lovart/process-parallel")
+async def lovart_start_parallel_processing(data: dict = None):
+    """启动并行任务处理"""
+    import threading
+    
+    max_workers = 3
+    if data:
+        max_workers = data.get('max_workers', 3)
+    
+    service = get_lovart_service()
+    stats = service.get_task_stats()
+    
+    if stats['pending'] == 0 and stats['failed'] == 0:
+        return {"success": False, "message": "没有待处理任务"}
+    
+    # 在后台线程执行
+    def process_parallel():
+        service.batch_generator.process_parallel(max_workers=max_workers)
+    
+    thread = threading.Thread(target=process_parallel, daemon=True)
+    thread.start()
+    
+    return {
+        "success": True,
+        "message": f"开始并行处理任务",
+        "max_workers": max_workers,
+        "stats": stats
+    }
