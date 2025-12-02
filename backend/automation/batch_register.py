@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from automation.account_pool import AccountPool
 from automation.email_receiver import EmailReceiver
 from automation.fingerprint_manager import get_fingerprint_manager, BrowserFingerprint
+from automation.proxy_manager import get_proxy_manager
 
 
 class BatchRegister:
@@ -33,13 +34,14 @@ class BatchRegister:
         self.account_pool = account_pool
         self.email_receiver = EmailReceiver(account_pool.imap_config)
         self.fingerprint_manager = get_fingerprint_manager()
+        self.proxy_manager = get_proxy_manager()
         self.driver = None
         self.current_fingerprint = None
         self.registered_count = 0
         self.failed_count = 0
     
     def launch_browser(self, email: str = None):
-        """启动浏览器（使用指纹）"""
+        """启动浏览器（使用指纹 + 代理）"""
         # 先关闭旧浏览器
         self.close_browser()
         
@@ -51,6 +53,17 @@ class BatchRegister:
             print(f"   屏幕: {self.current_fingerprint.screen_width}x{self.current_fingerprint.screen_height}")
             
             options = self.fingerprint_manager.get_chrome_options(self.current_fingerprint)
+            
+            # 添加代理（如果配置了）
+            proxy_url = self.proxy_manager.get_proxy_url(email)
+            if proxy_url:
+                # 提取 host:port 部分
+                proxy_server = proxy_url.replace('http://', '').replace('https://', '').replace('socks5://', '')
+                if '@' in proxy_server:
+                    proxy_server = proxy_server.split('@')[1]  # 去掉认证部分，Chrome 用 extension 处理
+                options.add_argument(f'--proxy-server={proxy_url}')
+                print(f"   🌐 代理: {proxy_server[:30]}...")
+            
             self.driver = uc.Chrome(options=options, headless=False)
             
             # 注入指纹 JS
