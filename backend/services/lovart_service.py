@@ -155,13 +155,17 @@ class LovartService:
     def clear_all_tasks(self) -> dict:
         """清理所有任务（取消 pending/processing 状态的任务）"""
         result = self.batch_generator.clear_all_tasks()
-        # 清理浏览器进程
+        # 清理浏览器进程（强制杀死所有匹配进程）
         import subprocess
         import platform
         if platform.system() == "Darwin":
             try:
-                subprocess.run(["pkill", "-f", "chromedriver"], capture_output=True)
-                subprocess.run(["pkill", "-f", "Google Chrome for Testing"], capture_output=True)
+                # 使用 killall 强制杀死所有匹配进程（-9 = SIGKILL）
+                subprocess.run(["killall", "-9", "chromedriver"], capture_output=True)
+                subprocess.run(["killall", "-9", "Google Chrome for Testing"], capture_output=True)
+                # 备用：pkill 也加 -9 强制杀死
+                subprocess.run(["pkill", "-9", "-f", "chromedriver"], capture_output=True)
+                subprocess.run(["pkill", "-9", "-f", "Google Chrome for Testing"], capture_output=True)
             except:
                 pass
         return result

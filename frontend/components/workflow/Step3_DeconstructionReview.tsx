@@ -730,18 +730,14 @@ export default function Step3_DeconstructionReview({
         setNewlyGeneratedVideos((prev) => ({ ...prev, [shotId]: (prev[shotId] || []).filter((u) => u !== url) }));
     };
 
-    // 停止单个镜头的视频生成
-    const handleStopSingleVideoGeneration = async (shot: Round2Shot, idx: number) => {
-        const shotId = shot.id ?? idx + 1;
+    // 停止单个镜头的视频生成（实际会停止所有任务）
+    const handleStopSingleVideoGeneration = async (_shot: Round2Shot, _idx: number) => {
         try {
             await fetch(`${API_BASE}/api/lovart/tasks/stop-all`, { method: 'POST' });
-            setGeneratingVideoShots(prev => {
-                const next = { ...prev };
-                delete next[shotId];
-                return next;
-            });
-            setVideoTaskStatuses(prev => ({ ...prev, [shotId]: null }));
-            showToast('已停止视频生成', 'success');
+            // 清除所有生成中状态（因为后端会停止所有任务）
+            setGeneratingVideoShots({});
+            setVideoTaskStatuses({});
+            showToast('已停止所有视频生成', 'success');
         } catch {
             showToast('停止失败', 'error');
         }
