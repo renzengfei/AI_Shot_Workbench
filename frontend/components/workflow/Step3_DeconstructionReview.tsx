@@ -1846,6 +1846,9 @@ export default function Step3_DeconstructionReview({
     useEffect(() => {
         if (!savedVideoIndexesLoaded || !Object.keys(generatedVideos).length) return;
         
+        // 从 window 获取原始的文件名映射（保留字符串 key 格式如 "1.0"）
+        const rawSavedFilenames = (window as unknown as Record<string, unknown>).__savedVideoFilenames as Record<string, string | number> || {};
+        
         setSelectedVideoIndexes((prev) => {
             let changed = false;
             const next = { ...prev };
@@ -1854,7 +1857,26 @@ export default function Step3_DeconstructionReview({
                 const id = Number(k);
                 if (!videos || !videos.length) return;
                 
-                const savedFilename = savedVideoFilenames[id];
+                // 尝试多种 key 格式匹配（"1", "1.0", 整数形式）
+                const possibleKeys = [String(id), id.toFixed(1), String(Math.floor(id))];
+                let savedFilename: string | undefined;
+                for (const key of possibleKeys) {
+                    const val = rawSavedFilenames[key];
+                    if (typeof val === 'string') {
+                        savedFilename = val;
+                        break;
+                    } else if (typeof val === 'number') {
+                        // 兼容旧格式：数字索引
+                        savedFilename = String(val);
+                        break;
+                    }
+                }
+                // 也尝试从 savedVideoFilenames（数字 key）获取
+                if (!savedFilename) {
+                    const fromState = savedVideoFilenames[id];
+                    if (fromState) savedFilename = fromState;
+                }
+                
                 if (savedFilename) {
                     // 尝试通过文件名匹配
                     const matchedIdx = videos.findIndex((url: string) => {
