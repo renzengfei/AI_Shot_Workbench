@@ -2025,17 +2025,21 @@ export default function Step3_DeconstructionReview({
     };
 
     const handleCopyPrompt = async () => {
-        if (!promptRaw || !deconstructionPath) {
+        if (!currentWorkspace?.path) {
             setPromptCopyStatus('error');
             setTimeout(() => setPromptCopyStatus('idle'), 1500);
             return;
         }
-        const filled = promptRaw.replace(
-            /\*\*文件路径\*\*:\s*【请在此处填入完整的文件路径】/g,
-            `**文件路径**: ${deconstructionPath}`
-        );
+        // 提取相对路径：从 AI_Shot_Workbench 开始
+        const workspacePath = currentWorkspace.path;
+        const workbenchMatch = workspacePath.match(/AI_Shot_Workbench\/workspaces\/\d+/);
+        const relativeWorkspace = workbenchMatch ? workbenchMatch[0] : `AI_Shot_Workbench/workspaces/${currentWorkspace.path.split('/').pop()}`;
+        
+        // 生成简短指令
+        const instruction = `请仔细阅读AI_Shot_Workbench/frontend/data/productionStoryboardPrompt.ts，并严格执行，当前工作空间为${relativeWorkspace}，阅读完后请等待用户的提问`;
+        
         try {
-            await navigator.clipboard.writeText(filled);
+            await navigator.clipboard.writeText(instruction);
             setPromptCopyStatus('copied');
             setTimeout(() => setPromptCopyStatus('idle'), 1500);
         } catch (err) {

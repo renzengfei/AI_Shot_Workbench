@@ -100,11 +100,10 @@ const CONFIG = {
 
 **执行动作**:
 1. 从用户消息中提取**工作空间路径** (例如: \`/Users/.../workspaces/7\`)
-2. 该工作空间下可能存在多个剧本文件:
+2. 该工作空间下可能存在多个剧本文件，用户会指定其中一个文件:
    - \`deconstruction.json\` - 原始剧本
    - \`deconstruction_漫展拉腿版.json\` - 改造版本
    - \`deconstruction_海边版.json\` - 其他改造版本
-3. 默认读取 \`deconstruction.json\`，用户可指定其他版本（如"读取漫展拉腿版"）
 4. 使用 \`view_file\` 读取对应文件
 5. 解析 JSON 结构,提取:
    - \`round1.round1_skeleton\`: 剧本骨架信息
@@ -1801,13 +1800,6 @@ AI: 收到！让我完整重述一下改造思路，请确认：
 - 改造 JSON 中删除镜头保留原 ID，新增镜头使用小数 ID
 ==========================================================================
 */
-
-// 👇 USER INPUT: 用户提供的工作空间路径
-const WORKSPACE_PATH = "/Users/renzengfei/资料/youtube文章/AI_Shot_Workbench/workspaces/7";
-// 📁 该工作空间下可用的剧本文件:
-// - deconstruction.json (原始)
-// - deconstruction_漫展拉腿版.json (改造版)
-// - deconstruction_xxx.json (其他改造版)
 
 // 🎬 等待用户指令...
 // 
