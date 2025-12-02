@@ -230,7 +230,7 @@ class BatchVideoGenerator:
             return
         
         # 获取可用账号数
-        available_accounts = len([a for a in self.account_pool.accounts if a.status == 'available'])
+        available_accounts = len([a for a in self.account_pool.accounts if a.status == 'active'])
         actual_workers = min(max_workers, available_accounts, len(tasks))
         
         print(f"\n{'#'*60}")
@@ -303,7 +303,7 @@ class BatchVideoGenerator:
         failed = 0
         
         if parallel and len(tasks) > 1:
-            available_accounts = len([a for a in self.account_pool.accounts if a.status == 'available'])
+            available_accounts = len([a for a in self.account_pool.accounts if a.status == 'active'])
             actual_workers = min(max_workers, available_accounts, len(tasks))
             
             # 如果没有可用账号，回退到串行执行
