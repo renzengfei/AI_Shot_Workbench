@@ -1,8 +1,9 @@
 # account_pool.py - 账号池管理
 import json
 import os
+import threading
 from datetime import date
-from typing import Optional
+from typing import Optional, Set
 from dataclasses import dataclass, asdict
 import random
 import string
@@ -34,6 +35,8 @@ class AccountPool:
         self.accounts: list[Account] = []
         self.imap_config: Optional[ImapConfig] = None
         self.email_domain: str = ""
+        self._lock = threading.Lock()  # 线程锁
+        self._in_use: Set[str] = set()  # 正在使用的账号 email
         self._load()
     
     def _load(self):
@@ -87,6 +90,37 @@ class AccountPool:
         
         return None
     
+    def acquire_account(self) -> Optional[Account]:
+        """线程安全地获取并锁定一个账号"""
+        with self._lock:
+            today = date.today().isoformat()
+            
+            for acc in self.accounts:
+                # 跳过正在使用的账号
+                if acc.email in self._in_use:
+                    continue
+                if acc.status != "active":
+                    continue
+                
+                # 日期变了，重置计数
+                if acc.last_used_date != today:
+                    acc.daily_used = 0
+                    acc.last_used_date = today
+                
+                if acc.daily_used < self.DAILY_LIMIT:
+                    self._in_use.add(acc.email)
+                    print(f"   🔒 锁定账号: {acc.email}")
+                    return acc
+            
+            return None
+    
+    def release_account(self, account: Account):
+        """释放账号锁定"""
+        with self._lock:
+            if account.email in self._in_use:
+                self._in_use.discard(account.email)
+                print(f"   🔓 释放账号: {account.email}")
+    
     def mark_used(self, account: Account):
         """标记账号已使用一次"""
         today = date.today().isoformat()
@@ -101,22 +135,29 @@ class AccountPool:
         print(f"   ⚠️ 账号 {account.email} 积分耗尽，已标记")
     
     def get_available_account_excluding(self, exclude_emails: list) -> Optional[Account]:
-        """获取可用账号，排除指定账号"""
-        today = date.today().isoformat()
-        
-        for acc in self.accounts:
-            if acc.email in exclude_emails:
-                continue
-            if acc.status != "active":
-                continue
+        """获取可用账号，排除指定账号（线程安全）"""
+        with self._lock:
+            today = date.today().isoformat()
             
-            # 日期变了，重置计数
-            if acc.last_used_date != today:
-                acc.daily_used = 0
-                acc.last_used_date = today
-            
-            if acc.daily_used < self.DAILY_LIMIT:
-                return acc
+            for acc in self.accounts:
+                if acc.email in exclude_emails:
+                    continue
+                # 跳过正在使用的账号
+                if acc.email in self._in_use:
+                    continue
+                if acc.status != "active":
+                    continue
+                
+                # 日期变了，重置计数
+                if acc.last_used_date != today:
+                    acc.daily_used = 0
+                    acc.last_used_date = today
+                
+                if acc.daily_used < self.DAILY_LIMIT:
+                    # 锁定新账号
+                    self._in_use.add(acc.email)
+                    print(f"   🔒 锁定账号: {acc.email}")
+                    return acc
         
         return None
     

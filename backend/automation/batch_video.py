@@ -130,8 +130,8 @@ class BatchVideoGenerator:
         print(f"  提示词: {task.prompt[:50]}...")
         print(f"{'='*60}")
         
-        # 获取可用账号
-        account = self.account_pool.get_available_account()
+        # 获取并锁定账号（线程安全）
+        account = self.account_pool.acquire_account()
         if not account:
             task.status = 'failed'
             task.error = "没有可用账号"
@@ -172,6 +172,9 @@ class BatchVideoGenerator:
             task.error = str(e)
             self.save_tasks()
             return False
+        finally:
+            # 任务完成后释放账号锁定
+            self.account_pool.release_account(account)
     
     def process_all(self, interval: int = 60, retry_failed: bool = True):
         """
