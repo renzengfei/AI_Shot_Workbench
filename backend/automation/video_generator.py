@@ -862,16 +862,41 @@ class VideoGenerator:
                 
                 time.sleep(2)
                 
+                # 记录原始标签页
+                original_window = self.driver.window_handles[0]
+                
                 # 检查是否有新标签页打开（Lovart 在新标签页生成视频）
                 if len(self.driver.window_handles) > 1:
                     # 切换到最新的标签页
                     self.driver.switch_to.window(self.driver.window_handles[-1])
                     print("   ✓ 切换到新标签页（视频生成页）")
-                    time.sleep(2)
+                    time.sleep(3)
+                    
+                    # 检测画布加载失败错误
+                    canvas_error = self.driver.execute_script('''
+                        // 检测错误图片或错误文字
+                        const errorImg = document.querySelector('img[alt="error"]');
+                        const bodyText = document.body.innerText;
+                        if (errorImg || bodyText.includes('画布数据加载失败') || bodyText.includes('请刷新页面或重试')) {
+                            return true;
+                        }
+                        return false;
+                    ''')
+                    
+                    if canvas_error:
+                        print("   ⚠️ 画布加载失败，关闭标签页重试...")
+                        # 关闭失败的标签页
+                        self.driver.close()
+                        # 切回原标签页
+                        self.driver.switch_to.window(original_window)
+                        time.sleep(1)
+                        self.canvas_load_failed = True  # 标记需要重新上传和发送
+                        return False
                 
                 self.driver.save_screenshot('/tmp/after_send.png')
                 
                 print("✓ 提示词已发送")
+                self.canvas_load_failed = False
                 return True
             
             print("✗ 未找到输入框")
@@ -1136,15 +1161,26 @@ class VideoGenerator:
             # ========== 并行运行阶段（无锁）==========
             print(f"\n📤 并行运行阶段（无锁）")
             
-            # 上传图片（带重试）
-            if not self.upload_image_with_retry(image_path):
-                self.last_error = "上传图片失败"
-                return None
-            
-            # 发送提示词（带重试）
-            if not self.send_prompt_with_retry(prompt):
-                self.last_error = "发送提示词失败"
-                return None
+            # 上传图片 + 发送提示词（带画布失败重试）
+            max_canvas_retries = 3
+            for canvas_attempt in range(max_canvas_retries):
+                # 上传图片
+                if not self.upload_image_with_retry(image_path):
+                    self.last_error = "上传图片失败"
+                    return None
+                
+                # 发送提示词
+                if self.send_prompt_with_retry(prompt):
+                    break  # 成功，跳出循环
+                
+                # 检查是否是画布加载失败
+                if getattr(self, 'canvas_load_failed', False) and canvas_attempt < max_canvas_retries - 1:
+                    print(f"   🔄 画布加载失败，重新上传和发送 (尝试 {canvas_attempt + 2}/{max_canvas_retries})")
+                    time.sleep(2)
+                    continue
+                else:
+                    self.last_error = "发送提示词失败"
+                    return None
             
             # 等待视频生成
             video_url = self.wait_for_video(timeout=600)  # 10分钟超时
