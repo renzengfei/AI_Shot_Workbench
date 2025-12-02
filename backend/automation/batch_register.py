@@ -143,19 +143,26 @@ class BatchRegister:
             # 5. 点击继续
             print("5. 点击「使用邮箱继续」")
             time.sleep(2)
-            btns = self.driver.find_elements(By.CSS_SELECTOR, 'button')
-            clicked = False
-            for btn in btns:
-                if '使用邮箱继续' in btn.text:
-                    disabled = btn.get_attribute('disabled')
-                    if not disabled:
-                        btn.click()
-                        clicked = True
-                        print("   ✓ 已点击")
-                        break
             
-            if not clicked:
-                print("   ✗ 按钮不可点击")
+            # 使用 JS 强制点击（按钮可能有 disabled 属性）
+            clicked = self.driver.execute_script("""
+                const btns = document.querySelectorAll('button');
+                for (const btn of btns) {
+                    if (btn.textContent.includes('使用邮箱继续')) {
+                        // 强制移除 disabled
+                        btn.disabled = false;
+                        btn.removeAttribute('disabled');
+                        btn.click();
+                        return true;
+                    }
+                }
+                return false;
+            """)
+            
+            if clicked:
+                print("   ✓ 已点击")
+            else:
+                print("   ✗ 未找到按钮")
                 return False
             
             time.sleep(3)
