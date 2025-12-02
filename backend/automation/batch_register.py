@@ -78,9 +78,13 @@ class BatchRegister:
         
         self.driver.set_window_size(1280, 800)
         
-        # 如果是"隐藏"模式，把窗口移到屏幕外
+        # 如果是"隐藏"模式，把窗口移到屏幕右下角（可以随时拖出来查看）
         if self.headless:
-            self.driver.set_window_position(-2000, 0)
+            # 获取屏幕尺寸，放在右下角
+            screen_width = self.driver.execute_script("return screen.width")
+            screen_height = self.driver.execute_script("return screen.height")
+            # 窗口大小 1280x800，放在右下角露出一点
+            self.driver.set_window_position(screen_width - 100, screen_height - 100)
     
     def close_browser(self):
         """关闭浏览器"""

@@ -1,4 +1,4 @@
-当前账号数: 97
+当前账号数: 98
 
 ############################################################
 # Lovart 批量注册（独立指纹模式）
@@ -7,107 +7,32 @@
 ############################################################
 
 
-[1/100] 15:15:17
-🔐 指纹: 2knsbagye2q9
-   UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb...
-   屏幕: 1536x864
-
-==================================================
-注册账号: zengmeigao@aigoogle.top
-==================================================
-1. 打开 Lovart.ai
-2. 点击注册按钮
-3. 输入邮箱
-   ✓ 邮箱: zengmeigao@aigoogle.top
-4. 等待 Cloudflare 验证...
-   ✓ Cloudflare 验证通过
-5. 点击「使用邮箱继续」
-   ✓ 已点击
-6. 等待验证码邮件...
-✗ 等待验证码超时 (120s)
-   ✗ 验证码获取失败: None
-
-✗ 失败 (1/1)
-
-⏳ 等待 2 分 36 秒后继续...
-
-[2/100] 15:20:33
-🔐 指纹: 3yu4804fkmzf
-   UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb...
-   屏幕: 1280x800
-
-==================================================
-注册账号: qinxuan16@aigoogle.top
-==================================================
-1. 打开 Lovart.ai
-2. 点击注册按钮
-3. 输入邮箱
-   ✓ 邮箱: qinxuan16@aigoogle.top
-4. 等待 Cloudflare 验证...
-   ✓ Cloudflare 验证通过
-5. 点击「使用邮箱继续」
-   ✓ 已点击
-6. 等待验证码邮件...
-✗ 等待验证码超时 (120s)
-   ✗ 验证码获取失败: None
-
-✗ 失败 (2/2)
-
-⏳ 等待 2 分 10 秒后继续...
-
-[3/100] 15:25:30
-🔐 指纹: 1pczy58pml0a
-   UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb...
-   屏幕: 1536x864
-
-✗ 浏览器异常: Message: no such window: target window already closed
-from unknown error: web view not found
-  (Session info: chrome=143.0.7499.40)
-Stacktrace:
-0   undetected_chromedriver             0x00000001052ac698 undetected_chromedriver + 6153880
-1   undetected_chromedriver             0x00000001052a3b6a undetected_chromedriver + 6118250
-2   undetected_chromedriver             0x0000000104d38a5b undetected_chromedriver + 436827
-3   undetected_chromedriver             0x0000000104d0ccf0 undetected_chromedriver + 257264
-4   undetected_chromedriver             0x0000000104db9e08 undetected_chromedriver + 966152
-5   undetected_chromedriver             0x0000000104dd969c undetected_chromedriver + 1095324
-6   undetected_chromedriver             0x0000000104d7db6f undetected_chromedriver + 719727
-7   undetected_chromedriver             0x0000000104d7e871 undetected_chromedriver + 723057
-8   undetected_chromedriver             0x0000000105269011 undetected_chromedriver + 5877777
-9   undetected_chromedriver             0x000000010526d4c2 undetected_chromedriver + 5895362
-10  undetected_chromedriver             0x0000000105245155 undetected_chromedriver + 5730645
-11  undetected_chromedriver             0x000000010526df6f undetected_chromedriver + 5898095
-12  undetected_chromedriver             0x0000000105234dc4 undetected_chromedriver + 5664196
-13  undetected_chromedriver             0x0000000105290b48 undetected_chromedriver + 6040392
-14  undetected_chromedriver             0x0000000105290d0d undetected_chromedriver + 6040845
-15  undetected_chromedriver             0x00000001052a3751 undetected_chromedriver + 6117201
-16  libsystem_pthread.dylib             0x00007ff81b98de4d _pthread_start + 115
-17  libsystem_pthread.dylib             0x00007ff81b989857 thread_start + 15
-
-
-⏳ 等待 3 分 22 秒后继续...
-
-[4/100] 15:29:04
-🔐 指纹: 51qd864p0igu
+[1/100] 15:35:47
+🔐 指纹: dpl84r3rkxk0
    UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Ap...
    屏幕: 1536x864
 
 ==================================================
-注册账号: caozeng96@aigoogle.top
+注册账号: pengbo4@aigoogle.top
 ==================================================
 1. 打开 Lovart.ai
 2. 点击注册按钮
 3. 输入邮箱
-   ✓ 邮箱: caozeng96@aigoogle.top
+   ✓ 邮箱: pengbo4@aigoogle.top
 4. 等待 Cloudflare 验证...
    ✓ Cloudflare 验证通过
 5. 点击「使用邮箱继续」
    ✓ 已点击
 6. 等待验证码邮件...
-✗ 等待验证码超时 (120s)
-   ✗ 验证码获取失败: None
+✓ 找到验证码: 726640 (发送到 pengbo4@aigoogle.top)
+   ✓ 收到验证码: 726640
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
 
-✗ 失败 (4/4)
+✓ 成功 (1/1)
 
-⏳ 等待 3 分 36 秒后继续...
-/opt/homebrew/Cellar/python@3.14/3.14.0_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/resource_tracker.py:297: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown: {'/mp-5857itwv'}
+⏳ 等待 2 分 32 秒后继续...
+/opt/homebrew/Cellar/python@3.14/3.14.0_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/multiprocessing/resource_tracker.py:297: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown: {'/mp-ctqw2vko'}
   warnings.warn(
