@@ -46,6 +46,7 @@ class ParallelRegister:
         
         # 线程安全计数
         self.lock = threading.Lock()
+        self.email_lock = threading.Lock()  # 单独的邮件锁
         self.success_count = 0
         self.fail_count = 0
         self.email_index = 0
@@ -107,9 +108,9 @@ class ParallelRegister:
                         break
             time.sleep(3)
             
-            # 6. 获取验证码（线程安全）
+            # 6. 获取验证码（使用单独的邮件锁）
             print(f"[Worker-{worker_id}] 获取验证码...")
-            with self.lock:
+            with self.email_lock:
                 self.email_receiver.connect()
                 code = self.email_receiver.wait_for_verification_code(
                     to_email=email,
