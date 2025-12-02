@@ -1586,10 +1586,15 @@ async def lovart_run_tasks_batch(data: dict):
     
     # 在后台线程执行
     def run_tasks():
-        # 先清理残留的浏览器进程
-        print("🧹 清理残留浏览器进程...")
-        cleanup_browser_processes()
-        time.sleep(1)
+        # 检查是否有正在处理的任务
+        stats = service.get_task_stats()
+        if stats.get('processing', 0) == 0:
+            # 没有正在运行的任务，可以安全清理
+            print("🧹 清理残留浏览器进程...")
+            cleanup_browser_processes()
+            time.sleep(1)
+        else:
+            print(f"⏭️ 有 {stats['processing']} 个任务正在运行，跳过清理")
         
         result = service.batch_generator.process_tasks_by_ids(
             task_ids=task_ids,
