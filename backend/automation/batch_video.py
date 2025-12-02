@@ -21,6 +21,24 @@ from .video_generator import VideoGenerator
 
 # 全局浏览器启动锁（避免多线程同时 patch chromedriver）
 _browser_launch_lock = threading.Lock()
+_chromedriver_patched = False
+
+
+def ensure_chromedriver_patched():
+    """预先 patch chromedriver，避免多线程竞争"""
+    global _chromedriver_patched
+    if _chromedriver_patched:
+        return
+    
+    import undetected_chromedriver as uc
+    print("🔧 预先 patch chromedriver...")
+    try:
+        patcher = uc.Patcher()
+        patcher.auto()
+        _chromedriver_patched = True
+        print("✓ chromedriver 已 patch")
+    except Exception as e:
+        print(f"⚠️ patch 警告: {e}")
 
 
 @dataclass
@@ -251,6 +269,9 @@ class BatchVideoGenerator:
                 task.error = None
         self.save_tasks()
         
+        # 预先 patch chromedriver（避免多线程竞争）
+        ensure_chromedriver_patched()
+        
         completed = 0
         failed = 0
         
@@ -320,6 +341,9 @@ class BatchVideoGenerator:
                     else:
                         failed += 1
                 return {'success': completed, 'failed': failed, 'skipped': len(task_ids) - len(tasks)}
+            
+            # 预先 patch chromedriver（避免多线程竞争）
+            ensure_chromedriver_patched()
             
             with ThreadPoolExecutor(max_workers=actual_workers) as executor:
                 future_to_task = {
