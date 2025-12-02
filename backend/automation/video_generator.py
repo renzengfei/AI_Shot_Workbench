@@ -44,50 +44,106 @@ class VideoGenerator:
         self.current_fingerprint: Optional[BrowserFingerprint] = None
         self.last_error: Optional[str] = None  # 记录最后一次错误
     
-    def launch_browser(self, account: Account = None, max_retries: int = 3):
-        """启动浏览器（使用账号对应的指纹）"""
+    def _launch_browser_internal(self, account: Account = None):
+        """启动浏览器的内部实现（不带锁，供外部锁调用）"""
         self.close()
         
+        if account:
+            # 获取账号对应的指纹
+            self.current_fingerprint = self.fingerprint_manager.get_or_create(account.email)
+            print(f"🔐 使用指纹: {self.current_fingerprint.fingerprint_id}")
+            
+            options = self.fingerprint_manager.get_chrome_options(self.current_fingerprint)
+            self.driver = uc.Chrome(options=options, headless=False)
+            
+            # 注入指纹 JS
+            self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+                'source': self.fingerprint_manager.get_fingerprint_js(self.current_fingerprint)
+            })
+        else:
+            print("启动浏览器...")
+            self.driver = uc.Chrome(headless=False)
+        
+        # 等待浏览器完全稳定
+        time.sleep(5)
+        
+        self.driver.set_window_size(1400, 900)
+        
+        # 最小化窗口到 Dock
+        from .browser_utils import hide_chrome_window
+        hide_chrome_window(delay=1.0)
+    
+    def launch_browser(self, account: Account = None, max_retries: int = 3):
+        """启动浏览器（使用账号对应的指纹）- 带锁保护"""
         last_error = None
         for attempt in range(max_retries):
             try:
-                # 使用锁避免多线程同时 patch chromedriver
-                # 锁内包含完整的启动和稳定等待，确保浏览器完全就绪后才释放锁
                 with _browser_launch_lock:
-                    if account:
-                        # 获取账号对应的指纹
-                        self.current_fingerprint = self.fingerprint_manager.get_or_create(account.email)
-                        print(f"🔐 使用指纹: {self.current_fingerprint.fingerprint_id}")
-                        
-                        options = self.fingerprint_manager.get_chrome_options(self.current_fingerprint)
-                        self.driver = uc.Chrome(options=options, headless=False)
-                        
-                        # 注入指纹 JS
-                        self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-                            'source': self.fingerprint_manager.get_fingerprint_js(self.current_fingerprint)
-                        })
-                    else:
-                        print("启动浏览器...")
-                        self.driver = uc.Chrome(headless=False)
-                    
-                    # 在锁内等待浏览器完全稳定（关键！避免多实例冲突）
-                    time.sleep(5)
-                
-                self.driver.set_window_size(1400, 900)
-                
-                # 最小化窗口到 Dock（想看时点击 Dock 图标）
-                from .browser_utils import hide_chrome_window
-                hide_chrome_window(delay=1.0)
+                    self._launch_browser_internal(account)
                 return  # 成功启动
-                
             except Exception as e:
                 last_error = e
                 print(f"   ⚠️ 浏览器启动失败 (尝试 {attempt + 1}/{max_retries}): {e}")
                 self.close()
-                time.sleep(3)  # 等待后重试
-        
-        # 所有重试都失败
+                time.sleep(3)
         raise last_error
+    
+    def prepare_session(self, account: Account, tried_accounts: list = None) -> tuple:
+        """
+        准备会话：启动浏览器 + 登录 + 检查积分（锁保护，确保串行）
+        
+        Returns:
+            (success: bool, account: Account, error: str)
+        """
+        if tried_accounts is None:
+            tried_accounts = []
+        
+        max_account_retries = 3
+        current_account = account
+        
+        for retry in range(max_account_retries):
+            try:
+                # 整个启动阶段都在锁内
+                with _browser_launch_lock:
+                    print(f"\n🔒 串行启动阶段（锁内）")
+                    
+                    # 1. 启动浏览器
+                    self._launch_browser_internal(current_account)
+                    
+                    # 2. 登录
+                    if not self.login(current_account):
+                        return (False, current_account, "登录失败")
+                    
+                    # 3. 访问 Home 页面
+                    self.navigate_to_home()
+                    time.sleep(2)
+                    
+                    # 4. 检查积分
+                    credits = self.check_credits()
+                    if credits == 0:
+                        print(f"   ⚠️ 账号 {current_account.email} 积分为 0")
+                        self.account_pool.mark_no_credits(current_account)
+                        tried_accounts.append(current_account.email)
+                        self.close()
+                        
+                        # 在锁内获取下一个账号
+                        next_account = self.account_pool.get_available_account_excluding(tried_accounts)
+                        if not next_account:
+                            return (False, None, "所有账号积分都为0")
+                        
+                        print(f"   🔄 切换到账号: {next_account.email}")
+                        current_account = next_account
+                        continue  # 重试
+                    
+                    print(f"🔓 启动阶段完成，释放锁")
+                    return (True, current_account, None)
+                    
+            except Exception as e:
+                print(f"   ⚠️ 启动失败: {e}")
+                self.close()
+                return (False, current_account, str(e))
+        
+        return (False, current_account, "账号切换次数超限")
     
     def close(self):
         """关闭浏览器"""
@@ -1013,6 +1069,26 @@ class VideoGenerator:
         print(f"✗ 下载失败（已重试 {max_retries} 次）")
         return False
     
+    def upload_image_with_retry(self, image_path: str, max_retries: int = 3) -> bool:
+        """上传图片（带重试）"""
+        for attempt in range(max_retries):
+            if self.upload_image(image_path):
+                return True
+            print(f"   ⚠️ 上传图片失败 (尝试 {attempt + 1}/{max_retries})")
+            if attempt < max_retries - 1:
+                time.sleep(2)
+        return False
+    
+    def send_prompt_with_retry(self, prompt: str, max_retries: int = 3) -> bool:
+        """发送提示词（带重试）"""
+        for attempt in range(max_retries):
+            if self.send_prompt(prompt):
+                return True
+            print(f"   ⚠️ 发送提示词失败 (尝试 {attempt + 1}/{max_retries})")
+            if attempt < max_retries - 1:
+                time.sleep(2)
+        return False
+    
     def generate_video(
         self,
         image_path: str,
@@ -1021,7 +1097,7 @@ class VideoGenerator:
         account: Optional[Account] = None
     ) -> Optional[str]:
         """
-        完整的视频生成流程
+        完整的视频生成流程（使用串行启动+并行运行架构）
         
         Args:
             image_path: 输入图片路径
@@ -1047,81 +1123,52 @@ class VideoGenerator:
                 print(f"✗ {self.last_error}")
                 return None
         
-        # 已尝试的账号列表（用于积分为 0 时切换）
-        tried_accounts = []
-        max_retries = 3
-        
-        for retry in range(max_retries):
-            try:
-                # 启动浏览器（使用账号对应的指纹）
-                self.launch_browser(account)
-                
-                # 登录
-                if not self.login(account):
-                    self.last_error = "登录失败"
-                    return None
-                
-                # 直接访问 Home 页面
-                self.navigate_to_home()
-                time.sleep(2)
-                
-                # 检查积分
-                credits = self.check_credits()
-                if credits == 0:
-                    print(f"   ⚠️ 账号 {account.email} 积分为 0，尝试切换账号...")
-                    self.account_pool.mark_no_credits(account)
-                    tried_accounts.append(account.email)
-                    self.close()
-                    
-                    # 获取下一个可用账号
-                    account = self.account_pool.get_available_account_excluding(tried_accounts)
-                    if not account:
-                        self.last_error = "所有账号积分都为0"
-                        print(f"✗ {self.last_error}")
-                        return None
-                    
-                    print(f"   🔄 切换到账号: {account.email}")
-                    continue  # 重新开始循环
-                
-                # 上传图片（在输入提示词前上传）
-                if not self.upload_image(image_path):
-                    self.last_error = "上传图片失败"
-                    return None
-                
-                # 发送提示词（自动添加 Hailuo 2.3 前缀）
-                if not self.send_prompt(prompt):
-                    self.last_error = "发送提示词失败"
-                    return None
-                
-                # 等待视频生成
-                video_url = self.wait_for_video(timeout=600)  # 10分钟超时
-                if not video_url:
-                    self.last_error = "等待视频超时"
-                    return None
-                
-                # 下载视频
-                if not self.download_video(video_url, output_path):
-                    self.last_error = "下载视频失败"
-                    return None
-                
-                # 标记账号已使用
-                self.account_pool.mark_used(account)
-                
-                print(f"\n✓ 视频生成成功: {output_path}")
-                return output_path
-                
-            except Exception as e:
-                self.last_error = str(e)
-                print(f"\n✗ 生成失败: {e}")
+        try:
+            # ========== 串行启动阶段（锁保护）==========
+            # 启动浏览器 + 登录 + 检查积分，全部在锁内完成
+            success, account, error = self.prepare_session(account)
+            if not success:
+                self.last_error = error or "会话准备失败"
+                print(f"✗ {self.last_error}")
                 return None
-                
-            finally:
-                self.close()
-        
-        # 如果所有重试都因为积分问题失败
-        self.last_error = "已尝试所有可用账号，均无法生成"
-        print(f"✗ {self.last_error}")
-        return None
+            
+            # ========== 并行运行阶段（无锁）==========
+            print(f"\n📤 并行运行阶段（无锁）")
+            
+            # 上传图片（带重试）
+            if not self.upload_image_with_retry(image_path):
+                self.last_error = "上传图片失败"
+                return None
+            
+            # 发送提示词（带重试）
+            if not self.send_prompt_with_retry(prompt):
+                self.last_error = "发送提示词失败"
+                return None
+            
+            # 等待视频生成
+            video_url = self.wait_for_video(timeout=600)  # 10分钟超时
+            if not video_url:
+                self.last_error = "等待视频超时"
+                return None
+            
+            # 下载视频（已有重试机制）
+            if not self.download_video(video_url, output_path):
+                self.last_error = "下载视频失败"
+                return None
+            
+            # 标记账号已使用
+            self.account_pool.mark_used(account)
+            
+            print(f"\n✓ 视频生成成功: {output_path}")
+            return output_path
+            
+        except Exception as e:
+            self.last_error = str(e)
+            print(f"\n✗ 生成失败: {e}")
+            return None
+            
+        finally:
+            self.close()
 
 
 # 测试

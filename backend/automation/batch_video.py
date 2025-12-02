@@ -303,6 +303,34 @@ class BatchVideoGenerator:
         print(f"  成功: {completed}")
         print(f"  失败: {failed}")
         print(f"{'='*60}")
+        
+        # 统一失败任务重试
+        failed_tasks = self.get_failed_tasks()
+        if failed_tasks and len(failed_tasks) <= 3:  # 最多重试3个失败任务
+            print(f"\n🔄 准备重试 {len(failed_tasks)} 个失败任务...")
+            time.sleep(5)  # 等待系统稳定
+            
+            for task in failed_tasks:
+                task.status = 'pending'
+                task.error = None
+            self.save_tasks()
+            
+            # 串行重试失败任务（更稳定）
+            retry_success = 0
+            for task in failed_tasks:
+                print(f"\n🔄 重试任务: {task.task_id}")
+                if self.process_single_task(task):
+                    retry_success += 1
+            
+            print(f"\n重试结果: {retry_success}/{len(failed_tasks)} 成功")
+            completed += retry_success
+            failed = len(failed_tasks) - retry_success
+            
+            print(f"\n{'='*60}")
+            print(f"最终结果")
+            print(f"  成功: {completed}")
+            print(f"  失败: {failed}")
+            print(f"{'='*60}")
     
     def process_tasks_by_ids(self, task_ids: List[str], parallel: bool = True, max_workers: int = 3) -> Dict:
         """
