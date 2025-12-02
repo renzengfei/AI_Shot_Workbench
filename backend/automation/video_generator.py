@@ -44,37 +44,50 @@ class VideoGenerator:
         self.current_fingerprint: Optional[BrowserFingerprint] = None
         self.last_error: Optional[str] = None  # 记录最后一次错误
     
-    def launch_browser(self, account: Account = None):
+    def launch_browser(self, account: Account = None, max_retries: int = 3):
         """启动浏览器（使用账号对应的指纹）"""
         self.close()
         
-        # 使用锁避免多线程同时 patch chromedriver
-        # 锁内包含完整的启动和稳定等待，确保浏览器完全就绪后才释放锁
-        with _browser_launch_lock:
-            if account:
-                # 获取账号对应的指纹
-                self.current_fingerprint = self.fingerprint_manager.get_or_create(account.email)
-                print(f"🔐 使用指纹: {self.current_fingerprint.fingerprint_id}")
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                # 使用锁避免多线程同时 patch chromedriver
+                # 锁内包含完整的启动和稳定等待，确保浏览器完全就绪后才释放锁
+                with _browser_launch_lock:
+                    if account:
+                        # 获取账号对应的指纹
+                        self.current_fingerprint = self.fingerprint_manager.get_or_create(account.email)
+                        print(f"🔐 使用指纹: {self.current_fingerprint.fingerprint_id}")
+                        
+                        options = self.fingerprint_manager.get_chrome_options(self.current_fingerprint)
+                        self.driver = uc.Chrome(options=options, headless=False)
+                        
+                        # 注入指纹 JS
+                        self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+                            'source': self.fingerprint_manager.get_fingerprint_js(self.current_fingerprint)
+                        })
+                    else:
+                        print("启动浏览器...")
+                        self.driver = uc.Chrome(headless=False)
+                    
+                    # 在锁内等待浏览器完全稳定（关键！避免多实例冲突）
+                    time.sleep(5)
                 
-                options = self.fingerprint_manager.get_chrome_options(self.current_fingerprint)
-                self.driver = uc.Chrome(options=options, headless=False)
+                self.driver.set_window_size(1400, 900)
                 
-                # 注入指纹 JS
-                self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-                    'source': self.fingerprint_manager.get_fingerprint_js(self.current_fingerprint)
-                })
-            else:
-                print("启动浏览器...")
-                self.driver = uc.Chrome(headless=False)
-            
-            # 在锁内等待浏览器完全稳定（关键！避免多实例冲突）
-            time.sleep(3)
+                # 最小化窗口到 Dock（想看时点击 Dock 图标）
+                from .browser_utils import hide_chrome_window
+                hide_chrome_window(delay=1.0)
+                return  # 成功启动
+                
+            except Exception as e:
+                last_error = e
+                print(f"   ⚠️ 浏览器启动失败 (尝试 {attempt + 1}/{max_retries}): {e}")
+                self.close()
+                time.sleep(3)  # 等待后重试
         
-        self.driver.set_window_size(1400, 900)
-        
-        # 最小化窗口到 Dock（想看时点击 Dock 图标）
-        from .browser_utils import hide_chrome_window
-        hide_chrome_window(delay=1.0)
+        # 所有重试都失败
+        raise last_error
     
     def close(self):
         """关闭浏览器"""
