@@ -23,7 +23,19 @@
       "error": null,
       "created_at": "2025-12-02T14:40:22.632603",
       "completed_at": "2025-12-02T14:45:08.605821"
+    },
+    {
+      "task_id": "task_3_1764658436",
+      "image_path": "http://127.0.0.1:8000/workspaces/7/generated_漫展拉腿版/shots/1.0/image_url_7.png",
+      "prompt": "**固定镜头→推镜（Push In）**，【格子衬衫男主】吸了一口饮料，突然远处传来一声震耳欲聋的巨响，地面微微颤动，他呈现惊吓的状态，并且猛地将口中浓稠蓝色液体喷出，饮料杯脱手落地，身体剧烈震动，镜头拉近到特写，他变为极度震惊",
+      "output_path": "/Users/renzengfei/资料/youtube文章/AI_Shot_Workbench/workspaces/7/generated_漫展拉腿版/shots/1/video_20251202065356.mp4",
+      "status": "completed",
+      "account_email": "nasu@aigoogle.top",
+      "video_url": "/Users/renzengfei/资料/youtube文章/AI_Shot_Workbench/workspaces/7/generated_漫展拉腿版/shots/1/video_20251202065356.mp4",
+      "error": null,
+      "created_at": "2025-12-02T14:53:56.048792",
+      "completed_at": "2025-12-02T14:58:38.314415"
     }
   ],
-  "updated_at": "2025-12-02T14:45:08.605991"
+  "updated_at": "2025-12-02T14:58:38.314646"
 }

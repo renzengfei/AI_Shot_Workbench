@@ -30,7 +30,7 @@ class BatchRegister:
     
     BASE_URL = "https://www.lovart.ai/zh"
     
-    def __init__(self, account_pool: AccountPool):
+    def __init__(self, account_pool: AccountPool, headless: bool = False):
         self.account_pool = account_pool
         self.email_receiver = EmailReceiver(account_pool.imap_config)
         self.fingerprint_manager = get_fingerprint_manager()
@@ -39,6 +39,7 @@ class BatchRegister:
         self.current_fingerprint = None
         self.registered_count = 0
         self.failed_count = 0
+        self.headless = headless
     
     def launch_browser(self, email: str = None):
         """启动浏览器（使用指纹 + 代理）"""
@@ -64,7 +65,7 @@ class BatchRegister:
                 options.add_argument(f'--proxy-server={proxy_url}')
                 print(f"   🌐 代理: {proxy_server[:30]}...")
             
-            self.driver = uc.Chrome(options=options, headless=False)
+            self.driver = uc.Chrome(options=options, headless=self.headless)
             
             # 注入指纹 JS
             self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
@@ -72,7 +73,7 @@ class BatchRegister:
             })
         else:
             print("启动浏览器...")
-            self.driver = uc.Chrome(headless=False)
+            self.driver = uc.Chrome(headless=self.headless)
         
         self.driver.set_window_size(1280, 800)
     
@@ -286,8 +287,9 @@ def main():
     
     parser = argparse.ArgumentParser(description='Lovart 批量注册工具')
     parser.add_argument('-n', '--count', type=int, default=5, help='注册数量（默认 5）')
-    parser.add_argument('--min', type=int, default=60, help='最小间隔秒数（默认 60）')
-    parser.add_argument('--max', type=int, default=300, help='最大间隔秒数（默认 300）')
+    parser.add_argument('--min', type=int, default=120, help='最小间隔秒数（默认 120）')
+    parser.add_argument('--max', type=int, default=240, help='最大间隔秒数（默认 240）')
+    parser.add_argument('--headless', action='store_true', help='无头模式（不显示浏览器窗口）')
     
     args = parser.parse_args()
     
@@ -296,7 +298,7 @@ def main():
     print(f"当前账号数: {pool.get_stats()['total_accounts']}")
     
     # 开始注册
-    batch = BatchRegister(pool)
+    batch = BatchRegister(pool, headless=args.headless)
     batch.batch_register(
         count=args.count,
         min_interval=args.min,
