@@ -1,4 +1,4 @@
-import { Clock, Zap, Image as ImageIcon, Layers, Sparkles, Users, Sun, Palette, CheckCircle2, RefreshCw, Box, Layout, Trash2, Play, ChevronDown, ChevronUp, Check, AlertCircle, Film, Video, Wand2, Loader2, FileText, X, ZoomIn, ChevronLeft, ChevronRight, Undo2 } from 'lucide-react';
+import { Clock, Zap, Image as ImageIcon, Layers, Sparkles, Users, Sun, Palette, CheckCircle2, RefreshCw, Box, Layout, Trash2, ChevronDown, Check, AlertCircle, Video, Wand2, Loader2, FileText, X, ChevronLeft, ChevronRight, Undo2 } from 'lucide-react';
 import { type ReactNode, useState, useEffect, useMemo } from 'react';
 import { AutoTextArea } from '@/components/ui/AutoTextArea';
 import { PreviewVideoPlayer } from '@/components/ui/PreviewVideoPlayer';
@@ -307,9 +307,6 @@ export const ShotCard = ({
         if (!url) return null;
         return url.startsWith('/') ? `${API_BASE}${url}` : url;
     }, [generatedVideoUrls, selectedVideoIndex]);
-    
-    // 是否有多个视频可切换
-    const hasMultipleVideos = generatedVideoUrls.length > 1;
 
     // Delete confirmation state: { type: 'fg_char' | 'fg_obj' | 'mg_char' | 'mg_obj', index: number } | null
     const [deleteConfirm, setDeleteConfirm] = useState<{ type: string; index: number; label: string } | null>(null);
@@ -901,10 +898,10 @@ export const ShotCard = ({
                                 </div>
                             )}
 
-                            {/* 3. 生成视频预览 - 展示生成的视频，没有则显示占位 */}
+                            {/* 3. 生成视频预览 - 展示选中的视频，没有则显示占位（无切换按钮，在素材流中选择） */}
                             {showGeneration && (
                                 <div className={`${mediaCardBase}`}>
-                                    <div className={mediaTitleClass}>生成视频{generatedVideoUrls.length > 0 && ` (${selectedVideoIndex + 1}/${generatedVideoUrls.length})`}</div>
+                                    <div className={mediaTitleClass}>生成视频</div>
                                     {videoSrc ? (
                                         <>
                                             <PreviewVideoPlayer
@@ -916,28 +913,6 @@ export const ShotCard = ({
                                                 poster={activeImage || frameUrl || undefined}
                                                 lazy
                                             />
-                                            {/* 视频切换按钮 */}
-                                            {hasMultipleVideos && (
-                                                <div className="flex items-center justify-center gap-2 mt-2">
-                                                    <button
-                                                        onClick={() => onSelectVideoIndex?.(Math.max(0, selectedVideoIndex - 1))}
-                                                        disabled={selectedVideoIndex <= 0}
-                                                        className="p-1 rounded hover:bg-purple-100 disabled:opacity-30 disabled:cursor-not-allowed"
-                                                        title="上一个视频"
-                                                    >
-                                                        <ChevronLeft size={16} className="text-purple-500" />
-                                                    </button>
-                                                    <span className="text-xs text-purple-500 font-medium">{selectedVideoIndex + 1} / {generatedVideoUrls.length}</span>
-                                                    <button
-                                                        onClick={() => onSelectVideoIndex?.(Math.min(generatedVideoUrls.length - 1, selectedVideoIndex + 1))}
-                                                        disabled={selectedVideoIndex >= generatedVideoUrls.length - 1}
-                                                        className="p-1 rounded hover:bg-purple-100 disabled:opacity-30 disabled:cursor-not-allowed"
-                                                        title="下一个视频"
-                                                    >
-                                                        <ChevronRight size={16} className="text-purple-500" />
-                                                    </button>
-                                                </div>
-                                            )}
                                         </>
                                     ) : (
                                         <div className={`${mediaBaseClass} border border-dashed border-purple-300/50 shadow-sm flex flex-col items-center justify-center gap-3`}>
@@ -1111,20 +1086,45 @@ export const ShotCard = ({
                             {/* 6. 素材列表 (横向无限滚动) */}
                             <div className="flex flex-nowrap items-start gap-6">
                                 {activeStream === 'video' ? (
-                                    videoSrc ? (
-                                        <div className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} border border-purple-400/50 shadow-lg ring-1 ring-purple-400/20 bg-white/50 backdrop-blur-xl ${CARD_PADDING} flex flex-col ${CARD_GAP}`}>
-                                            <div className={mediaTitleClass}>生成视频</div>
-                                            <PreviewVideoPlayer
-                                                src={videoSrc}
-                                                volume={globalVolume}
-                                                muted={isGlobalMuted}
-                                                aspectRatio="aspect-[9/16]"
-                                                className="w-full"
-                                                poster={activeImage || frameUrl || undefined}
-                                                lazy
-                                            />
-                                            <div className="text-sm font-medium text-center text-purple-500 py-2">✓ 已生成</div>
-                                        </div>
+                                    generatedVideoUrls.length > 0 ? (
+                                        generatedVideoUrls.map((url, idx) => {
+                                            const isSelected = idx === selectedVideoIndex;
+                                            const fullUrl = url.startsWith('/') ? `${API_BASE}${url}` : url;
+                                            return (
+                                                <div
+                                                    key={`video-${url}-${idx}`}
+                                                    className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} border transition-all duration-300 ${isSelected ? 'border-purple-400/50 shadow-lg ring-1 ring-purple-400/20' : 'border-white/30 hover:shadow-md'} bg-white/50 backdrop-blur-xl ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
+                                                >
+                                                    <div className={mediaTitleClass}>视频 #{idx + 1}</div>
+                                                    <div className={`${mediaBaseClass} border border-white/10 shadow-inner cursor-pointer relative`}>
+                                                        {/* 使用首帧作为封面的视频播放器 */}
+                                                        <PreviewVideoPlayer
+                                                            src={fullUrl}
+                                                            volume={globalVolume}
+                                                            muted={isGlobalMuted}
+                                                            aspectRatio="aspect-[9/16]"
+                                                            className="w-full h-full object-cover"
+                                                            poster={activeImage || frameUrl || undefined}
+                                                            lazy
+                                                        />
+                                                    </div>
+                                                    {/* 操作按钮区 */}
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={() => onSelectVideoIndex?.(idx)}
+                                                            className={`flex-1 flex items-center justify-center gap-2 text-sm font-medium ${BTN_RADIUS} px-4 py-2.5 transition-all duration-200 active:scale-[0.98] ${isSelected
+                                                                ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md'
+                                                                : 'bg-white/70 border border-slate-200/50 text-slate-600 hover:bg-white hover:border-purple-300 hover:text-purple-600'}`}
+                                                        >
+                                                            {isSelected ? <><Check size={14} /> 已选择</> : '选择此视频'}
+                                                        </button>
+                                                        <span className={`text-xs font-medium text-slate-400 px-2.5 py-2 bg-slate-100/80 ${BTN_RADIUS} border border-slate-200/30`}>
+                                                            #{idx + 1}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
                                     ) : (
                                         <div className={`w-full min-w-[360px] flex flex-col items-center justify-center gap-4 text-slate-400 bg-white/30 ${CARD_RADIUS} border border-dashed border-purple-300/50 p-10 backdrop-blur-sm`}>
                                             {isGeneratingVideo ? (

@@ -34,3 +34,62 @@
 ✓ 成功 (1/1)
 
 ⏳ 等待 3 分 25 秒后继续...
+
+[2/100] 15:51:23
+🔐 指纹: aur4t998aj2y
+   UA: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36...
+   屏幕: 2560x1440
+
+==================================================
+注册账号: shentingze@aigoogle.top
+==================================================
+1. 打开 Lovart.ai
+2. 点击注册按钮
+3. 输入邮箱
+   ✓ 邮箱: shentingze@aigoogle.top
+4. 等待 Cloudflare 验证...
+   ✓ Cloudflare 验证通过
+5. 点击「使用邮箱继续」
+   ✓ 已点击
+6. 等待验证码邮件...
+✓ 找到验证码: 298824 (发送到 shentingze@aigoogle.top)
+   ✓ 收到验证码: 298824
+7. 填写验证码
+   ✓ 验证码已填写
+8. 等待注册完成...
+   ✓ 注册成功！
+
+✓ 成功 (2/2)
+
+⏳ 等待 3 分 12 秒后继续...
+
+[3/100] 15:55:31
+🔐 指纹: 61jj71u4ea3n
+   UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb...
+   屏幕: 2560x1440
+
+✗ 浏览器异常: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=143.0.7499.40)
+Stacktrace:
+0   undetected_chromedriver             0x0000000100f72698 undetected_chromedriver + 6153880
+1   undetected_chromedriver             0x0000000100f69b6a undetected_chromedriver + 6118250
+2   undetected_chromedriver             0x00000001009fea5b undetected_chromedriver + 436827
+3   undetected_chromedriver             0x00000001009d2cf0 undetected_chromedriver + 257264
+4   undetected_chromedriver             0x0000000100a7fe08 undetected_chromedriver + 966152
+5   undetected_chromedriver             0x0000000100a9f69c undetected_chromedriver + 1095324
+6   undetected_chromedriver             0x0000000100a43b6f undetected_chromedriver + 719727
+7   undetected_chromedriver             0x0000000100a44871 undetected_chromedriver + 723057
+8   undetected_chromedriver             0x0000000100f2f011 undetected_chromedriver + 5877777
+9   undetected_chromedriver             0x0000000100f334c2 undetected_chromedriver + 5895362
+10  undetected_chromedriver             0x0000000100f0b155 undetected_chromedriver + 5730645
+11  undetected_chromedriver             0x0000000100f33f6f undetected_chromedriver + 5898095
+12  undetected_chromedriver             0x0000000100efadc4 undetected_chromedriver + 5664196
+13  undetected_chromedriver             0x0000000100f56b48 undetected_chromedriver + 6040392
+14  undetected_chromedriver             0x0000000100f56d0d undetected_chromedriver + 6040845
+15  undetected_chromedriver             0x0000000100f69751 undetected_chromedriver + 6117201
+16  libsystem_pthread.dylib             0x00007ff81b98de4d _pthread_start + 115
+17  libsystem_pthread.dylib             0x00007ff81b989857 thread_start + 15
+
+
+⏳ 等待 3 分 39 秒后继续...
