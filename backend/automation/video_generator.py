@@ -768,65 +768,17 @@ class VideoGenerator:
                 # 截图确认输入
                 self.driver.save_screenshot('/tmp/before_send.png')
                 
-                # 点击发送按钮（输入框右边的蓝色圆形按钮）
-                # 获取按钮坐标后使用 ActionChains 点击
-                from selenium.webdriver.common.action_chains import ActionChains
-                
-                btn_info = self.driver.execute_script('''
-                    // 找所有按钮，返回坐标信息
-                    const btns = document.querySelectorAll('button');
-                    const results = [];
-                    for (const btn of btns) {
-                        const rect = btn.getBoundingClientRect();
-                        const style = window.getComputedStyle(btn);
-                        results.push({
-                            x: rect.x + rect.width/2,
-                            y: rect.y + rect.height/2,
-                            width: rect.width,
-                            height: rect.height,
-                            bg: style.backgroundColor,
-                            className: btn.className,
-                            hasSvg: !!btn.querySelector('svg')
-                        });
-                    }
-                    return results;
-                ''')
-                
-                # 找实心蓝色背景的圆形按钮（发送按钮）
-                # 注意：半透明蓝色 rgba(61, 155, 255, 0.1) 是模型选择按钮，要跳过
-                send_btn = None
-                for btn in btn_info:
-                    bg = btn.get('bg', '')
-                    # 只找实心蓝色 rgb(...)，跳过半透明 rgba(..., 0.1)
-                    if 'rgba' in bg and ', 0.' in bg:
-                        continue  # 跳过半透明按钮
-                    # 各种实心蓝色变体
-                    if ('59, 130, 246' in bg or '37, 99, 235' in bg or 
-                        '96, 165, 250' in bg or '14, 165, 233' in bg or
-                        '61, 155, 255' in bg):  # Lovart 的蓝色
-                        send_btn = btn
-                        break
-                
+                # 点击发送按钮（使用 data-testid 精确定位）
                 clicked = False
-                if send_btn:
-                    print(f"   找到蓝色按钮: x={send_btn['x']}, y={send_btn['y']}, bg={send_btn['bg']}")
-                    # 使用坐标点击
-                    actions = ActionChains(self.driver)
-                    actions.move_by_offset(int(send_btn['x']), int(send_btn['y'])).click().perform()
-                    actions.reset_actions()
-                    clicked = 'coord_click'
-                else:
-                    # 打印所有按钮信息用于调试
-                    print(f"   未找到蓝色按钮，所有按钮: {len(btn_info)}")
-                    for i, btn in enumerate(btn_info[:10]):
-                        print(f"     {i}: bg={btn['bg'][:30]}, class={btn['className'][:30]}")
-                
-                print(f"   发送按钮点击: {clicked}")
-                
-                if not clicked:
-                    # 备用: 按 Enter 发送
-                    print("   使用 Enter 键发送")
-                    input_box.send_keys(Keys.ENTER)
+                try:
+                    send_btn = self.driver.find_element(By.CSS_SELECTOR, 'button[data-testid="agent-send-button"]')
+                    if send_btn:
+                        print("   找到发送按钮 (data-testid=agent-send-button)")
+                        send_btn.click()
+                        clicked = True
+                        print("   ✓ 发送按钮已点击")
+                except Exception as e:
+                    print(f"   未找到发送按钮: {e}")
                 
                 time.sleep(2)
                 
