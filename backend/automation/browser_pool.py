@@ -32,6 +32,9 @@ class BrowserPool:
     - 线程安全
     """
     
+    # 全局浏览器启动锁（确保浏览器串行启动）
+    _browser_launch_lock = threading.Lock()
+    
     def __init__(self, max_size: int = 3, headless: bool = False):
         """
         Args:
@@ -45,22 +48,22 @@ class BrowserPool:
         self.lock = threading.Lock()
         self._next_id = 0
     
-    def _create_instance(self) -> BrowserInstance:
-        """创建新浏览器实例"""
-        print(f"🌐 创建浏览器实例 #{self._next_id}...")
+    def _create_instance(self, instance_id: int) -> BrowserInstance:
+        """创建新浏览器实例（在全局锁内调用，确保串行）"""
+        print(f"🌐 创建浏览器实例 #{instance_id}...")
         
         options = uc.ChromeOptions()
         # 不用 headless 模式，改用隐藏窗口来绕过 Cloudflare 检测
         
         # 每个实例使用不同的用户数据目录
-        user_data_dir = f"/tmp/chrome_pool_{self._next_id}"
+        user_data_dir = f"/tmp/chrome_pool_{instance_id}"
         options.add_argument(f'--user-data-dir={user_data_dir}')
         
-        # 使用 subprocess 避免冲突
-        driver = uc.Chrome(options=options, headless=False, use_subprocess=True)
-        
-        # 等待浏览器稳定
-        time.sleep(3)
+        # 使用全局锁确保浏览器串行启动
+        with BrowserPool._browser_launch_lock:
+            driver = uc.Chrome(options=options, headless=False, use_subprocess=True)
+            # 等待浏览器稳定
+            time.sleep(5)
         
         driver.set_window_size(1400, 900)
         
@@ -70,10 +73,9 @@ class BrowserPool:
             hide_chrome_window()
         
         instance = BrowserInstance(
-            id=self._next_id,
+            id=instance_id,
             driver=driver
         )
-        self._next_id += 1
         
         return instance
     
@@ -90,6 +92,8 @@ class BrowserPool:
         start = time.time()
         
         while time.time() - start < timeout:
+            instance_id_to_create = None
+            
             with self.lock:
                 # 1. 尝试获取空闲实例
                 for inst in self.instances:
@@ -98,12 +102,18 @@ class BrowserPool:
                         print(f"♻️ 复用浏览器 #{inst.id}")
                         return inst
                 
-                # 2. 如果没有达到上限，创建新实例
+                # 2. 如果没有达到上限，预留 ID 并在锁外创建
                 if len(self.instances) < self.max_size:
-                    inst = self._create_instance()
+                    instance_id_to_create = self._next_id
+                    self._next_id += 1
+            
+            # 在锁外创建浏览器（避免长时间持有锁）
+            if instance_id_to_create is not None:
+                inst = self._create_instance(instance_id_to_create)
+                with self.lock:
                     inst.in_use = True
                     self.instances.append(inst)
-                    return inst
+                return inst
             
             # 3. 等待有实例释放
             time.sleep(1)
