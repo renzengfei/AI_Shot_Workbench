@@ -1439,6 +1439,44 @@ async def lovart_stats():
     }
 
 
+def cleanup_browser_processes() -> dict:
+    """清理残留的浏览器进程"""
+    import subprocess
+    import platform
+    
+    killed = {"chromedriver": 0, "chrome": 0}
+    
+    if platform.system() == "Darwin":  # macOS
+        # 杀掉 chromedriver
+        try:
+            result = subprocess.run(["pkill", "-f", "chromedriver"], capture_output=True)
+            if result.returncode == 0:
+                killed["chromedriver"] = 1
+        except:
+            pass
+        
+        # 杀掉 Google Chrome for Testing（undetected_chromedriver 使用的）
+        try:
+            result = subprocess.run(["pkill", "-f", "Google Chrome for Testing"], capture_output=True)
+            if result.returncode == 0:
+                killed["chrome"] = 1
+        except:
+            pass
+    
+    return killed
+
+
+@app.post("/api/lovart/cleanup")
+async def lovart_cleanup():
+    """清理残留的浏览器进程（用于异常终止后重新启动）"""
+    killed = cleanup_browser_processes()
+    return {
+        "success": True,
+        "message": "浏览器进程清理完成",
+        "killed": killed
+    }
+
+
 @app.post("/api/lovart/tasks")
 async def lovart_add_task(request: VideoGenerationRequest):
     """添加视频生成任务"""
@@ -1548,6 +1586,11 @@ async def lovart_run_tasks_batch(data: dict):
     
     # 在后台线程执行
     def run_tasks():
+        # 先清理残留的浏览器进程
+        print("🧹 清理残留浏览器进程...")
+        cleanup_browser_processes()
+        time.sleep(1)
+        
         result = service.batch_generator.process_tasks_by_ids(
             task_ids=task_ids,
             parallel=parallel,
