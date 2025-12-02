@@ -410,3 +410,34 @@ Stacktrace:
 
 
 ⏳ 等待 2 分 18 秒后继续...
+
+[15/100] 16:39:26
+🔐 指纹: 9x30h0zyu4bc
+   UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) Ap...
+   屏幕: 1366x768
+
+✗ 浏览器异常: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=143.0.7499.40)
+Stacktrace:
+0   undetected_chromedriver             0x000000010158f698 undetected_chromedriver + 6153880
+1   undetected_chromedriver             0x0000000101586b6a undetected_chromedriver + 6118250
+2   undetected_chromedriver             0x000000010101ba5b undetected_chromedriver + 436827
+3   undetected_chromedriver             0x0000000100fefcf0 undetected_chromedriver + 257264
+4   undetected_chromedriver             0x000000010109ce08 undetected_chromedriver + 966152
+5   undetected_chromedriver             0x00000001010bc69c undetected_chromedriver + 1095324
+6   undetected_chromedriver             0x0000000101060b6f undetected_chromedriver + 719727
+7   undetected_chromedriver             0x0000000101061871 undetected_chromedriver + 723057
+8   undetected_chromedriver             0x000000010154c011 undetected_chromedriver + 5877777
+9   undetected_chromedriver             0x00000001015504c2 undetected_chromedriver + 5895362
+10  undetected_chromedriver             0x0000000101528155 undetected_chromedriver + 5730645
+11  undetected_chromedriver             0x0000000101550f6f undetected_chromedriver + 5898095
+12  undetected_chromedriver             0x0000000101517dc4 undetected_chromedriver + 5664196
+13  undetected_chromedriver             0x0000000101573b48 undetected_chromedriver + 6040392
+14  undetected_chromedriver             0x0000000101573d0d undetected_chromedriver + 6040845
+15  undetected_chromedriver             0x0000000101586751 undetected_chromedriver + 6117201
+16  libsystem_pthread.dylib             0x00007ff81b98de4d _pthread_start + 115
+17  libsystem_pthread.dylib             0x00007ff81b989857 thread_start + 15
+
+
+⏳ 等待 2 分 35 秒后继续...

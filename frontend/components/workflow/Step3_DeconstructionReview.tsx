@@ -360,9 +360,18 @@ export default function Step3_DeconstructionReview({
                 if (typeof prev[shotId] === 'number') return prev;
                 // 先尝试从 window 临时变量中获取文件名匹配
                 const savedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string | number> || {};
-                const filename = savedFilenames[String(shotId)];
-                if (typeof filename === 'string' && merged.length) {
-                    const foundIdx = merged.findIndex(url => url.endsWith(filename) || url.includes(`/${filename}`));
+                // 尝试多种 key 格式匹配：整数、浮点、字符串
+                const possibleKeys = [String(shotId), shotId.toFixed(1), String(Math.floor(shotId))];
+                let filename: string | undefined;
+                for (const key of possibleKeys) {
+                    const val = savedFilenames[key];
+                    if (typeof val === 'string') {
+                        filename = val;
+                        break;
+                    }
+                }
+                if (filename && merged.length) {
+                    const foundIdx = merged.findIndex(url => url.endsWith(filename!) || url.includes(`/${filename}`));
                     if (foundIdx >= 0) {
                         console.log(`[DEBUG loadExisting] Shot ${shotId}: matched filename "${filename}" to index ${foundIdx}`);
                         return { ...prev, [shotId]: foundIdx };
@@ -1573,10 +1582,18 @@ export default function Step3_DeconstructionReview({
                 let targetIdx: number;
                 
                 if (savedValue === -1) {
-                    // 文件名格式，需要匹配
-                    const filename = savedFilenames[String(id)];
-                    if (typeof filename === 'string') {
-                        const foundIdx = imgs.findIndex(url => url.endsWith(filename) || url.includes(`/${filename}`));
+                    // 文件名格式，需要匹配（尝试多种 key 格式）
+                    const possibleKeys = [String(id), id.toFixed(1), String(Math.floor(id))];
+                    let filename: string | undefined;
+                    for (const key of possibleKeys) {
+                        const val = savedFilenames[key];
+                        if (typeof val === 'string') {
+                            filename = val;
+                            break;
+                        }
+                    }
+                    if (filename) {
+                        const foundIdx = imgs.findIndex(url => url.endsWith(filename!) || url.includes(`/${filename}`));
                         targetIdx = foundIdx >= 0 ? foundIdx : Math.max(0, imgs.length - 1);
                     } else {
                         targetIdx = Math.max(0, imgs.length - 1);
