@@ -49,6 +49,7 @@ class VideoGenerator:
         self.close()
         
         # 使用锁避免多线程同时 patch chromedriver
+        # 锁内包含完整的启动和稳定等待，确保浏览器完全就绪后才释放锁
         with _browser_launch_lock:
             if account:
                 # 获取账号对应的指纹
@@ -65,6 +66,9 @@ class VideoGenerator:
             else:
                 print("启动浏览器...")
                 self.driver = uc.Chrome(headless=False)
+            
+            # 在锁内等待浏览器完全稳定（关键！避免多实例冲突）
+            time.sleep(3)
         
         self.driver.set_window_size(1400, 900)
         
@@ -698,6 +702,10 @@ class VideoGenerator:
                     pass
             
             if input_box:
+                # 先关闭可能的弹窗（避免 element click intercepted）
+                self.close_popups()
+                time.sleep(0.5)
+                
                 input_box.click()
                 time.sleep(0.3)
                 
