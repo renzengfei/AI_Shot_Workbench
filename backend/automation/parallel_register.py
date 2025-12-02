@@ -209,6 +209,7 @@ class ParallelRegister:
         email = self._get_next_email()
         worker_id = self._get_worker_id()
         driver = None
+        success = False
         
         try:
             # 启动带指纹的浏览器
@@ -225,15 +226,19 @@ class ParallelRegister:
             print(f"[Worker-{worker_id}] ✗ 任务异常: {e}")
             with self.lock:
                 self.fail_count += 1
+            success = False
         finally:
             # 无论成功失败，都关闭浏览器
             print(f"[Worker-{worker_id}] 🔒 关闭浏览器")
             self._close_browser(driver)
         
-        # 随机间隔（在关闭浏览器后等待）
-        interval = random.randint(self.min_interval, self.max_interval)
-        print(f"[Worker-{worker_id}] 等待 {interval}s...")
-        time.sleep(interval)
+        # 只有成功时才等待间隔，失败立即继续下一个
+        if success:
+            interval = random.randint(self.min_interval, self.max_interval)
+            print(f"[Worker-{worker_id}] ✓ 等待 {interval}s...")
+            time.sleep(interval)
+        else:
+            print(f"[Worker-{worker_id}] ✗ 失败，立即继续下一个")
     
     def run(self, count: int):
         """
