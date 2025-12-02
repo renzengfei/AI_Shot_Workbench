@@ -333,11 +333,13 @@ class VideoGenerator:
             return False
     
     def close_popups(self):
-        """关闭可能的弹窗（新会员特惠、升级套餐等）"""
-        from selenium.webdriver.common.keys import Keys
-        from selenium.webdriver.common.action_chains import ActionChains
+        """关闭可能的弹窗（新会员特惠、升级套餐等）
         
-        # 方法0: 点击 paywall 关闭按钮（升级套餐弹窗）
+        采用保守策略：只点击明确的关闭按钮，避免误触其他元素
+        """
+        from selenium.webdriver.common.keys import Keys
+        
+        # 方法1: 点击 paywall 关闭按钮（升级套餐弹窗）
         try:
             close_btn = self.driver.find_element(By.CSS_SELECTOR, '[data-testid="paywall-close"]')
             close_btn.click()
@@ -347,7 +349,7 @@ class VideoGenerator:
         except:
             pass
         
-        # 方法1: 按 ESC 关闭弹窗
+        # 方法2: 按 ESC 关闭弹窗（安全，不会误触）
         try:
             body = self.driver.find_element(By.TAG_NAME, 'body')
             body.send_keys(Keys.ESCAPE)
@@ -355,74 +357,40 @@ class VideoGenerator:
         except:
             pass
         
-        # 方法2: 点击弹窗外部区域
+        # 方法3: 只点击明确的关闭按钮（精确选择器）
         try:
-            ActionChains(self.driver).move_by_offset(10, 10).click().perform()
-            ActionChains(self.driver).move_by_offset(-10, -10).perform()  # 重置位置
-            time.sleep(0.3)
+            closed = self.driver.execute_script('''
+                // 1. 点击"放弃免费积分"按钮
+                const btns = document.querySelectorAll('button');
+                for (const btn of btns) {
+                    if (btn.textContent.includes('放弃')) {
+                        btn.click();
+                        return 'closed_abandon';
+                    }
+                }
+                
+                // 2. 只点击有 aria-label 的明确关闭按钮
+                const closeBtn = document.querySelector('button[aria-label="close"], button[aria-label="Close"]');
+                if (closeBtn) {
+                    closeBtn.click();
+                    return 'closed_aria';
+                }
+                
+                // 3. 点击 paywall 相关的关闭按钮
+                const paywallClose = document.querySelector('[data-testid*="close"]');
+                if (paywallClose) {
+                    paywallClose.click();
+                    return 'closed_paywall';
+                }
+                
+                return null;
+            ''')
+            
+            if closed:
+                print(f"   关闭弹窗: {closed}")
+                time.sleep(0.5)
         except:
             pass
-        
-        for _ in range(3):  # 多次尝试，可能有多个弹窗
-            try:
-                closed = self.driver.execute_script('''
-                    // 1. 点击"放弃免费积分"
-                    const btns = document.querySelectorAll('button');
-                    for (const btn of btns) {
-                        if (btn.textContent.includes('放弃')) {
-                            btn.click();
-                            return 'closed_abandon';
-                        }
-                    }
-                    
-                    // 2. 点击各种关闭按钮 (X 图标)
-                    const closeSelectors = [
-                        'button[aria-label="close"]',
-                        'button[aria-label="Close"]',
-                        '[class*="close"]',
-                        '[class*="Close"]',
-                        'svg[class*="close"]',
-                        // 弹窗右上角的 X 按钮
-                        'div[class*="modal"] button',
-                        'div[class*="dialog"] button'
-                    ];
-                    
-                    for (const sel of closeSelectors) {
-                        const el = document.querySelector(sel);
-                        if (el) {
-                            el.click();
-                            return 'closed_x';
-                        }
-                    }
-                    
-                    // 3. 查找并点击包含 X 或 × 的按钮
-                    for (const btn of document.querySelectorAll('button')) {
-                        if (btn.textContent.trim() === '×' || btn.textContent.trim() === 'X') {
-                            btn.click();
-                            return 'closed_x_text';
-                        }
-                    }
-                    
-                    // 4. 点击 SVG 关闭图标（X 形状的 path）
-                    const svgs = document.querySelectorAll('svg');
-                    for (const svg of svgs) {
-                        const parent = svg.closest('button, [role="button"]');
-                        if (parent && svg.querySelector('path[d*="M6"]')) {  // X 形状通常以 M6 开头
-                            parent.click();
-                            return 'closed_svg';
-                        }
-                    }
-                    
-                    return null;
-                ''')
-                
-                if closed:
-                    print(f"   关闭弹窗: {closed}")
-                    time.sleep(0.5)
-                else:
-                    break  # 没有更多弹窗
-            except:
-                pass
     
     def navigate_to_home(self):
         """导航到 Home 页面（视频生成入口）"""
