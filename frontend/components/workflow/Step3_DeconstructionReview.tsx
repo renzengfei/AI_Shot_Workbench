@@ -752,18 +752,35 @@ export default function Step3_DeconstructionReview({
         setShotProviders((prev) => ({ ...prev, [shotId]: providerId }));
     };
 
-    // 选择视频（点击视频缩略图时调用），保存索引到后端
+    // 选择视频（点击视频缩略图时调用），保存文件名到后端（与图片一致）
     const handleSelectVideoIndex = (shotId: number, idx: number) => {
         setSelectedVideoIndexes(prev => ({ ...prev, [shotId]: idx }));
         
-        // 保存到后端
+        // 保存到后端（使用文件名而不是索引）
         if (currentWorkspace?.path && generatedDir) {
-            const allSelections = { ...selectedVideoIndexes, [shotId]: idx };
-            fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-videos`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ generated_dir: generatedDir, indexes: allSelections }),
-            }).catch(() => { /* ignore */ });
+            const videos = generatedVideos[shotId] || [];
+            if (idx >= 0 && idx < videos.length) {
+                const videoUrl = videos[idx];
+                const filename = videoUrl.split('/').pop() || '';
+                
+                // 获取已保存的文件名映射
+                const savedFilenames = (window as unknown as Record<string, unknown>).__savedVideoFilenames as Record<string, string> || {};
+                
+                // 合并：保留原有选择 + 添加/更新当前选择
+                // 统一使用 x.0 格式的 key（如 "1.0", "2.0"）
+                const allSelections: Record<string, string> = { ...savedFilenames };
+                const shotKey = Number.isInteger(shotId) ? shotId.toFixed(1) : String(shotId);
+                allSelections[shotKey] = filename;
+                
+                // 同步更新 window 临时变量
+                (window as unknown as Record<string, unknown>).__savedVideoFilenames = allSelections;
+                
+                fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-videos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ generated_dir: generatedDir, indexes: allSelections }),
+                }).catch(() => { /* ignore */ });
+            }
         }
     };
 
@@ -1798,32 +1815,38 @@ export default function Step3_DeconstructionReview({
         savedIndexesRef.current = savedIndexes;
     }, [savedIndexes]);
 
-    // 拉取已保存的选中视频索引
+    // 拉取已保存的选中视频文件名（与图片一致，保存文件名而非索引）
+    const [savedVideoFilenames, setSavedVideoFilenames] = useState<Record<number, string>>({});
     useEffect(() => {
         if (!currentWorkspace?.path || !generatedDir) {
+            setSavedVideoFilenames({});
             setSavedVideoIndexes({});
             setSavedVideoIndexesLoaded(true);
             return;
         }
         fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-videos?generated_dir=${encodeURIComponent(generatedDir)}`)
             .then(resp => resp.ok ? resp.json() : { indexes: {} })
-            .then((data: { indexes?: Record<string, number> }) => {
-                const mapped: Record<number, number> = {};
+            .then((data: { indexes?: Record<string, string | number> }) => {
+                const mapped: Record<number, string> = {};
                 if (data.indexes) {
                     Object.entries(data.indexes).forEach(([k, v]) => {
-                        mapped[Number(k)] = v;
+                        // 兼容旧格式（数字索引）和新格式（文件名）
+                        mapped[Number(k)] = String(v);
                     });
                 }
-                setSavedVideoIndexes(mapped);
+                setSavedVideoFilenames(mapped);
+                // 同步到 window 临时变量
+                (window as unknown as Record<string, unknown>).__savedVideoFilenames = data.indexes || {};
                 setSavedVideoIndexesLoaded(true);
             })
             .catch(() => {
+                setSavedVideoFilenames({});
                 setSavedVideoIndexes({});
                 setSavedVideoIndexesLoaded(true);
             });
     }, [currentWorkspace?.path, generatedDir]);
 
-    // 当保存的视频索引加载完成后，应用到对应镜头
+    // 当保存的视频文件名加载完成后，通过文件名匹配到索引并应用到对应镜头
     useEffect(() => {
         if (!savedVideoIndexesLoaded || !Object.keys(generatedVideos).length) return;
         
@@ -1835,11 +1858,32 @@ export default function Step3_DeconstructionReview({
                 const id = Number(k);
                 if (!videos || !videos.length) return;
                 
-                const savedIdx = savedVideoIndexes[id];
-                if (typeof savedIdx === 'number' && savedIdx >= 0 && savedIdx < videos.length) {
-                    if (next[id] !== savedIdx) {
-                        next[id] = savedIdx;
-                        changed = true;
+                const savedFilename = savedVideoFilenames[id];
+                if (savedFilename) {
+                    // 尝试通过文件名匹配
+                    const matchedIdx = videos.findIndex((url: string) => {
+                        const urlFilename = url.split('/').pop() || '';
+                        return urlFilename === savedFilename;
+                    });
+                    
+                    if (matchedIdx >= 0) {
+                        if (next[id] !== matchedIdx) {
+                            next[id] = matchedIdx;
+                            changed = true;
+                        }
+                    } else {
+                        // 兼容旧格式：savedFilename 可能是数字字符串（如 "0"）
+                        const numIdx = parseInt(savedFilename, 10);
+                        if (!isNaN(numIdx) && numIdx >= 0 && numIdx < videos.length) {
+                            if (next[id] !== numIdx) {
+                                next[id] = numIdx;
+                                changed = true;
+                            }
+                        } else if (next[id] === undefined) {
+                            // 都匹配不上，默认第一个
+                            next[id] = 0;
+                            changed = true;
+                        }
                     }
                 } else if (next[id] === undefined) {
                     // 没有保存记录且没有设置过，默认第一个（最新的）
@@ -1850,7 +1894,7 @@ export default function Step3_DeconstructionReview({
             
             return changed ? next : prev;
         });
-    }, [savedVideoIndexesLoaded, savedVideoIndexes, generatedVideos]);
+    }, [savedVideoIndexesLoaded, savedVideoFilenames, generatedVideos]);
 
     // 当远端已保存的索引到达后，应用到对应镜头（支持文件名匹配）
     // 同时为没有保存记录的 shot 设置默认索引（最后一张图片）
