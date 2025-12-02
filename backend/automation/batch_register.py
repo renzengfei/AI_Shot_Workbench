@@ -65,7 +65,8 @@ class BatchRegister:
                 options.add_argument(f'--proxy-server={proxy_url}')
                 print(f"   🌐 代理: {proxy_server[:30]}...")
             
-            self.driver = uc.Chrome(options=options, headless=self.headless)
+            # headless 模式容易被 Cloudflare 检测，改用窗口移到屏幕外
+            self.driver = uc.Chrome(options=options, headless=False)
             
             # 注入指纹 JS
             self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
@@ -73,9 +74,13 @@ class BatchRegister:
             })
         else:
             print("启动浏览器...")
-            self.driver = uc.Chrome(headless=self.headless)
+            self.driver = uc.Chrome(headless=False)
         
         self.driver.set_window_size(1280, 800)
+        
+        # 如果是"隐藏"模式，把窗口移到屏幕外
+        if self.headless:
+            self.driver.set_window_position(-2000, 0)
     
     def close_browser(self):
         """关闭浏览器"""
