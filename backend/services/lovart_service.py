@@ -18,6 +18,21 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from automation.account_pool import AccountPool
 from automation.batch_video import BatchVideoGenerator, VideoTask
 
+# Workspaces 根目录（与 main.py 保持一致）
+WORKSPACES_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'workspaces'))
+
+def path_to_url(file_path: str) -> str:
+    """将绝对文件路径转换为 HTTP URL"""
+    if not file_path:
+        return file_path
+    abs_path = os.path.abspath(file_path)
+    # 检查是否在 workspaces 目录下
+    if abs_path.startswith(WORKSPACES_DIR):
+        rel_path = os.path.relpath(abs_path, WORKSPACES_DIR)
+        return f'/workspaces/{rel_path}'
+    # 如果不在 workspaces，返回原路径
+    return file_path
+
 
 class VideoGenerationRequest(BaseModel):
     """视频生成请求"""
@@ -139,12 +154,15 @@ class LovartService:
     
     def _task_to_response(self, task: VideoTask) -> VideoTaskResponse:
         """转换任务为响应"""
+        # 将绝对路径转换为 HTTP URL
+        output_url = path_to_url(task.output_path) if task.status == 'completed' else task.output_path
+        
         return VideoTaskResponse(
             task_id=task.task_id,
             status=task.status,
             image_path=task.image_path,
             prompt=task.prompt,
-            output_path=task.output_path,
+            output_path=output_url,
             video_url=task.video_url,
             error=task.error,
             created_at=task.created_at,

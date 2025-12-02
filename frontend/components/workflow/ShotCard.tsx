@@ -296,6 +296,12 @@ export const ShotCard = ({
     const shotId = shot.id ?? index + 1;
     const canEdit = mode === 'review';
 
+    // 将相对路径转换为完整 URL
+    const videoSrc = useMemo(() => {
+        if (!generatedVideoUrl) return null;
+        return generatedVideoUrl.startsWith('/') ? `${API_BASE}${generatedVideoUrl}` : generatedVideoUrl;
+    }, [generatedVideoUrl]);
+
     // Delete confirmation state: { type: 'fg_char' | 'fg_obj' | 'mg_char' | 'mg_obj', index: number } | null
     const [deleteConfirm, setDeleteConfirm] = useState<{ type: string; index: number; label: string } | null>(null);
     const [activeStream, setActiveStream] = useState<'image' | 'video'>('image');
@@ -890,9 +896,9 @@ export const ShotCard = ({
                             {showGeneration && (
                                 <div className={`${mediaCardBase}`}>
                                     <div className={mediaTitleClass}>生成视频</div>
-                                    {generatedVideoUrl ? (
+                                    {videoSrc ? (
                                         <PreviewVideoPlayer
-                                            src={generatedVideoUrl}
+                                            src={videoSrc}
                                             volume={globalVolume}
                                             muted={isGlobalMuted}
                                             className="w-full"
@@ -1072,11 +1078,11 @@ export const ShotCard = ({
                             {/* 6. 素材列表 (横向无限滚动) */}
                             <div className="flex flex-nowrap items-start gap-6">
                                 {activeStream === 'video' ? (
-                                    generatedVideoUrl ? (
+                                    videoSrc ? (
                                         <div className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} border border-purple-400/50 shadow-lg ring-1 ring-purple-400/20 bg-white/50 backdrop-blur-xl ${CARD_PADDING} flex flex-col ${CARD_GAP}`}>
                                             <div className={mediaTitleClass}>生成视频</div>
                                             <PreviewVideoPlayer
-                                                src={generatedVideoUrl}
+                                                src={videoSrc}
                                                 volume={globalVolume}
                                                 muted={isGlobalMuted}
                                                 aspectRatio="aspect-[9/16]"
