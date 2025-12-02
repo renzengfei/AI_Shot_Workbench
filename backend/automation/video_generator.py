@@ -42,6 +42,7 @@ class VideoGenerator:
         self.driver = None
         self.current_account: Optional[Account] = None
         self.current_fingerprint: Optional[BrowserFingerprint] = None
+        self.last_error: Optional[str] = None  # 记录最后一次错误
     
     def launch_browser(self, account: Account = None):
         """启动浏览器（使用账号对应的指纹）"""
@@ -1021,7 +1022,8 @@ class VideoGenerator:
         if not account:
             account = self.account_pool.get_available_account()
             if not account:
-                print("✗ 没有可用账号")
+                self.last_error = "没有可用账号"
+                print(f"✗ {self.last_error}")
                 return None
         
         # 已尝试的账号列表（用于积分为 0 时切换）
@@ -1035,6 +1037,7 @@ class VideoGenerator:
                 
                 # 登录
                 if not self.login(account):
+                    self.last_error = "登录失败"
                     return None
                 
                 # 直接访问 Home 页面
@@ -1052,7 +1055,8 @@ class VideoGenerator:
                     # 获取下一个可用账号
                     account = self.account_pool.get_available_account_excluding(tried_accounts)
                     if not account:
-                        print("✗ 所有账号积分都为 0，无可用账号")
+                        self.last_error = "所有账号积分都为0"
+                        print(f"✗ {self.last_error}")
                         return None
                     
                     print(f"   🔄 切换到账号: {account.email}")
@@ -1060,19 +1064,23 @@ class VideoGenerator:
                 
                 # 上传图片（在输入提示词前上传）
                 if not self.upload_image(image_path):
+                    self.last_error = "上传图片失败"
                     return None
                 
                 # 发送提示词（自动添加 Hailuo 2.3 前缀）
                 if not self.send_prompt(prompt):
+                    self.last_error = "发送提示词失败"
                     return None
                 
                 # 等待视频生成
                 video_url = self.wait_for_video(timeout=600)  # 10分钟超时
                 if not video_url:
+                    self.last_error = "等待视频超时"
                     return None
                 
                 # 下载视频
                 if not self.download_video(video_url, output_path):
+                    self.last_error = "下载视频失败"
                     return None
                 
                 # 标记账号已使用
@@ -1082,6 +1090,7 @@ class VideoGenerator:
                 return output_path
                 
             except Exception as e:
+                self.last_error = str(e)
                 print(f"\n✗ 生成失败: {e}")
                 return None
                 
@@ -1089,7 +1098,8 @@ class VideoGenerator:
                 self.close()
         
         # 如果所有重试都因为积分问题失败
-        print("✗ 已尝试所有可用账号，均无法生成")
+        self.last_error = "已尝试所有可用账号，均无法生成"
+        print(f"✗ {self.last_error}")
         return None
 
 

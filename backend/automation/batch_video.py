@@ -144,7 +144,8 @@ class BatchVideoGenerator:
                 return True
             else:
                 task.status = 'failed'
-                task.error = "视频生成失败"
+                task.error = generator.last_error or "视频生成失败"
+                print(f"✗ 任务失败: {task.task_id} - {task.error}")
                 self.save_tasks()
                 return False
                 
