@@ -1198,8 +1198,8 @@ export default function Step3_DeconstructionReview({
         }
     };
 
-    // 生视频回调
-    const handleGenerateVideo = async (shot: Round2Shot, index: number) => {
+    // 生视频回调（支持同时生成多个视频变体）
+    const handleGenerateVideo = async (shot: Round2Shot, index: number, videoCount: number = 3) => {
         if (!currentWorkspace?.path) {
             showToast('请先选择工作空间', 'error');
             return;
@@ -1226,73 +1226,104 @@ export default function Step3_DeconstructionReview({
         setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'pending' }));
         
         try {
-            // 构建输出路径：和图片存放在同一目录 workspace/generatedDir/shots/shotId/
             const timestamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14);
-            // shotId 格式化为 x.0 与图片目录保持一致
             const shotDirName = Number.isInteger(shotId) ? `${shotId}.0` : String(shotId);
-            const outputPath = currentWorkspace?.path
-                ? `${currentWorkspace.path}/${generatedDir}/shots/${shotDirName}/video_${timestamp}.mp4`
-                : undefined;
             
-            const resp = await fetch(`${API_BASE}/api/lovart/tasks`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    image_path: imagePath,
-                    prompt: prompt,
-                    output_path: outputPath,
-                }),
-            });
-            
-            if (!resp.ok) {
-                throw new Error(`提交任务失败（${resp.status}）`);
+            // 创建多个任务
+            const taskIds: string[] = [];
+            for (let v = 0; v < videoCount; v++) {
+                const outputPath = `${currentWorkspace.path}/${generatedDir}/shots/${shotDirName}/video_${timestamp}_v${v + 1}.mp4`;
+                
+                const resp = await fetch(`${API_BASE}/api/lovart/tasks`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image_path: imagePath,
+                        prompt: prompt,
+                        output_path: outputPath,
+                    }),
+                });
+                
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data?.task?.task_id) {
+                        taskIds.push(data.task.task_id);
+                    }
+                }
             }
             
-            const data = await resp.json();
-            const taskId = data?.task?.task_id;
-            
-            if (!taskId) {
+            if (taskIds.length === 0) {
                 throw new Error('创建任务失败');
             }
             
-            showToast('视频任务已提交，正在后台生成...', 'success');
+            showToast(`已提交 ${taskIds.length} 个视频生成任务`, 'success');
             setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'processing' }));
             
-            // 执行任务
-            await fetch(`${API_BASE}/api/lovart/tasks/${taskId}/run`, { method: 'POST' });
+            // 批量执行任务（并行）
+            await fetch(`${API_BASE}/api/lovart/tasks/run-batch`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    task_ids: taskIds,
+                    parallel: true,
+                    max_workers: videoCount,
+                }),
+            });
             
-            // 简化轮询：5分钟超时
-            const pollTask = async () => {
-                const maxAttempts = 60; // 5分钟
+            // 轮询检查所有任务状态
+            const pollTasks = async () => {
+                const maxAttempts = 120; // 10分钟
+                const taskStatus: Record<string, string> = {};
+                taskIds.forEach(id => taskStatus[id] = 'processing');
+                
                 for (let i = 0; i < maxAttempts; i++) {
                     await new Promise(resolve => setTimeout(resolve, 5000));
-                    try {
-                        const statusResp = await fetch(`${API_BASE}/api/lovart/tasks/${taskId}`);
-                        const statusData = await statusResp.json();
-                        const status = statusData?.task?.status;
+                    
+                    let allDone = true;
+                    let anyCompleted = false;
+                    
+                    for (const taskId of taskIds) {
+                        if (taskStatus[taskId] === 'completed' || taskStatus[taskId] === 'failed') continue;
                         
-                        if (status === 'completed') {
-                            // 刷新视频列表
-                            await loadVideosForShot(shotId);
-                            setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'completed' }));
-                            setGeneratingVideoShots(prev => {
-                                const next = { ...prev };
-                                delete next[shotId];
-                                return next;
-                            });
-                            showToast('视频生成完成！', 'success');
-                            return;
-                        } else if (status === 'failed') {
-                            throw new Error(statusData?.task?.error || '生成失败');
+                        try {
+                            const statusResp = await fetch(`${API_BASE}/api/lovart/tasks/${taskId}`);
+                            const statusData = await statusResp.json();
+                            const status = statusData?.task?.status;
+                            
+                            if (status === 'completed') {
+                                taskStatus[taskId] = 'completed';
+                                anyCompleted = true;
+                            } else if (status === 'failed') {
+                                taskStatus[taskId] = 'failed';
+                            } else {
+                                allDone = false;
+                            }
+                        } catch {
+                            // 忽略错误
                         }
-                    } catch {
-                        // 忽略轮询错误
+                    }
+                    
+                    // 有完成的就刷新视频列表
+                    if (anyCompleted) {
+                        await loadVideosForShot(shotId);
+                    }
+                    
+                    if (allDone) {
+                        const completed = Object.values(taskStatus).filter(s => s === 'completed').length;
+                        setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'completed' }));
+                        setGeneratingVideoShots(prev => {
+                            const next = { ...prev };
+                            delete next[shotId];
+                            return next;
+                        });
+                        showToast(`${completed}/${taskIds.length} 个视频生成完成！`, 'success');
+                        return;
                     }
                 }
                 throw new Error('生成超时');
             };
             
-            pollTask().catch(err => {
+            pollTasks().catch(err => {
                 setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'failed' }));
                 setGeneratingVideoShots(prev => {
                     const next = { ...prev };
