@@ -338,7 +338,10 @@ export default function Step3_DeconstructionReview({
                 if (resp.ok) {
                     const data = await resp.json() as { files?: string[] };
                     if (Array.isArray(data.files) && data.files.length) {
-                        data.files.forEach((f) => found.push(f.startsWith('http') ? f : `${API_BASE}${f.startsWith('/') ? '' : '/'}${f}`));
+                        // 只加载图片，过滤掉视频文件
+                        data.files
+                            .filter((f: string) => !f.endsWith('.mp4') && !f.endsWith('.webm'))
+                            .forEach((f: string) => found.push(f.startsWith('http') ? f : `${API_BASE}${f.startsWith('/') ? '' : '/'}${f}`));
                     }
                 }
             } catch {
