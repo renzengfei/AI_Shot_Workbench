@@ -910,7 +910,6 @@ export const ShotCard = ({
                                                 muted={isGlobalMuted}
                                                 className="w-full"
                                                 aspectRatio="aspect-[9/16]"
-                                                poster={activeImage || frameUrl || undefined}
                                                 lazy
                                             />
                                         </>
@@ -1097,14 +1096,13 @@ export const ShotCard = ({
                                                 >
                                                     <div className={mediaTitleClass}>视频 #{idx + 1}</div>
                                                     <div className={`${mediaBaseClass} border border-white/10 shadow-inner cursor-pointer relative`}>
-                                                        {/* 使用首帧作为封面的视频播放器 */}
+                                                        {/* 不设置 poster，让浏览器自动显示视频第一帧 */}
                                                         <PreviewVideoPlayer
                                                             src={fullUrl}
                                                             volume={globalVolume}
                                                             muted={isGlobalMuted}
                                                             aspectRatio="aspect-[9/16]"
                                                             className="w-full h-full object-cover"
-                                                            poster={activeImage || frameUrl || undefined}
                                                             lazy
                                                         />
                                                     </div>
