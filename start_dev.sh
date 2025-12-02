@@ -14,6 +14,12 @@ cleanup() {
   echo "Shutting down dev servers..."
   [[ "${BACKEND_PID:-}" ]] && kill "$BACKEND_PID" 2>/dev/null || true
   [[ "${FRONTEND_PID:-}" ]] && kill "$FRONTEND_PID" 2>/dev/null || true
+  # 清理残留的浏览器进程
+  echo "Cleaning up browser processes..."
+  killall -9 chromedriver 2>/dev/null || true
+  killall -9 "Google Chrome for Testing" 2>/dev/null || true
+  pkill -9 -f chromedriver 2>/dev/null || true
+  pkill -9 -f "Google Chrome for Testing" 2>/dev/null || true
   wait 2>/dev/null || true
 }
 
@@ -27,6 +33,13 @@ fi
 if [[ ! -d "$FRONTEND_DIR/node_modules" ]]; then
   echo "Warning: frontend node_modules missing. Run: cd \"$FRONTEND_DIR\" && npm install"
 fi
+
+# 启动前清理残留的浏览器进程
+echo "Cleaning up residual browser processes..."
+killall -9 chromedriver 2>/dev/null || true
+killall -9 "Google Chrome for Testing" 2>/dev/null || true
+pkill -9 -f chromedriver 2>/dev/null || true
+pkill -9 -f "Google Chrome for Testing" 2>/dev/null || true
 
 echo "Starting backend (uvicorn main:app --reload --host 0.0.0.0 --port 8000)..."
 # Kill existing backend on port 8000 to avoid Address already in use
