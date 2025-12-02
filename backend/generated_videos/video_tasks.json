@@ -71,7 +71,31 @@
       "error": null,
       "created_at": "2025-12-02T16:13:36.115180",
       "completed_at": ""
+    },
+    {
+      "task_id": "task_7_1764663448",
+      "image_path": "http://127.0.0.1:8000/workspaces/7/generated_漫展拉腿版/shots/1.0/image_url_9.png",
+      "prompt": "**固定镜头→推镜（Push In）**，【格子衬衫男主】吸了一口饮料，突然远处传来一声震耳欲聋的巨响，地面微微颤动，他呈现惊吓的状态，镜头拉近到特写，他好奇的向前看",
+      "output_path": "/Users/renzengfei/资料/youtube文章/AI_Shot_Workbench/workspaces/7/generated_漫展拉腿版/shots/1/video_20251202081728.mp4",
+      "status": "failed",
+      "account_email": "nasu@aigoogle.top",
+      "video_url": null,
+      "error": "视频生成失败",
+      "created_at": "2025-12-02T16:17:28.406875",
+      "completed_at": ""
+    },
+    {
+      "task_id": "task_8_1764663515",
+      "image_path": "http://127.0.0.1:8000/workspaces/7/generated_漫展拉腿版/shots/1.0/image_url_9.png",
+      "prompt": "**固定镜头→推镜（Push In）**，【格子衬衫男主】吸了一口饮料，突然远处传来一声震耳欲聋的巨响，地面微微颤动，他呈现惊吓的状态，镜头拉近到特写，他好奇的向前看",
+      "output_path": "/Users/renzengfei/资料/youtube文章/AI_Shot_Workbench/workspaces/7/generated_漫展拉腿版/shots/1/video_20251202081835.mp4",
+      "status": "processing",
+      "account_email": "nasu@aigoogle.top",
+      "video_url": null,
+      "error": null,
+      "created_at": "2025-12-02T16:18:35.837652",
+      "completed_at": ""
     }
   ],
-  "updated_at": "2025-12-02T16:13:36.250278"
+  "updated_at": "2025-12-02T16:18:35.967812"
 }
