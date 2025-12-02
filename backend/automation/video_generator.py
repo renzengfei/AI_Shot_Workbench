@@ -44,49 +44,66 @@ class VideoGenerator:
         self.current_fingerprint: Optional[BrowserFingerprint] = None
         self.last_error: Optional[str] = None  # 记录最后一次错误
     
-    def _launch_browser_internal(self, account: Account = None):
+    def _launch_browser_internal(self, account: Account = None, max_retries: int = 3):
         """启动浏览器的内部实现（不带锁，供外部锁调用）"""
         self.close()
         
-        if account:
-            # 获取账号对应的指纹
-            self.current_fingerprint = self.fingerprint_manager.get_or_create(account.email)
-            print(f"🔐 使用指纹: {self.current_fingerprint.fingerprint_id}")
-            
-            options = self.fingerprint_manager.get_chrome_options(self.current_fingerprint)
-            self.driver = uc.Chrome(options=options, headless=False)
-            
-            # 注入指纹 JS
-            self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-                'source': self.fingerprint_manager.get_fingerprint_js(self.current_fingerprint)
-            })
-        else:
-            print("启动浏览器...")
-            self.driver = uc.Chrome(headless=False)
-        
-        # 等待浏览器完全稳定
-        time.sleep(5)
-        
-        self.driver.set_window_size(1400, 900)
-        
-        # 最小化窗口到 Dock
-        from .browser_utils import hide_chrome_window
-        hide_chrome_window(delay=1.0)
-    
-    def launch_browser(self, account: Account = None, max_retries: int = 3):
-        """启动浏览器（使用账号对应的指纹）- 带锁保护"""
         last_error = None
         for attempt in range(max_retries):
             try:
-                with _browser_launch_lock:
-                    self._launch_browser_internal(account)
+                if account:
+                    # 获取账号对应的指纹
+                    self.current_fingerprint = self.fingerprint_manager.get_or_create(account.email)
+                    print(f"🔐 使用指纹: {self.current_fingerprint.fingerprint_id}")
+                    
+                    options = self.fingerprint_manager.get_chrome_options(self.current_fingerprint)
+                    # 使用 no_sandbox 减少启动问题
+                    self.driver = uc.Chrome(
+                        options=options, 
+                        headless=False,
+                        use_subprocess=True,  # 使用子进程避免冲突
+                    )
+                    
+                    # 注入指纹 JS
+                    self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+                        'source': self.fingerprint_manager.get_fingerprint_js(self.current_fingerprint)
+                    })
+                else:
+                    print("启动浏览器...")
+                    self.driver = uc.Chrome(headless=False, use_subprocess=True)
+                
+                # 等待浏览器完全稳定
+                time.sleep(5)
+                
+                self.driver.set_window_size(1400, 900)
+                
+                # 最小化窗口到 Dock
+                from .browser_utils import hide_chrome_window
+                hide_chrome_window(delay=1.0)
+                
                 return  # 成功启动
+                
             except Exception as e:
                 last_error = e
-                print(f"   ⚠️ 浏览器启动失败 (尝试 {attempt + 1}/{max_retries}): {e}")
-                self.close()
-                time.sleep(3)
-        raise last_error
+                error_str = str(e)
+                print(f"   ⚠️ 浏览器启动尝试 {attempt + 1}/{max_retries} 失败: {error_str}")
+                
+                # 如果是网络问题，等待更长时间后重试
+                if 'urlopen error' in error_str or 'Connection reset' in error_str:
+                    print(f"   🔄 网络问题，等待 {5 * (attempt + 1)} 秒后重试...")
+                    self.close()
+                    time.sleep(5 * (attempt + 1))
+                else:
+                    self.close()
+                    time.sleep(2)
+        
+        # 所有重试都失败
+        raise last_error if last_error else Exception("浏览器启动失败")
+    
+    def launch_browser(self, account: Account = None, max_retries: int = 3):
+        """启动浏览器（使用账号对应的指纹）- 带锁保护"""
+        with _browser_launch_lock:
+            self._launch_browser_internal(account, max_retries)
     
     def prepare_session(self, account: Account, tried_accounts: list = None) -> tuple:
         """
