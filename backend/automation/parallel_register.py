@@ -138,8 +138,7 @@ class ParallelRegister:
             if 'AI设计师' in driver.page_source or 'canvas' in driver.current_url:
                 # 保存账号
                 password = f"Lovart{random.randint(1000,9999)}!"
-                account = Account(email=email, password=password)
-                self.account_pool.add_account(account)
+                self.account_pool.add_account(email, password)
                 
                 with self.lock:
                     self.success_count += 1
