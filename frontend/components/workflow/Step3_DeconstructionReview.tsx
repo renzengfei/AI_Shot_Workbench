@@ -175,6 +175,8 @@ export default function Step3_DeconstructionReview({
     const [videoTaskStatuses, setVideoTaskStatuses] = useState<Record<number, 'pending' | 'processing' | 'completed' | 'failed' | null>>({});
     const [generatedVideos, setGeneratedVideos] = useState<Record<number, string[]>>({});  // 视频列表
     const [selectedVideoIndexes, setSelectedVideoIndexes] = useState<Record<number, number>>({});  // 选中的视频索引
+    const [savedVideoIndexes, setSavedVideoIndexes] = useState<Record<number, number>>({});  // 已保存的视频索引
+    const [savedVideoIndexesLoaded, setSavedVideoIndexesLoaded] = useState(false);  // 是否已加载保存的视频索引
     // Provider selection per shot
     const [providers, setProviders] = useState<Array<{ id: string; name: string; is_default?: boolean }>>([]);
     const [shotProviders, setShotProviders] = useState<Record<number, string>>({});
@@ -404,8 +406,7 @@ export default function Step3_DeconstructionReview({
         if (allVideos.length > 0) {
             const unique = Array.from(new Set(allVideos));
             setGeneratedVideos(prev => ({ ...prev, [shotId]: unique }));
-            // 默认选中第一个（最新的，因为后端按时间倒序排列）
-            setSelectedVideoIndexes(prev => ({ ...prev, [shotId]: 0 }));
+            // 不在这里设置默认索引，等 selected-videos API 返回后再统一设置
         }
     }, [currentWorkspace?.path, generatedDir]);
 
@@ -711,6 +712,21 @@ export default function Step3_DeconstructionReview({
     const handleProviderChange = (shot: Round2Shot, idx: number, providerId: string) => {
         const shotId = shot.id ?? idx + 1;
         setShotProviders((prev) => ({ ...prev, [shotId]: providerId }));
+    };
+
+    // 选择视频（点击视频缩略图时调用），保存索引到后端
+    const handleSelectVideoIndex = (shotId: number, idx: number) => {
+        setSelectedVideoIndexes(prev => ({ ...prev, [shotId]: idx }));
+        
+        // 保存到后端
+        if (currentWorkspace?.path && generatedDir) {
+            const allSelections = { ...selectedVideoIndexes, [shotId]: idx };
+            fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-videos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ generated_dir: generatedDir, indexes: allSelections }),
+            }).catch(() => { /* ignore */ });
+        }
     };
 
     // 选择图片（点击「选择此图」按钮时调用），保存文件名到后端
@@ -1743,6 +1759,60 @@ export default function Step3_DeconstructionReview({
     useEffect(() => {
         savedIndexesRef.current = savedIndexes;
     }, [savedIndexes]);
+
+    // 拉取已保存的选中视频索引
+    useEffect(() => {
+        if (!currentWorkspace?.path || !generatedDir) {
+            setSavedVideoIndexes({});
+            setSavedVideoIndexesLoaded(true);
+            return;
+        }
+        fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-videos?generated_dir=${encodeURIComponent(generatedDir)}`)
+            .then(resp => resp.ok ? resp.json() : { indexes: {} })
+            .then((data: { indexes?: Record<string, number> }) => {
+                const mapped: Record<number, number> = {};
+                if (data.indexes) {
+                    Object.entries(data.indexes).forEach(([k, v]) => {
+                        mapped[Number(k)] = v;
+                    });
+                }
+                setSavedVideoIndexes(mapped);
+                setSavedVideoIndexesLoaded(true);
+            })
+            .catch(() => {
+                setSavedVideoIndexes({});
+                setSavedVideoIndexesLoaded(true);
+            });
+    }, [currentWorkspace?.path, generatedDir]);
+
+    // 当保存的视频索引加载完成后，应用到对应镜头
+    useEffect(() => {
+        if (!savedVideoIndexesLoaded || !Object.keys(generatedVideos).length) return;
+        
+        setSelectedVideoIndexes((prev) => {
+            let changed = false;
+            const next = { ...prev };
+            
+            Object.entries(generatedVideos).forEach(([k, videos]) => {
+                const id = Number(k);
+                if (!videos || !videos.length) return;
+                
+                const savedIdx = savedVideoIndexes[id];
+                if (typeof savedIdx === 'number' && savedIdx >= 0 && savedIdx < videos.length) {
+                    if (next[id] !== savedIdx) {
+                        next[id] = savedIdx;
+                        changed = true;
+                    }
+                } else if (next[id] === undefined) {
+                    // 没有保存记录且没有设置过，默认第一个（最新的）
+                    next[id] = 0;
+                    changed = true;
+                }
+            });
+            
+            return changed ? next : prev;
+        });
+    }, [savedVideoIndexesLoaded, savedVideoIndexes, generatedVideos]);
 
     // 当远端已保存的索引到达后，应用到对应镜头（支持文件名匹配）
     // 同时为没有保存记录的 shot 设置默认索引（最后一张图片）
@@ -3548,7 +3618,7 @@ export default function Step3_DeconstructionReview({
                                     videoTaskStatus={videoTaskStatuses[shot.id ?? index + 1]}
                                     generatedVideoUrls={generatedVideos[shot.id ?? index + 1] || []}
                                     selectedVideoIndex={selectedVideoIndexes[shot.id ?? index + 1] ?? 0}
-                                    onSelectVideoIndex={(idx: number) => setSelectedVideoIndexes(prev => ({ ...prev, [shot.id ?? index + 1]: idx }))}
+                                    onSelectVideoIndex={(idx: number) => handleSelectVideoIndex(shot.id ?? index + 1, idx)}
                                 />
                             );
                         });

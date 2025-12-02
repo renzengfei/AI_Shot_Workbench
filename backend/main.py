@@ -1057,6 +1057,47 @@ async def save_selected_images(workspace_path: str, data: dict):
         logger.error(f"保存选中图片索引失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/workspaces/{workspace_path:path}/selected-videos")
+async def get_selected_videos(workspace_path: str, generated_dir: Optional[str] = None):
+    """读取选中的视频索引"""
+    if not os.path.exists(workspace_path):
+        raise HTTPException(status_code=404, detail="workspace_path 不存在")
+    dir_name = generated_dir or "generated"
+    json_path = os.path.join(workspace_path, dir_name, "selected_videos.json")
+    norm_path = os.path.normpath(json_path)
+    if not norm_path.startswith(os.path.normpath(workspace_path)):
+        raise HTTPException(status_code=400, detail="路径无效")
+    if not os.path.isfile(norm_path):
+        return {"indexes": {}}
+    try:
+        with open(norm_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return {"indexes": data.get("indexes", {})}
+    except Exception as e:
+        logger.warning(f"读取选中视频索引失败: {e}")
+        return {"indexes": {}}
+
+@app.post("/api/workspaces/{workspace_path:path}/selected-videos")
+async def save_selected_videos(workspace_path: str, data: dict):
+    """保存选中的视频索引"""
+    if not os.path.exists(workspace_path):
+        raise HTTPException(status_code=404, detail="workspace_path 不存在")
+    generated_dir = data.get("generated_dir") or "generated"
+    indexes = data.get("indexes", {})
+    dir_path = os.path.join(workspace_path, generated_dir)
+    os.makedirs(dir_path, exist_ok=True)
+    json_path = os.path.join(dir_path, "selected_videos.json")
+    norm_path = os.path.normpath(json_path)
+    if not norm_path.startswith(os.path.normpath(workspace_path)):
+        raise HTTPException(status_code=400, detail="路径无效")
+    try:
+        with open(norm_path, "w", encoding="utf-8") as f:
+            json.dump({"indexes": indexes}, f, ensure_ascii=False, indent=2)
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"保存选中视频索引失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/workspaces/{workspace_path:path}/prompt")
 async def get_shot_prompt(
     workspace_path: str, 
