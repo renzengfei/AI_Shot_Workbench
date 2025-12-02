@@ -369,8 +369,8 @@ class VideoGenerator:
     def check_credits(self) -> int:
         """检查账号积分，返回积分数量，失败返回 -1"""
         try:
-            # 尝试从页面获取积分显示
-            credits = self.driver.execute_script('''
+            # 尝试从页面获取积分显示（使用 r-string 避免转义警告）
+            credits = self.driver.execute_script(r'''
                 // 查找显示积分的元素（通常在导航栏或用户信息处）
                 // 方法1: 查找包含数字的积分显示
                 const allText = document.body.innerText;
@@ -929,32 +929,42 @@ class VideoGenerator:
         self.driver.save_screenshot('/tmp/video_timeout.png')
         return None
     
-    def download_video(self, video_url: str, output_path: str) -> bool:
-        """下载视频"""
+    def download_video(self, video_url: str, output_path: str, max_retries: int = 3) -> bool:
+        """下载视频（带重试机制）"""
         print(f"下载视频到: {output_path}")
         
-        try:
-            # 如果是相对路径，转为绝对路径
-            if not os.path.isabs(output_path):
-                output_path = os.path.abspath(output_path)
-            
-            # 确保目录存在
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            
-            # 下载
-            response = requests.get(video_url, stream=True, timeout=60)
-            response.raise_for_status()
-            
-            with open(output_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-            
-            print(f"✓ 视频已保存: {output_path}")
-            return True
-            
-        except Exception as e:
-            print(f"✗ 下载失败: {e}")
-            return False
+        # 如果是相对路径，转为绝对路径
+        if not os.path.isabs(output_path):
+            output_path = os.path.abspath(output_path)
+        
+        # 确保目录存在
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
+        for attempt in range(max_retries):
+            try:
+                # 下载（禁用 SSL 验证以处理某些代理问题）
+                response = requests.get(
+                    video_url, 
+                    stream=True, 
+                    timeout=120,
+                    verify=False  # 某些代理环境可能有 SSL 问题
+                )
+                response.raise_for_status()
+                
+                with open(output_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                
+                print(f"✓ 视频已保存: {output_path}")
+                return True
+                
+            except Exception as e:
+                print(f"   下载尝试 {attempt + 1}/{max_retries} 失败: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(3)  # 等待后重试
+        
+        print(f"✗ 下载失败（已重试 {max_retries} 次）")
+        return False
     
     def generate_video(
         self,
