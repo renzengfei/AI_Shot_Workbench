@@ -1,4 +1,4 @@
-import { Clock, Zap, Image as ImageIcon, Layers, Sparkles, Users, Sun, Palette, CheckCircle2, RefreshCw, Box, Layout, Trash2, ChevronDown, Check, AlertCircle, Video, Wand2, Loader2, FileText, X, ChevronLeft, ChevronRight, Undo2 } from 'lucide-react';
+import { Clock, Zap, Image as ImageIcon, Layers, Sparkles, Users, Sun, Palette, CheckCircle2, RefreshCw, Box, Layout, Trash2, ChevronDown, Check, AlertCircle, Video, Wand2, Loader2, FileText, X, ChevronLeft, ChevronRight, Undo2, Square } from 'lucide-react';
 import { type ReactNode, useState, useEffect, useMemo } from 'react';
 import { AutoTextArea } from '@/components/ui/AutoTextArea';
 import { PreviewVideoPlayer } from '@/components/ui/PreviewVideoPlayer';
@@ -1018,19 +1018,19 @@ export const ShotCard = ({
                                         {/* 生视频按钮 */}
                                         {onGenerateVideo && showGeneration && (
                                             <button
-                                                onClick={() => onGenerateVideo(shot, index)}
-                                                disabled={isGeneratingVideo || !hasGeneratedImages}
-                                                title={!hasGeneratedImages ? '请先生成图片' : '使用当前图片生成视频'}
+                                                onClick={() => isGeneratingVideo ? onStopVideoGeneration?.(shot, index) : onGenerateVideo(shot, index)}
+                                                disabled={!isGeneratingVideo && !hasGeneratedImages}
+                                                title={isGeneratingVideo ? '停止生成视频' : !hasGeneratedImages ? '请先生成图片' : '使用当前图片生成视频'}
                                                 className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${
                                                     isGeneratingVideo
-                                                        ? 'bg-slate-400 text-white cursor-not-allowed'
+                                                        ? 'bg-red-500 text-white hover:bg-red-600'
                                                         : !hasGeneratedImages
                                                             ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
                                                             : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600'
                                                 }`}
                                             >
                                                 {isGeneratingVideo ? (
-                                                    <><Loader2 size={14} className="animate-spin" />{videoTaskStatus === 'processing' ? '生成中' : '排队中'}</>
+                                                    <><Square size={14} fill="currentColor" />停止生成</>
                                                 ) : (
                                                     <><Video size={14} />生视频</>
                                                 )}
