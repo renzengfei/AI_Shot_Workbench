@@ -851,7 +851,6 @@ class VideoGenerator:
             pass
         
         start = time.time()
-        last_progress = None
         
         while time.time() - start < timeout:
             try:
@@ -861,42 +860,7 @@ class VideoGenerator:
                 if elapsed % 30 == 0:
                     self.driver.save_screenshot(f'/tmp/video_wait_{elapsed}.png')
                 
-                # 检查是否还在生成中（查找进度指示器）
-                generating = self.driver.execute_script('''
-                    // 检查各种生成中的指示器
-                    const loadingTexts = ['生成中', 'Generating', 'Loading', '处理中', 'Processing'];
-                    const bodyText = document.body.innerText;
-                    for (const text of loadingTexts) {
-                        if (bodyText.includes(text)) return text;
-                    }
-                    
-                    // 检查进度条
-                    const progress = document.querySelector('[class*="progress"], [role="progressbar"]');
-                    if (progress) {
-                        const width = progress.style.width || progress.getAttribute('aria-valuenow');
-                        if (width && width !== '100%' && width !== '100') {
-                            return 'progress: ' + width;
-                        }
-                    }
-                    
-                    // 检查加载动画
-                    const spinner = document.querySelector('[class*="spinner"], [class*="loading"], [class*="animate-spin"]');
-                    if (spinner && spinner.offsetParent !== null) {
-                        return 'spinner';
-                    }
-                    
-                    return null;
-                ''')
-                
-                if generating and generating != last_progress:
-                    print(f"   生成状态: {generating}")
-                    last_progress = generating
-                
-                # 如果还在生成中，继续等待
-                if generating:
-                    time.sleep(5)
-                    continue
-                
+                # 优先检测视频（即使页面显示loading，视频可能已经生成）
                 # 查找新的视频元素（排除初始的教学视频）
                 videos = self.driver.find_elements(By.CSS_SELECTOR, 'video')
                 
