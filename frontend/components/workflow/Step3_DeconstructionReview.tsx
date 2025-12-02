@@ -1218,8 +1218,10 @@ export default function Step3_DeconstructionReview({
         try {
             // 构建输出路径：和图片存放在同一目录 workspace/generatedDir/shots/shotId/
             const timestamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14);
+            // shotId 格式化为 x.0 与图片目录保持一致
+            const shotDirName = Number.isInteger(shotId) ? `${shotId}.0` : String(shotId);
             const outputPath = currentWorkspace?.path
-                ? `${currentWorkspace.path}/${generatedDir}/shots/${shotId}/video_${timestamp}.mp4`
+                ? `${currentWorkspace.path}/${generatedDir}/shots/${shotDirName}/video_${timestamp}.mp4`
                 : undefined;
             
             const resp = await fetch(`${API_BASE}/api/lovart/tasks`, {
