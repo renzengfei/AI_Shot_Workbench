@@ -9,6 +9,7 @@ interface PreviewVideoPlayerProps {
     aspectRatio?: string;
     poster?: string;
     lazy?: boolean;
+    onPlay?: () => void;  // 播放时回调（用于清除 NEW 标识）
 }
 
 export const PreviewVideoPlayer = ({
@@ -19,6 +20,7 @@ export const PreviewVideoPlayer = ({
     aspectRatio = "aspect-[9/16]",
     poster,
     lazy = true,
+    onPlay,
 }: PreviewVideoPlayerProps) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -61,24 +63,27 @@ export const PreviewVideoPlayer = ({
 
         const onTimeUpdate = () => setCurrentTime(video.currentTime);
         const onLoadedMetadata = () => setDuration(video.duration);
-        const onPlay = () => setPlaying(true);
+        const onPlayEvent = () => {
+            setPlaying(true);
+            onPlay?.();  // 调用外部回调
+        };
         const onPause = () => setPlaying(false);
         const onEnded = () => setPlaying(false);
 
         video.addEventListener('timeupdate', onTimeUpdate);
         video.addEventListener('loadedmetadata', onLoadedMetadata);
-        video.addEventListener('play', onPlay);
+        video.addEventListener('play', onPlayEvent);
         video.addEventListener('pause', onPause);
         video.addEventListener('ended', onEnded);
 
         return () => {
             video.removeEventListener('timeupdate', onTimeUpdate);
             video.removeEventListener('loadedmetadata', onLoadedMetadata);
-            video.removeEventListener('play', onPlay);
+            video.removeEventListener('play', onPlayEvent);
             video.removeEventListener('pause', onPause);
             video.removeEventListener('ended', onEnded);
         };
-    }, []);
+    }, [onPlay]);
 
     const togglePlay = () => {
         if (videoRef.current) {
@@ -174,7 +179,7 @@ export const PreviewVideoPlayer = ({
 
                     <div className="flex items-center gap-2">
                         <div className="flex bg-[var(--color-bg-secondary)]/50 rounded p-0.5">
-                            {[0.25, 0.5, 1.0].map((r) => (
+                            {[1, 2, 3, 4].map((r) => (
                                 <button
                                     key={r}
                                     onClick={() => changeRate(r)}

@@ -173,6 +173,7 @@ export default function Step3_DeconstructionReview({
     // Video generation state
     const [generatingVideoShots, setGeneratingVideoShots] = useState<Record<number, boolean>>({});
     const [videoTaskStatuses, setVideoTaskStatuses] = useState<Record<number, 'pending' | 'processing' | 'completed' | 'failed' | null>>({});
+    const [newlyGeneratedVideos, setNewlyGeneratedVideos] = useState<Record<number, string[]>>({});  // 新生成的视频 URL
     const [generatedVideos, setGeneratedVideos] = useState<Record<number, string[]>>({});  // 视频列表
     const [selectedVideoIndexes, setSelectedVideoIndexes] = useState<Record<number, number>>({});  // 选中的视频索引
     const [savedVideoIndexes, setSavedVideoIndexes] = useState<Record<number, number>>({});  // 已保存的视频索引
@@ -384,7 +385,7 @@ export default function Step3_DeconstructionReview({
     }, []);
 
     // 加载镜头的所有视频
-    const loadVideosForShot = useCallback(async (shotId: number) => {
+    const loadVideosForShot = useCallback(async (shotId: number, markAsNew = false) => {
         if (!currentWorkspace?.path) return;
         // 同时查询整数和小数格式的目录（如 1 和 1.0）
         const labels = [String(shotId), shotId.toFixed(1)];
@@ -405,7 +406,22 @@ export default function Step3_DeconstructionReview({
         }
         if (allVideos.length > 0) {
             const unique = Array.from(new Set(allVideos));
-            setGeneratedVideos(prev => ({ ...prev, [shotId]: unique }));
+            // 标记新增的视频
+            if (markAsNew) {
+                setGeneratedVideos(prev => {
+                    const oldList = prev[shotId] || [];
+                    const newItems = unique.filter(v => !oldList.includes(v));
+                    if (newItems.length > 0) {
+                        setNewlyGeneratedVideos(prevNew => ({
+                            ...prevNew,
+                            [shotId]: [...(prevNew[shotId] || []), ...newItems]
+                        }));
+                    }
+                    return { ...prev, [shotId]: unique };
+                });
+            } else {
+                setGeneratedVideos(prev => ({ ...prev, [shotId]: unique }));
+            }
             // 不在这里设置默认索引，等 selected-videos API 返回后再统一设置
         }
     }, [currentWorkspace?.path, generatedDir]);
@@ -707,6 +723,28 @@ export default function Step3_DeconstructionReview({
     const handleClearNewImages = (shot: Round2Shot, idx: number) => {
         const shotId = shot.id ?? idx + 1;
         setNewlyGenerated((prev) => ({ ...prev, [shotId]: [] }));
+    };
+
+    // 视频播放后清除 NEW 标识
+    const handleVideoSeen = (shotId: number, url: string) => {
+        setNewlyGeneratedVideos((prev) => ({ ...prev, [shotId]: (prev[shotId] || []).filter((u) => u !== url) }));
+    };
+
+    // 停止单个镜头的视频生成
+    const handleStopSingleVideoGeneration = async (shot: Round2Shot, idx: number) => {
+        const shotId = shot.id ?? idx + 1;
+        try {
+            await fetch(`${API_BASE}/api/lovart/tasks/stop-all`, { method: 'POST' });
+            setGeneratingVideoShots(prev => {
+                const next = { ...prev };
+                delete next[shotId];
+                return next;
+            });
+            setVideoTaskStatuses(prev => ({ ...prev, [shotId]: null }));
+            showToast('已停止视频生成', 'success');
+        } catch {
+            showToast('停止失败', 'error');
+        }
     };
 
     const handleProviderChange = (shot: Round2Shot, idx: number, providerId: string) => {
@@ -1319,9 +1357,9 @@ export default function Step3_DeconstructionReview({
                         }
                     }
                     
-                    // 有完成的就刷新视频列表
+                    // 有完成的就刷新视频列表，标记为新视频
                     if (anyCompleted) {
-                        await loadVideosForShot(shotId);
+                        await loadVideosForShot(shotId, true);
                     }
                     
                     if (allDone) {
@@ -1495,7 +1533,7 @@ export default function Step3_DeconstructionReview({
                                     delete next[shotId];
                                     return next;
                                 });
-                                void loadVideosForShot(shotId);
+                                void loadVideosForShot(shotId, true);
                             } else if (status === 'failed') {
                                 setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'failed' }));
                                 setGeneratingVideoShots(prev => {
@@ -3486,31 +3524,6 @@ export default function Step3_DeconstructionReview({
                     )}
 
                     {/* Shot List - Apple Glass Style */}
-                    {/* Batch Actions */}
-                    {typeof round2Data !== 'string' && round2Data?.shots && round2Data.shots.length > 0 && (
-                        <div className="flex items-center justify-end gap-3 py-4 mb-4 border-b border-slate-200">
-                            {Object.keys(generatingVideoShots).length > 0 ? (
-                                <button
-                                    onClick={handleStopAllVideos}
-                                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-red-500 text-white hover:bg-red-600 transition"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="6" width="12" height="12"></rect></svg>
-                                    停止生成 ({Object.keys(generatingVideoShots).length})
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={handleBatchGenerateVideos}
-                                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-purple-500 text-white hover:bg-purple-600 transition"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
-                                    批量生成视频
-                                </button>
-                            )}
-                            <span className="text-xs text-slate-400">
-                                {Object.values(generatedImages).filter(arr => arr && arr.length > 0).length} 个镜头有图片
-                            </span>
-                        </div>
-                    )}
                     {/* Top Pagination Controls */}
                     {typeof round2Data !== 'string' && round2Data?.shots && round2Data.shots.length > shotsPerPage && (
                         <div className="flex items-center justify-center gap-4 py-4 mb-6">
@@ -3619,6 +3632,9 @@ export default function Step3_DeconstructionReview({
                                     generatedVideoUrls={generatedVideos[shot.id ?? index + 1] || []}
                                     selectedVideoIndex={selectedVideoIndexes[shot.id ?? index + 1] ?? 0}
                                     onSelectVideoIndex={(idx: number) => handleSelectVideoIndex(shot.id ?? index + 1, idx)}
+                                    newVideos={newlyGeneratedVideos[shot.id ?? index + 1] || []}
+                                    onVideoSeen={(url: string) => handleVideoSeen(shot.id ?? index + 1, url)}
+                                    onStopVideoGeneration={handleStopSingleVideoGeneration}
                                 />
                             );
                         });

@@ -255,6 +255,9 @@ interface ShotCardProps {
     generatedVideoUrls?: string[];
     selectedVideoIndex?: number;
     onSelectVideoIndex?: (index: number) => void;
+    newVideos?: string[];  // 新生成的视频 URL
+    onVideoSeen?: (url: string) => void;  // 播放视频后的回调
+    onStopVideoGeneration?: (shot: Round2Shot, index: number) => void;  // 停止视频生成
 }
 
 export const ShotCard = ({
@@ -296,6 +299,9 @@ export const ShotCard = ({
     generatedVideoUrls = [],
     selectedVideoIndex = 0,
     onSelectVideoIndex,
+    newVideos = [],
+    onVideoSeen,
+    onStopVideoGeneration,
 }: ShotCardProps) => {
     const shotId = shot.id ?? index + 1;
     const canEdit = mode === 'review';
@@ -681,14 +687,14 @@ export const ShotCard = ({
     // 标题样式：固定高度确保对齐
     const mediaTitleClass = 'h-6 text-sm font-medium text-slate-500 text-center tracking-wide';
 
-    // 从图片URL提取生成时间
+    // 从URL提取生成时间（格式：MM/DD HH:MM）
     const getGenerationTime = (url: string): string => {
         try {
             const filename = url.split('/').pop() || '';
             const match = filename.match(/_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
             if (match) {
-                const [, , , , hour, minute] = match;
-                return `${hour}:${minute}`;
+                const [, , month, day, hour, minute] = match;
+                return `${month}/${day} ${hour}:${minute}`;
             }
             return '';
         } catch {
@@ -1089,13 +1095,27 @@ export const ShotCard = ({
                                         generatedVideoUrls.map((url, idx) => {
                                             const isSelected = idx === selectedVideoIndex;
                                             const fullUrl = url.startsWith('/') ? `${API_BASE}${url}` : url;
+                                            const isNew = newVideos.includes(url);
+                                            const genTime = getGenerationTime(url);
                                             return (
                                                 <div
                                                     key={`video-${url}-${idx}`}
                                                     className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} border transition-all duration-300 ${isSelected ? 'border-purple-400/50 shadow-lg ring-1 ring-purple-400/20' : 'border-white/30 hover:shadow-md'} bg-white/50 backdrop-blur-xl ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
                                                 >
-                                                    <div className={mediaTitleClass}>视频 #{idx + 1}</div>
+                                                    <div className={mediaTitleClass}>{genTime || ' '}</div>
                                                     <div className={`${mediaBaseClass} border border-white/10 shadow-inner cursor-pointer relative`}>
+                                                        {/* 右上角：生成时间 */}
+                                                        {genTime && (
+                                                            <span className="absolute top-2 right-2 px-2 py-1 rounded-md text-xs font-medium bg-black/50 text-white/90 backdrop-blur-sm z-10">
+                                                                {genTime}
+                                                            </span>
+                                                        )}
+                                                        {/* 左上角：NEW 标识 */}
+                                                        {isNew && (
+                                                            <span className="absolute top-2 left-2 px-2 py-1 rounded-md text-xs font-semibold bg-red-500 text-white z-10">
+                                                                NEW
+                                                            </span>
+                                                        )}
                                                         {/* 不设置 poster，让浏览器自动显示视频第一帧 */}
                                                         <PreviewVideoPlayer
                                                             src={fullUrl}
@@ -1104,6 +1124,7 @@ export const ShotCard = ({
                                                             aspectRatio="aspect-[9/16]"
                                                             className="w-full h-full object-cover"
                                                             lazy
+                                                            onPlay={() => onVideoSeen?.(url)}
                                                         />
                                                     </div>
                                                     {/* 操作按钮区 */}
@@ -1117,7 +1138,7 @@ export const ShotCard = ({
                                                             {isSelected ? <><Check size={14} /> 已选择</> : '选择此视频'}
                                                         </button>
                                                         <span className={`text-xs font-medium text-slate-400 px-2.5 py-2 bg-slate-100/80 ${BTN_RADIUS} border border-slate-200/30`}>
-                                                            #{idx + 1}
+                                                            {genTime || `#${idx + 1}`}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -1129,6 +1150,13 @@ export const ShotCard = ({
                                                 <>
                                                     <Loader2 size={36} className="animate-spin text-purple-400" />
                                                     <span className="text-purple-400">{videoTaskStatus === 'processing' ? '视频生成中...' : '排队等待中...'}</span>
+                                                    <button
+                                                        onClick={() => onStopVideoGeneration?.(shot, index)}
+                                                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-red-500 text-white hover:bg-red-600 transition"
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
+                                                        停止生成
+                                                    </button>
                                                 </>
                                             ) : (
                                                 <>
