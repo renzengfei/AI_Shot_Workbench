@@ -252,7 +252,9 @@ interface ShotCardProps {
     onGenerateVideo?: (shot: Round2Shot, index: number) => void;
     isGeneratingVideo?: boolean;
     videoTaskStatus?: 'pending' | 'processing' | 'completed' | 'failed' | null;
-    generatedVideoUrl?: string | null;
+    generatedVideoUrls?: string[];
+    selectedVideoIndex?: number;
+    onSelectVideoIndex?: (index: number) => void;
 }
 
 export const ShotCard = ({
@@ -291,16 +293,23 @@ export const ShotCard = ({
     onGenerateVideo,
     isGeneratingVideo = false,
     videoTaskStatus = null,
-    generatedVideoUrl = null,
+    generatedVideoUrls = [],
+    selectedVideoIndex = 0,
+    onSelectVideoIndex,
 }: ShotCardProps) => {
     const shotId = shot.id ?? index + 1;
     const canEdit = mode === 'review';
 
-    // 将相对路径转换为完整 URL
+    // 将相对路径转换为完整 URL（使用选中的视频）
     const videoSrc = useMemo(() => {
-        if (!generatedVideoUrl) return null;
-        return generatedVideoUrl.startsWith('/') ? `${API_BASE}${generatedVideoUrl}` : generatedVideoUrl;
-    }, [generatedVideoUrl]);
+        if (!generatedVideoUrls.length) return null;
+        const url = generatedVideoUrls[Math.min(selectedVideoIndex, generatedVideoUrls.length - 1)];
+        if (!url) return null;
+        return url.startsWith('/') ? `${API_BASE}${url}` : url;
+    }, [generatedVideoUrls, selectedVideoIndex]);
+    
+    // 是否有多个视频可切换
+    const hasMultipleVideos = generatedVideoUrls.length > 1;
 
     // Delete confirmation state: { type: 'fg_char' | 'fg_obj' | 'mg_char' | 'mg_obj', index: number } | null
     const [deleteConfirm, setDeleteConfirm] = useState<{ type: string; index: number; label: string } | null>(null);
@@ -895,17 +904,41 @@ export const ShotCard = ({
                             {/* 3. 生成视频预览 - 展示生成的视频，没有则显示占位 */}
                             {showGeneration && (
                                 <div className={`${mediaCardBase}`}>
-                                    <div className={mediaTitleClass}>生成视频</div>
+                                    <div className={mediaTitleClass}>生成视频{generatedVideoUrls.length > 0 && ` (${selectedVideoIndex + 1}/${generatedVideoUrls.length})`}</div>
                                     {videoSrc ? (
-                                        <PreviewVideoPlayer
-                                            src={videoSrc}
-                                            volume={globalVolume}
-                                            muted={isGlobalMuted}
-                                            className="w-full"
-                                            aspectRatio="aspect-[9/16]"
-                                            poster={activeImage || frameUrl || undefined}
-                                            lazy
-                                        />
+                                        <>
+                                            <PreviewVideoPlayer
+                                                src={videoSrc}
+                                                volume={globalVolume}
+                                                muted={isGlobalMuted}
+                                                className="w-full"
+                                                aspectRatio="aspect-[9/16]"
+                                                poster={activeImage || frameUrl || undefined}
+                                                lazy
+                                            />
+                                            {/* 视频切换按钮 */}
+                                            {hasMultipleVideos && (
+                                                <div className="flex items-center justify-center gap-2 mt-2">
+                                                    <button
+                                                        onClick={() => onSelectVideoIndex?.(Math.max(0, selectedVideoIndex - 1))}
+                                                        disabled={selectedVideoIndex <= 0}
+                                                        className="p-1 rounded hover:bg-purple-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                        title="上一个视频"
+                                                    >
+                                                        <ChevronLeft size={16} className="text-purple-500" />
+                                                    </button>
+                                                    <span className="text-xs text-purple-500 font-medium">{selectedVideoIndex + 1} / {generatedVideoUrls.length}</span>
+                                                    <button
+                                                        onClick={() => onSelectVideoIndex?.(Math.min(generatedVideoUrls.length - 1, selectedVideoIndex + 1))}
+                                                        disabled={selectedVideoIndex >= generatedVideoUrls.length - 1}
+                                                        className="p-1 rounded hover:bg-purple-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                        title="下一个视频"
+                                                    >
+                                                        <ChevronRight size={16} className="text-purple-500" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </>
                                     ) : (
                                         <div className={`${mediaBaseClass} border border-dashed border-purple-300/50 shadow-sm flex flex-col items-center justify-center gap-3`}>
                                             {isGeneratingVideo ? (

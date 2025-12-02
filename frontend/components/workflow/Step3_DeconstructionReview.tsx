@@ -173,7 +173,8 @@ export default function Step3_DeconstructionReview({
     // Video generation state
     const [generatingVideoShots, setGeneratingVideoShots] = useState<Record<number, boolean>>({});
     const [videoTaskStatuses, setVideoTaskStatuses] = useState<Record<number, 'pending' | 'processing' | 'completed' | 'failed' | null>>({});
-    const [generatedVideos, setGeneratedVideos] = useState<Record<number, string>>({});
+    const [generatedVideos, setGeneratedVideos] = useState<Record<number, string[]>>({});  // 视频列表
+    const [selectedVideoIndexes, setSelectedVideoIndexes] = useState<Record<number, number>>({});  // 选中的视频索引
     // Provider selection per shot
     const [providers, setProviders] = useState<Array<{ id: string; name: string; is_default?: boolean }>>([]);
     const [shotProviders, setShotProviders] = useState<Record<number, string>>({});
@@ -380,6 +381,27 @@ export default function Step3_DeconstructionReview({
             delete taskPollersRef.current[taskId];
         }
     }, []);
+
+    // 加载镜头的所有视频
+    const loadVideosForShot = useCallback(async (shotId: number) => {
+        if (!currentWorkspace?.path) return;
+        const url = `${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/generated?shot_id=${encodeURIComponent(String(shotId))}&generated_dir=${encodeURIComponent(generatedDir)}`;
+        try {
+            const resp = await fetch(url);
+            if (!resp.ok) return;
+            const data = await resp.json() as { files?: string[] };
+            const allFiles = data.files || [];
+            // 过滤出视频文件
+            const videos = allFiles.filter(f => f.endsWith('.mp4') || f.endsWith('.webm'));
+            if (videos.length > 0) {
+                setGeneratedVideos(prev => ({ ...prev, [shotId]: videos }));
+                // 默认选中最后一个（最新的）
+                setSelectedVideoIndexes(prev => ({ ...prev, [shotId]: videos.length - 1 }));
+            }
+        } catch {
+            // ignore
+        }
+    }, [currentWorkspace?.path, generatedDir]);
 
     const pollTaskStatus = useCallback(
         async (shotId: number, taskId: string, attempt = 0) => {
@@ -1248,11 +1270,8 @@ export default function Step3_DeconstructionReview({
                         const status = statusData?.task?.status;
                         
                         if (status === 'completed') {
-                            // 保存生成的视频 URL
-                            const videoUrl = statusData?.task?.output_path;
-                            if (videoUrl) {
-                                setGeneratedVideos(prev => ({ ...prev, [shotId]: videoUrl }));
-                            }
+                            // 刷新视频列表
+                            await loadVideosForShot(shotId);
                             setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'completed' }));
                             setGeneratingVideoShots(prev => {
                                 const next = { ...prev };
@@ -3290,7 +3309,9 @@ export default function Step3_DeconstructionReview({
                                     onGenerateVideo={handleGenerateVideo}
                                     isGeneratingVideo={!!generatingVideoShots[shot.id ?? index + 1]}
                                     videoTaskStatus={videoTaskStatuses[shot.id ?? index + 1]}
-                                    generatedVideoUrl={generatedVideos[shot.id ?? index + 1]}
+                                    generatedVideoUrls={generatedVideos[shot.id ?? index + 1] || []}
+                                    selectedVideoIndex={selectedVideoIndexes[shot.id ?? index + 1] ?? 0}
+                                    onSelectVideoIndex={(idx: number) => setSelectedVideoIndexes(prev => ({ ...prev, [shot.id ?? index + 1]: idx }))}
                                 />
                             );
                         });
