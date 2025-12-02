@@ -13,9 +13,13 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
 import os
+import threading
 import requests
 from typing import Optional
 from datetime import datetime
+
+# 全局浏览器启动锁（避免多线程同时 patch chromedriver）
+_browser_launch_lock = threading.Lock()
 
 from .account_pool import AccountPool, Account
 from .email_receiver import EmailReceiver
@@ -43,21 +47,23 @@ class VideoGenerator:
         """启动浏览器（使用账号对应的指纹）"""
         self.close()
         
-        if account:
-            # 获取账号对应的指纹
-            self.current_fingerprint = self.fingerprint_manager.get_or_create(account.email)
-            print(f"🔐 使用指纹: {self.current_fingerprint.fingerprint_id}")
-            
-            options = self.fingerprint_manager.get_chrome_options(self.current_fingerprint)
-            self.driver = uc.Chrome(options=options, headless=False)
-            
-            # 注入指纹 JS
-            self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-                'source': self.fingerprint_manager.get_fingerprint_js(self.current_fingerprint)
-            })
-        else:
-            print("启动浏览器...")
-            self.driver = uc.Chrome(headless=False)
+        # 使用锁避免多线程同时 patch chromedriver
+        with _browser_launch_lock:
+            if account:
+                # 获取账号对应的指纹
+                self.current_fingerprint = self.fingerprint_manager.get_or_create(account.email)
+                print(f"🔐 使用指纹: {self.current_fingerprint.fingerprint_id}")
+                
+                options = self.fingerprint_manager.get_chrome_options(self.current_fingerprint)
+                self.driver = uc.Chrome(options=options, headless=False)
+                
+                # 注入指纹 JS
+                self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+                    'source': self.fingerprint_manager.get_fingerprint_js(self.current_fingerprint)
+                })
+            else:
+                print("启动浏览器...")
+                self.driver = uc.Chrome(headless=False)
         
         self.driver.set_window_size(1400, 900)
         

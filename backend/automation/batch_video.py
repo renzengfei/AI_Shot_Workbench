@@ -10,6 +10,7 @@ import json
 import os
 import time
 import random
+import threading
 from typing import List, Dict, Optional
 from dataclasses import dataclass, asdict
 from datetime import datetime
@@ -17,6 +18,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .account_pool import AccountPool, Account
 from .video_generator import VideoGenerator
+
+# 全局浏览器启动锁（避免多线程同时 patch chromedriver）
+_browser_launch_lock = threading.Lock()
 
 
 @dataclass
