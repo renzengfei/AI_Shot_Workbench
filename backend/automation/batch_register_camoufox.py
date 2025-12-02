@@ -50,9 +50,12 @@ class CamoufoxRegister:
         self.browser = Camoufox(
             headless=False,
             proxy=proxy,
+            # 中文支持
+            locale='zh-CN',
+            fonts=['Arial', 'PingFang SC', 'Microsoft YaHei', 'SimHei'],
             # 随机化配置
             humanize=True,  # 人类化行为
-            os=random.choice(['windows', 'macos', 'linux']),
+            os=random.choice(['windows', 'macos']),  # Linux 字体支持差
         ).__enter__()
         
         self.page = self.browser.new_page()
@@ -77,35 +80,66 @@ class CamoufoxRegister:
         try:
             # 1. 打开页面
             print("1. 打开 Lovart.ai")
+            self.page.set_viewport_size({'width': 1400, 'height': 900})
             self.page.goto(self.BASE_URL, timeout=30000)
-            time.sleep(random.uniform(2, 4))
+            time.sleep(2)
             
-            # 2. 点击登录按钮
-            print("2. 点击登录按钮")
-            login_btn = self.page.locator('button:has-text("登录"), button:has-text("Log in"), a:has-text("登录")')
-            if login_btn.count() > 0:
-                login_btn.first.click()
-                time.sleep(random.uniform(1, 2))
+            # 缩小页面以适应屏幕
+            self.page.evaluate('document.body.style.zoom = "0.8"')
+            time.sleep(random.uniform(1, 2))
             
-            # 3. 切换到注册
-            print("3. 切换到注册页面")
-            register_link = self.page.locator('text=注册, text=Sign up, text=创建账号')
-            if register_link.count() > 0:
-                register_link.first.click()
-                time.sleep(random.uniform(1, 2))
+            # 2. 点击注册按钮
+            print("2. 点击注册按钮")
+            self.page.evaluate('''
+                const btns = document.querySelectorAll('button, span');
+                for (const btn of btns) {
+                    if (btn.textContent.includes('注册')) {
+                        btn.click();
+                        break;
+                    }
+                }
+            ''')
+            time.sleep(random.uniform(2, 3))
             
-            # 4. 填写邮箱
-            print("4. 填写邮箱")
-            email_input = self.page.locator('input[type="email"], input[name="email"], input[placeholder*="邮箱"], input[placeholder*="email" i]')
-            if email_input.count() > 0:
-                email_input.first.fill(email)
+            # 3. 点击"使用邮箱继续"（按钮可能是 disabled 状态，直接 JS 点击）
+            print("3. 点击使用邮箱继续")
+            clicked = self.page.evaluate('''() => {
+                const btn = document.getElementById('emailLogin');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.click();
+                    return true;
+                }
+                const btns = document.querySelectorAll('button');
+                for (const b of btns) {
+                    if (b.textContent.includes('使用邮箱继续')) {
+                        b.disabled = false;
+                        b.click();
+                        return true;
+                    }
+                }
+                return false;
+            }''')
+            print(f"   ✓ 点击: {clicked}")
+            time.sleep(random.uniform(2, 3))
+            
+            # 4. 等待邮箱输入表单
+            print("4. 等待邮箱表单...")
+            self.page.wait_for_selector('input[type="email"], input[placeholder*="邮箱"]', timeout=10000)
+            time.sleep(1)
+            
+            # 5. 填写邮箱
+            print("5. 填写邮箱")
+            inputs = self.page.locator('input').all()
+            if len(inputs) >= 1:
+                inputs[0].fill(email)
                 time.sleep(random.uniform(0.5, 1))
             else:
-                print("   ✗ 找不到邮箱输入框")
+                print("   ✗ 找不到输入框")
                 return False
             
-            # 5. 填写密码
-            print("5. 填写密码")
+            # 6. 填写密码
+            print("6. 填写密码")
             pwd_inputs = self.page.locator('input[type="password"]')
             if pwd_inputs.count() > 0:
                 pwd_inputs.first.fill(password)
@@ -114,58 +148,59 @@ class CamoufoxRegister:
                     pwd_inputs.nth(1).fill(password)
                     time.sleep(random.uniform(0.5, 1))
             
-            # 6. 点击发送验证码
-            print("6. 发送验证码")
-            send_code_btn = self.page.locator('button:has-text("发送"), button:has-text("获取"), button:has-text("Send"), button:has-text("验证码")')
-            if send_code_btn.count() > 0:
-                send_code_btn.first.click()
+            # 7. 点击发送验证码
+            print("7. 发送验证码")
+            send_btn = self.page.locator('button:has-text("发送"), button:has-text("获取"), button:has-text("Send")')
+            if send_btn.count() > 0:
+                send_btn.first.click(force=True)
                 time.sleep(2)
             
-            # 7. 等待验证码邮件
-            print("7. 等待验证码邮件...")
-            code = self.email_receiver.wait_for_code(email, timeout=120)
+            # 8. 等待验证码邮件
+            print("8. 等待验证码邮件...")
+            code = self.email_receiver.wait_for_verification_code(email, timeout=120)
             if not code:
                 print("   ✗ 未收到验证码")
                 return False
             print(f"   ✓ 收到验证码: {code}")
             
-            # 8. 填写验证码
-            print("8. 填写验证码")
-            code_input = self.page.locator('input[placeholder*="验证码"], input[placeholder*="code" i], input[name="code"]')
-            if code_input.count() > 0:
-                code_input.first.fill(code)
-                time.sleep(random.uniform(0.5, 1))
+            # 9. 填写验证码
+            print("9. 填写验证码")
+            # 尝试多个输入框（6位验证码）
+            code_inputs = self.page.locator('input[maxlength="1"]')
+            if code_inputs.count() >= len(code):
+                for i, digit in enumerate(code):
+                    code_inputs.nth(i).fill(digit)
+                    time.sleep(0.1)
             else:
-                # 尝试逐个输入（有些是多个输入框）
-                code_inputs = self.page.locator('input[maxlength="1"]')
-                if code_inputs.count() >= len(code):
-                    for i, digit in enumerate(code):
-                        code_inputs.nth(i).fill(digit)
-                        time.sleep(0.1)
+                # 单个输入框
+                code_input = self.page.locator('input[placeholder*="验证码"], input[placeholder*="code" i]')
+                if code_input.count() > 0:
+                    code_input.first.fill(code)
+            time.sleep(1)
             
-            # 9. 点击注册按钮
-            print("9. 点击注册按钮")
-            register_btn = self.page.locator('button:has-text("注册"), button:has-text("Sign up"), button:has-text("创建"), button[type="submit"]')
-            if register_btn.count() > 0:
-                register_btn.first.click()
-                time.sleep(3)
-            
-            # 10. 检查是否注册成功
-            print("10. 检查注册结果...")
+            # 10. 点击注册/提交按钮
+            print("10. 点击提交")
+            submit_btn = self.page.locator('button[type="submit"], button:has-text("注册"), button:has-text("确认")')
+            if submit_btn.count() > 0:
+                submit_btn.first.click(force=True)
             time.sleep(3)
             
-            # 检查是否跳转到首页或显示成功
-            if '/home' in self.page.url or '欢迎' in self.page.content() or 'welcome' in self.page.content().lower():
+            # 11. 检查是否注册成功
+            print("11. 检查注册结果...")
+            time.sleep(3)
+            
+            # 检查是否跳转到首页
+            if '/home' in self.page.url:
                 print("   ✓ 注册成功！")
-                # 保存账号
                 self.account_pool.add_account(email, password)
                 return True
             
-            # 检查错误信息
-            error = self.page.locator('.error, .alert-error, [class*="error"]')
-            if error.count() > 0:
-                print(f"   ✗ 注册失败: {error.first.text_content()}")
-                return False
+            # 检查页面内容
+            content = self.page.content().lower()
+            if '欢迎' in content or 'welcome' in content or '成功' in content:
+                print("   ✓ 注册成功！")
+                self.account_pool.add_account(email, password)
+                return True
             
             # 不确定结果，假设成功
             print("   ? 结果不确定，假设成功")
