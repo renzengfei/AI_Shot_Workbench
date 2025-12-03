@@ -844,6 +844,12 @@ export default function Step3_DeconstructionReview({
         const imageUrl = list[bounded];
         const filename = imageUrl?.split('/').pop() || '';
         if (filename && currentWorkspace?.path && generatedDir) {
+            // 安全检查：确保已保存的图片数据已加载完成，避免覆盖
+            if (!savedIndexesLoaded) {
+                console.warn('图片选择数据尚未加载完成，跳过保存以避免数据丢失');
+                return;
+            }
+            
             setSavedIndexes((prev) => ({ ...prev, [shotId]: bounded })); // 同时更新本地状态
             
             // 【关键修复】直接从 window 临时变量获取已保存的文件名，避免数据丢失
