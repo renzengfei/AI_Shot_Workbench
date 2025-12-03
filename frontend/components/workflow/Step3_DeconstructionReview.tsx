@@ -1488,7 +1488,7 @@ export default function Step3_DeconstructionReview({
                         setVideoTaskProgresses(prev => { const next = { ...prev }; delete next[shotId]; return next; });
                         // 最终刷新视频列表
                         void loadVideosForShot(shotId, true);
-                        showToast(`${completed}/${taskIds.length} 个视频生成完成！`, completed > 0 ? 'success' : 'error');
+                        showToast(`镜头 ${shotId}：${completed}/${taskIds.length} 个视频生成完成！`, completed > 0 ? 'success' : 'error');
                     }
                 };
                 
