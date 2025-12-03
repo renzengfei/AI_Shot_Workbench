@@ -939,27 +939,8 @@ export const ShotCard = ({
                                         </>
                                     ) : (
                                         <div className={`${mediaBaseClass} border border-dashed border-purple-300/50 shadow-sm flex flex-col items-center justify-center gap-3`}>
-                                            {isGeneratingVideo ? (
-                                                <div className="flex flex-col items-center gap-2 w-full px-6">
-                                                    <Loader2 size={32} className="animate-spin text-purple-400" />
-                                                    <span className="text-sm text-purple-400">
-                                                        {videoTaskStatus === 'processing' ? `生成中 ${videoProgress}%` : '排队中...'}
-                                                    </span>
-                                                    {videoTaskStatus === 'processing' && (
-                                                        <div className="w-full h-1.5 bg-purple-100 rounded-full overflow-hidden">
-                                                            <div 
-                                                                className="h-full bg-gradient-to-r from-purple-400 to-pink-400 rounded-full transition-all duration-300"
-                                                                style={{ width: `${videoProgress}%` }}
-                                                            />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <Video size={32} className="text-purple-300/60" />
-                                                    <span className="text-sm text-purple-300/60">暂无生成视频</span>
-                                                </>
-                                            )}
+                                            <Video size={32} className="text-purple-300/60" />
+                                            <span className="text-sm text-purple-300/60">暂无选中视频</span>
                                         </div>
                                     )}
                                 </div>
