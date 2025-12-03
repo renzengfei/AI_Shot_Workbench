@@ -3750,10 +3750,6 @@ export default function Step3_DeconstructionReview({
                                 {defaultStream === 'video' ? '已选视频流' : '默认选择视频流'}
                             </button>
                             <div className="flex items-center gap-2">
-                                <span className="text-sm text-slate-500">
-                                    已选中 <span className="font-semibold text-emerald-600">{Object.keys(savedVideoFilenames).length}</span>
-                                    /{round2Data.shots.filter(s => !s.discarded).length}
-                                </span>
                                 <button
                                     onClick={handleExportVideos}
                                     disabled={exporting || Object.keys(savedVideoFilenames).length === 0}
@@ -3762,6 +3758,10 @@ export default function Step3_DeconstructionReview({
                                     {exporting ? <Loader2 size={16} className="animate-spin" /> : <FolderOutput size={16} />}
                                     {exporting ? '导出中...' : '导出选中视频'}
                                 </button>
+                                <span className="text-sm text-slate-500">
+                                    已选中 <span className="font-semibold text-emerald-600">{Object.keys(savedVideoFilenames).length}</span>
+                                    /{round2Data.shots.filter(s => !s.discarded).length}
+                                </span>
                             </div>
                         </div>
                     )}
