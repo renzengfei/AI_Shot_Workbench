@@ -3749,14 +3749,20 @@ export default function Step3_DeconstructionReview({
                                 <Video size={16} />
                                 {defaultStream === 'video' ? '已选视频流' : '默认选择视频流'}
                             </button>
-                            <button
-                                onClick={handleExportVideos}
-                                disabled={exporting}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 active:scale-95 bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {exporting ? <Loader2 size={16} className="animate-spin" /> : <FolderOutput size={16} />}
-                                {exporting ? '导出中...' : '导出选中视频'}
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-slate-500">
+                                    已选中 <span className="font-semibold text-emerald-600">{Object.keys(savedVideoFilenames).length}</span>
+                                    /{round2Data.shots.filter(s => !s.discarded).length}
+                                </span>
+                                <button
+                                    onClick={handleExportVideos}
+                                    disabled={exporting || Object.keys(savedVideoFilenames).length === 0}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 active:scale-95 bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {exporting ? <Loader2 size={16} className="animate-spin" /> : <FolderOutput size={16} />}
+                                    {exporting ? '导出中...' : '导出选中视频'}
+                                </button>
+                            </div>
                         </div>
                     )}
                     {/* Top Pagination Controls */}
