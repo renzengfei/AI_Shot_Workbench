@@ -16,6 +16,7 @@ import logging
 import httpx
 import asyncio
 from datetime import datetime
+from pathlib import Path
 from services.scene_detector import SceneDetector
 from services.exporter import Exporter
 from services.youtube_downloader import YouTubeDownloader
