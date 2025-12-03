@@ -274,9 +274,9 @@ class YunwuVideoService:
                     
         except Exception as e:
             task.status = "failed"
-            task.error = f"请求异常: {str(e)}"
+            task.error = f"请求异常: {type(e).__name__}: {str(e) or repr(e)}"
             self._save_tasks()
-            logger.error(f"任务创建异常: {e}")
+            logger.error(f"任务创建异常: {type(e).__name__}: {str(e) or repr(e)}")
             return False
     
     async def query_video(self, task: YunwuVideoTask) -> dict:
