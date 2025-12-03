@@ -178,7 +178,7 @@ export default function Step3_DeconstructionReview({
     const [generatingVideoShots, setGeneratingVideoShots] = useState<Record<number, boolean>>({});
     const [videoTaskStatuses, setVideoTaskStatuses] = useState<Record<number, 'pending' | 'processing' | 'completed' | 'failed' | null>>({});
     const [videoProgress, setVideoProgress] = useState<Record<number, number>>({}); // 视频生成进度 0-100
-    const [videoTaskProgresses, setVideoTaskProgresses] = useState<Record<number, Array<{taskId: string; progress: number; status: string}>>>({}); // 每个任务的进度
+    const [videoTaskProgresses, setVideoTaskProgresses] = useState<Record<number, Array<{taskId: string; progress: number; status: string; startTime: number}>>>({}); // 每个任务的进度
     const [newlyGeneratedVideos, setNewlyGeneratedVideos] = useState<Record<number, string[]>>({});  // 新生成的视频 URL
     const [generatedVideos, setGeneratedVideos] = useState<Record<number, string[]>>({});  // 视频列表
     const [selectedVideoIndexes, setSelectedVideoIndexes] = useState<Record<number, number>>({});  // 选中的视频索引
@@ -1389,10 +1389,11 @@ export default function Step3_DeconstructionReview({
             showToast(`已提交 ${taskIds.length} 个视频生成任务 (云雾 API)`, 'success');
             setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'processing' }));
             
-            // 初始化占位卡片状态
+            // 初始化占位卡片状态（包含开始时间用于计时显示）
+            const startTime = Date.now();
             setVideoTaskProgresses(prev => ({
                 ...prev,
-                [shotId]: taskIds.map(id => ({ taskId: id, progress: 0, status: 'processing' }))
+                [shotId]: taskIds.map(id => ({ taskId: id, progress: 0, status: 'processing', startTime }))
             }));
             
             // 批量执行任务（并行）

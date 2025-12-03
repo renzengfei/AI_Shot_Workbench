@@ -12,6 +12,26 @@ interface DiffInfo {
     newVal: string;
 }
 
+// 等待时间计时器组件
+const WaitTimer = ({ startTime }: { startTime: number }) => {
+    const [elapsed, setElapsed] = useState(0);
+    
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setElapsed(Math.floor((Date.now() - startTime) / 1000));
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [startTime]);
+    
+    const minutes = Math.floor(elapsed / 60);
+    const seconds = elapsed % 60;
+    return (
+        <span className="text-xs text-slate-400 font-mono">
+            已等待 {minutes > 0 ? `${minutes}分` : ''}{seconds}秒
+        </span>
+    );
+};
+
 // 生成失败提示组件
 const ErrorTooltip = ({ error }: { error: string }) => {
     const [expanded, setExpanded] = useState(false);
@@ -253,7 +273,7 @@ interface ShotCardProps {
     isGeneratingVideo?: boolean;
     videoTaskStatus?: 'pending' | 'processing' | 'completed' | 'failed' | null;
     videoProgress?: number; // 视频生成进度 0-100
-    videoTaskProgresses?: Array<{taskId: string; progress: number; status: string}>; // 每个任务的进度
+    videoTaskProgresses?: Array<{taskId: string; progress: number; status: string; startTime: number}>; // 每个任务的进度
     generatedVideoUrls?: string[];
     selectedVideoIndex?: number;
     onSelectVideoIndex?: (index: number) => void;
@@ -1131,8 +1151,9 @@ export const ShotCard = ({
                                                         </div>
                                                     )}
                                                 </div>
-                                                <div className="flex items-center justify-center">
+                                                <div className="flex items-center justify-center gap-2">
                                                     <span className="text-xs text-slate-400">视频 #{idx + 1}</span>
+                                                    <WaitTimer startTime={task.startTime} />
                                                 </div>
                                             </div>
                                         ))}
