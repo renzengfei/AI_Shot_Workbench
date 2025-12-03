@@ -6,6 +6,7 @@ import { X, Eye, EyeOff, Loader2, CheckCircle, AlertCircle, Video } from 'lucide
 interface VideoConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSave?: (config: VideoGenConfig) => void;
 }
 
 export interface VideoGenConfig {
@@ -32,7 +33,7 @@ const DEFAULT_CONFIG: VideoGenConfig = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8000';
 
-export function VideoConfigModal({ isOpen, onClose }: VideoConfigModalProps) {
+export function VideoConfigModal({ isOpen, onClose, onSave }: VideoConfigModalProps) {
   const [config, setConfig] = useState<VideoGenConfig>(DEFAULT_CONFIG);
   const [showApiKey, setShowApiKey] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -102,6 +103,7 @@ export function VideoConfigModal({ isOpen, onClose }: VideoConfigModalProps) {
         body: JSON.stringify(config),
       });
       if (res.ok) {
+        onSave?.(config);
         onClose();
       } else {
         const data = await res.json();

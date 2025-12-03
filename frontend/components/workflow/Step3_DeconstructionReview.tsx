@@ -1272,7 +1272,9 @@ export default function Step3_DeconstructionReview({
     };
 
     // 生视频回调（支持同时生成多个视频变体）
-    const handleGenerateVideo = async (shot: Round2Shot, index: number, videoCount: number = 3) => {
+    const handleGenerateVideo = async (shot: Round2Shot, index: number) => {
+        // 从配置读取视频数量，默认 3
+        const videoCount = videoGenConfig?.videosPerShot || 3;
         if (!currentWorkspace?.path) {
             showToast('请先选择工作空间', 'error');
             return;
@@ -4375,6 +4377,7 @@ export default function Step3_DeconstructionReview({
         <VideoConfigModal
             isOpen={showVideoConfigModal}
             onClose={() => setShowVideoConfigModal(false)}
+            onSave={(config) => setVideoGenConfig(config)}
         />
         </>
     );
