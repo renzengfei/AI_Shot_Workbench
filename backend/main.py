@@ -1880,30 +1880,41 @@ async def yunwu_add_tasks_batch(requests: List[YunwuVideoRequest]):
 @app.post("/api/yunwu/tasks/run-batch")
 async def yunwu_run_tasks_batch(data: dict):
     """
-    批量执行多个任务
+    批量执行多个任务（真正并发）
     
     Body:
         task_ids: 任务ID列表
+        max_workers: 最大并发数（默认 3）
     """
+    import asyncio
+    
     task_ids = data.get('task_ids', [])
+    max_workers = data.get('max_workers', 3)
     
     if not task_ids:
         raise HTTPException(status_code=400, detail="task_ids 不能为空")
     
     service = get_yunwu_video_service()
     
-    # 在后台执行所有任务
-    async def run_all_tasks():
-        for task_id in task_ids:
+    # 使用信号量控制并发数
+    semaphore = asyncio.Semaphore(max_workers)
+    
+    async def run_single_task(task_id: str):
+        async with semaphore:
             task = service.get_task(task_id)
             if task and task.status in ["pending", "failed"]:
                 await service.process_task(task)
+    
+    # 在后台并发执行所有任务
+    async def run_all_tasks():
+        await asyncio.gather(*[run_single_task(tid) for tid in task_ids])
     
     asyncio.create_task(run_all_tasks())
     
     return {
         "success": True,
-        "message": f"开始执行 {len(task_ids)} 个任务"
+        "message": f"开始并发执行 {len(task_ids)} 个任务",
+        "max_workers": max_workers
     }
 
 
