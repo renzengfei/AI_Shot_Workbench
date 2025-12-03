@@ -3464,5 +3464,45 @@
       "status_update_time": 1764780126,
       "upscale_on_complete": true
     }
+  },
+  {
+    "task_id": "c5f6da0b",
+    "api_task_id": "grok:aa2999d8-fa5f-4c66-9dc7-4e08b22ec442",
+    "status": "processing",
+    "image_path": "http://127.0.0.1:8000/workspaces/7/generated_漫展拉腿版/shots/4.0/image_url_10.png",
+    "prompt": "**固定镜头**，0-0.8s：【格子衬衫男主】双拳紧握，肩膀微微颤抖，嘴唇抿成一条线，眼神直视镜头带着压抑的怒火，胸膛随急促呼吸起伏；0.8-1.6s：眼神突然睁大，眉头舒展，嘴巴微微张开，同时右手食指猛然竖起指向天空，表情由愤怒转为「有办法了」的恍然大悟；1.6-2.5s：双腿发力蹬地，身体向画面左侧急转，衬衫下摆随转身甩动，快步跑出画面，只留下飞扬的尘土。",
+    "output_path": "/Users/renzengfei/资料/youtube文章/AI_Shot_Workbench/workspaces/7/generated_漫展拉腿版/shots/4.0/video_20251203172538_v1.mp4",
+    "aspect_ratio": "9:16",
+    "size": "1080P",
+    "model": "grok-video-3",
+    "video_url": null,
+    "error": null,
+    "created_at": "2025-12-04T01:25:38.513320+08:00",
+    "completed_at": null,
+    "api_response": {
+      "id": "grok:aa2999d8-fa5f-4c66-9dc7-4e08b22ec442",
+      "status": "processing",
+      "status_update_time": 1764782743
+    }
+  },
+  {
+    "task_id": "7070bc59",
+    "api_task_id": "grok:531ba600-71d8-44a3-93a6-c201710c8c3c",
+    "status": "processing",
+    "image_path": "http://127.0.0.1:8000/workspaces/7/generated_漫展拉腿版/shots/4.0/image_url_10.png",
+    "prompt": "**固定镜头**，0-0.8s：【格子衬衫男主】双拳紧握，肩膀微微颤抖，嘴唇抿成一条线，眼神直视镜头带着压抑的怒火，胸膛随急促呼吸起伏；0.8-1.6s：眼神突然睁大，眉头舒展，嘴巴微微张开，同时右手食指猛然竖起指向天空，表情由愤怒转为「有办法了」的恍然大悟；1.6-2.5s：双腿发力蹬地，身体向画面左侧急转，衬衫下摆随转身甩动，快步跑出画面，只留下飞扬的尘土。",
+    "output_path": "/Users/renzengfei/资料/youtube文章/AI_Shot_Workbench/workspaces/7/generated_漫展拉腿版/shots/4.0/video_20251203172538_v2.mp4",
+    "aspect_ratio": "9:16",
+    "size": "1080P",
+    "model": "grok-video-3",
+    "video_url": null,
+    "error": null,
+    "created_at": "2025-12-04T01:25:38.634338+08:00",
+    "completed_at": null,
+    "api_response": {
+      "id": "grok:531ba600-71d8-44a3-93a6-c201710c8c3c",
+      "status": "processing",
+      "status_update_time": 1764782743
+    }
   }
 ]

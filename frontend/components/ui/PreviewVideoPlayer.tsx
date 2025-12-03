@@ -10,6 +10,7 @@ interface PreviewVideoPlayerProps {
     poster?: string;
     lazy?: boolean;
     onPlay?: () => void;  // 播放时回调（用于清除 NEW 标识）
+    defaultRate?: number;  // 默认播放速度，原片用 1，生成视频用 2.5
 }
 
 export const PreviewVideoPlayer = ({
@@ -21,13 +22,14 @@ export const PreviewVideoPlayer = ({
     poster,
     lazy = true,
     onPlay,
+    defaultRate = 1,
 }: PreviewVideoPlayerProps) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [playing, setPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
-    const [rate, setRate] = useState(2.5);
+    const [rate, setRate] = useState(defaultRate);
     const [shouldLoad, setShouldLoad] = useState(() => {
         if (!lazy) return true;
         if (typeof window === 'undefined') return false;
@@ -62,7 +64,10 @@ export const PreviewVideoPlayer = ({
         if (!video) return;
 
         const onTimeUpdate = () => setCurrentTime(video.currentTime);
-        const onLoadedMetadata = () => setDuration(video.duration);
+        const onLoadedMetadata = () => {
+            setDuration(video.duration);
+            video.playbackRate = rate;  // 视频加载后应用默认倍速
+        };
         const onPlayEvent = () => {
             setPlaying(true);
             onPlay?.();  // 调用外部回调

@@ -943,6 +943,7 @@ export const ShotCard = ({
                                                 className="w-full"
                                                 aspectRatio="aspect-[9/16]"
                                                 lazy
+                                                defaultRate={2.5}
                                             />
                                         </>
                                     ) : (
@@ -1162,6 +1163,7 @@ export const ShotCard = ({
                                                             aspectRatio="aspect-[9/16]"
                                                             className="w-full h-full object-cover"
                                                             lazy
+                                                            defaultRate={2.5}
                                                             onPlay={() => onVideoSeen?.(url)}
                                                         />
                                                     </div>
