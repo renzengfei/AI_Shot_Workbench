@@ -10,7 +10,7 @@ import { AutoTextArea } from '@/components/ui/AutoTextArea';
 import { ShotCard } from '@/components/workflow/ShotCard';
 import { ProviderConfigModal } from '@/components/workflow/ProviderConfigModal';
 import { VideoConfigModal, VideoGenConfig } from '@/components/workflow/VideoConfigModal';
-import { Video } from 'lucide-react';
+import { Video, FolderOutput, Loader2 } from 'lucide-react';
 import { Settings } from 'lucide-react';
 import {
     fetchCharacterReferences,
@@ -1667,6 +1667,42 @@ export default function Step3_DeconstructionReview({
         };
         
         pollAllTasks();
+    };
+
+    // 导出选中视频状态
+    const [exporting, setExporting] = useState(false);
+
+    // 导出选中视频到 export 文件夹
+    const handleExportVideos = async () => {
+        if (!currentWorkspace?.path) {
+            showToast('请先选择工作空间', 'error');
+            return;
+        }
+        
+        setExporting(true);
+        try {
+            const resp = await fetch(`${API_BASE}/api/export-selected-videos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    workspace_path: currentWorkspace.path,
+                    generated_dir: generatedDir,
+                }),
+            });
+            
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({ detail: '导出失败' }));
+                throw new Error(err.detail || '导出失败');
+            }
+            
+            const result = await resp.json();
+            showToast(`已导出 ${result.total} 个视频到 export 文件夹`, 'success');
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : '导出失败';
+            showToast(msg, 'error');
+        } finally {
+            setExporting(false);
+        }
     };
 
     useEffect(() => {
@@ -3699,9 +3735,9 @@ export default function Step3_DeconstructionReview({
                     )}
 
                     {/* Shot List - Apple Glass Style */}
-                    {/* 全局素材流切换按钮 */}
+                    {/* 全局素材流切换按钮 + 导出按钮 */}
                     {typeof round2Data !== 'string' && round2Data?.shots && round2Data.shots.length > 0 && (
-                        <div className="flex items-center justify-end mb-4">
+                        <div className="flex items-center justify-end gap-3 mb-4">
                             <button
                                 onClick={() => setDefaultStream(prev => prev === 'image' ? 'video' : 'image')}
                                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 active:scale-95 ${
@@ -3712,6 +3748,14 @@ export default function Step3_DeconstructionReview({
                             >
                                 <Video size={16} />
                                 {defaultStream === 'video' ? '已选视频流' : '默认选择视频流'}
+                            </button>
+                            <button
+                                onClick={handleExportVideos}
+                                disabled={exporting}
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 active:scale-95 bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {exporting ? <Loader2 size={16} className="animate-spin" /> : <FolderOutput size={16} />}
+                                {exporting ? '导出中...' : '导出选中视频'}
                             </button>
                         </div>
                     )}

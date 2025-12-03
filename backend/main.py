@@ -1752,3 +1752,85 @@ async def yunwu_task_progress_sse(task_id: str):
             await asyncio.sleep(_video_gen_config.pollInterval)
     
     return EventSourceResponse(event_generator())
+
+
+# ==================== 视频导出 ====================
+
+class ExportVideosRequest(BaseModel):
+    workspace_path: str
+    generated_dir: str = "generated"
+
+
+@app.post("/api/export-selected-videos")
+async def export_selected_videos(request: ExportVideosRequest):
+    """
+    导出选中的视频到 export 文件夹，按镜头顺序重命名
+    """
+    workspace_path = request.workspace_path
+    generated_dir = request.generated_dir
+    
+    # 构建路径
+    gen_path = os.path.join(workspace_path, generated_dir)
+    videos_dir = os.path.join(gen_path, "videos")
+    selected_json_path = os.path.join(gen_path, "selected_videos.json")
+    export_dir = os.path.join(gen_path, "export")
+    
+    # 检查 selected_videos.json 是否存在
+    if not os.path.exists(selected_json_path):
+        raise HTTPException(status_code=404, detail="未找到 selected_videos.json，请先选择视频")
+    
+    # 读取选中的视频
+    with open(selected_json_path, "r", encoding="utf-8") as f:
+        selected_data = json.load(f)
+    
+    indexes = selected_data.get("indexes", {})
+    if not indexes:
+        raise HTTPException(status_code=400, detail="没有选中任何视频")
+    
+    # 创建 export 目录（清空旧内容）
+    if os.path.exists(export_dir):
+        shutil.rmtree(export_dir)
+    os.makedirs(export_dir)
+    
+    # 按镜头 ID 排序并复制
+    exported_files = []
+    sorted_shots = sorted(indexes.items(), key=lambda x: float(x[0]))
+    
+    for order, (shot_id, video_filename) in enumerate(sorted_shots, start=1):
+        src_path = os.path.join(videos_dir, video_filename)
+        if not os.path.exists(src_path):
+            logger.warning(f"视频文件不存在: {src_path}")
+            continue
+        
+        # 新文件名: 01_shot_1.mp4
+        shot_num = int(float(shot_id))
+        ext = os.path.splitext(video_filename)[1]
+        new_filename = f"{order:02d}_shot_{shot_num}{ext}"
+        dst_path = os.path.join(export_dir, new_filename)
+        
+        shutil.copy2(src_path, dst_path)
+        exported_files.append({
+            "order": order,
+            "shot_id": shot_num,
+            "original_filename": video_filename,
+            "exported_filename": new_filename
+        })
+    
+    # 生成 manifest.json
+    manifest = {
+        "exported_at": datetime.now().isoformat(),
+        "workspace": workspace_path,
+        "generated_dir": generated_dir,
+        "total_shots": len(exported_files),
+        "files": exported_files
+    }
+    manifest_path = os.path.join(export_dir, "manifest.json")
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, ensure_ascii=False, indent=2)
+    
+    return {
+        "success": True,
+        "export_path": export_dir,
+        "total": len(exported_files),
+        "files": exported_files
+    }
