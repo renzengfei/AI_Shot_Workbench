@@ -175,10 +175,11 @@ class YunwuVideoService:
         """添加视频生成任务"""
         import uuid
         
+        # 使用北京时间 (UTC+8)
+        beijing_tz = timezone(timedelta(hours=8))
+        
         # 生成输出路径
         if not request.output_path:
-            # 使用北京时间 (UTC+8)
-            beijing_tz = timezone(timedelta(hours=8))
             timestamp = datetime.now(beijing_tz).strftime("%Y%m%d_%H%M%S")
             filename = f"video_{timestamp}.mp4"
             output_path = os.path.join(self.output_dir, filename)
