@@ -2049,3 +2049,33 @@ async def unified_run_video_task(task_id: str, source: Optional[str] = None):
             return {"success": True, "message": "任务已开始执行", "task_id": task_id, "source": "lovart"}
     
     raise HTTPException(status_code=404, detail="任务不存在")
+
+
+# ==================== 视频生成配置 API ====================
+
+class VideoGenConfig(BaseModel):
+    mode: str = "lovart"  # lovart | yunwu
+    apiKey: str = ""
+    model: str = "grok-video-3"
+    size: str = "1080P"
+    aspectRatio: str = "9:16"
+    videosPerShot: int = 3
+    concurrency: int = 3
+    pollInterval: int = 10
+
+# 全局配置存储
+_video_gen_config: VideoGenConfig = VideoGenConfig()
+
+
+@app.get("/api/video-gen/config")
+async def get_video_gen_config():
+    """获取视频生成配置"""
+    return _video_gen_config.model_dump()
+
+
+@app.post("/api/video-gen/config")
+async def save_video_gen_config(config: VideoGenConfig):
+    """保存视频生成配置"""
+    global _video_gen_config
+    _video_gen_config = config
+    return {"success": True, "message": "配置已保存"}

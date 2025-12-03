@@ -9,6 +9,8 @@ import { useStepNavigator } from '@/lib/hooks/useStepNavigator';
 import { AutoTextArea } from '@/components/ui/AutoTextArea';
 import { ShotCard } from '@/components/workflow/ShotCard';
 import { ProviderConfigModal } from '@/components/workflow/ProviderConfigModal';
+import { VideoConfigModal } from '@/components/workflow/VideoConfigModal';
+import { Video } from 'lucide-react';
 import { Settings } from 'lucide-react';
 import {
     fetchCharacterReferences,
@@ -151,6 +153,7 @@ export default function Step3_DeconstructionReview({
     const [imagePresetError, setImagePresetError] = useState<string | null>(null);
     const [showPresetModal, setShowPresetModal] = useState(false);
     const [showProviderModal, setShowProviderModal] = useState(false);
+    const [showVideoConfigModal, setShowVideoConfigModal] = useState(false);
     const [selectedImagePresetId, setSelectedImagePresetId] = useState<string | null>(null);
     // Shot pagination
     const [shotPage, setShotPage] = useState(0);
@@ -2861,7 +2864,15 @@ export default function Step3_DeconstructionReview({
                         type="button"
                     >
                         <Settings size={14} />
-                        供应商
+                        生图供应商
+                    </button>
+                    <button
+                        onClick={() => setShowVideoConfigModal(true)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-violet-100 text-violet-600 hover:bg-violet-200 transition border border-violet-200"
+                        type="button"
+                    >
+                        <Video size={14} />
+                        生视频配置
                     </button>
                     {!hideAnnotations && (
                         <button
@@ -4314,6 +4325,10 @@ export default function Step3_DeconstructionReview({
         <ProviderConfigModal
             isOpen={showProviderModal}
             onClose={() => setShowProviderModal(false)}
+        />
+        <VideoConfigModal
+            isOpen={showVideoConfigModal}
+            onClose={() => setShowVideoConfigModal(false)}
         />
         </>
     );
