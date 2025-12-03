@@ -1101,6 +1101,32 @@ export const ShotCard = ({
                             <div className="flex flex-nowrap items-start gap-6">
                                 {activeStream === 'video' ? (
                                     <>
+                                        {/* 生成中：显示占位卡片（在已有视频前面） */}
+                                        {isGeneratingVideo && videoTaskProgresses.length > 0 && videoTaskProgresses.map((task, idx) => (
+                                            <div
+                                                key={`task-${task.taskId}-${idx}`}
+                                                className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} border border-purple-300/50 bg-white/50 backdrop-blur-xl ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
+                                            >
+                                                <div className={mediaTitleClass}>生成中...</div>
+                                                <div className={`${mediaBaseClass} border border-white/10 shadow-inner flex flex-col items-center justify-center gap-3`}>
+                                                    <Loader2 size={36} className="animate-spin text-purple-400" />
+                                                    <span className="text-purple-400 text-sm font-medium">
+                                                        {task.status === 'downloading' ? '下载中...' : task.status === 'processing' ? (task.progress > 0 ? `${task.progress}%` : '生成中...') : '排队中...'}
+                                                    </span>
+                                                    {(task.status === 'processing' || task.status === 'downloading') && (
+                                                        <div className="w-32 h-2 bg-purple-100 rounded-full overflow-hidden">
+                                                            <div 
+                                                                className="h-full bg-gradient-to-r from-purple-400 to-pink-400 rounded-full transition-all duration-300"
+                                                                style={{ width: `${task.progress}%` }}
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center justify-center">
+                                                    <span className="text-xs text-slate-400">视频 #{idx + 1}</span>
+                                                </div>
+                                            </div>
+                                        ))}
                                         {/* 已有视频 */}
                                         {generatedVideoUrls.map((url, idx) => {
                                             const isSelected = idx === selectedVideoIndex;
@@ -1145,32 +1171,6 @@ export const ShotCard = ({
                                                 </div>
                                             );
                                         })}
-                                        {/* 生成中：显示占位卡片（追加到已有视频后面） */}
-                                        {isGeneratingVideo && videoTaskProgresses.length > 0 && videoTaskProgresses.map((task, idx) => (
-                                            <div
-                                                key={`task-${task.taskId}-${idx}`}
-                                                className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} border border-purple-300/50 bg-white/50 backdrop-blur-xl ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
-                                            >
-                                                <div className={mediaTitleClass}>生成中...</div>
-                                                <div className={`${mediaBaseClass} border border-white/10 shadow-inner flex flex-col items-center justify-center gap-3`}>
-                                                    <Loader2 size={36} className="animate-spin text-purple-400" />
-                                                    <span className="text-purple-400 text-sm font-medium">
-                                                        {task.status === 'downloading' ? '下载中...' : task.status === 'processing' ? (task.progress > 0 ? `${task.progress}%` : '生成中...') : '排队中...'}
-                                                    </span>
-                                                    {(task.status === 'processing' || task.status === 'downloading') && (
-                                                        <div className="w-32 h-2 bg-purple-100 rounded-full overflow-hidden">
-                                                            <div 
-                                                                className="h-full bg-gradient-to-r from-purple-400 to-pink-400 rounded-full transition-all duration-300"
-                                                                style={{ width: `${task.progress}%` }}
-                                                            />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center justify-center">
-                                                    <span className="text-xs text-slate-400">视频 #{idx + 1}</span>
-                                                </div>
-                                            </div>
-                                        ))}
                                         {/* 空状态：没有视频且不在生成中 */}
                                         {generatedVideoUrls.length === 0 && !isGeneratingVideo && (
                                             <div className={`w-full min-w-[360px] flex flex-col items-center justify-center gap-4 text-slate-400 bg-white/30 ${CARD_RADIUS} border border-dashed border-purple-300/50 p-10 backdrop-blur-sm`}>

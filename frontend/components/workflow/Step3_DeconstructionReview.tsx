@@ -1964,11 +1964,8 @@ export default function Step3_DeconstructionReview({
                         }
                         // 有保存记录但匹配失败，保持当前选择不变（不强制重置为 0）
                     }
-                } else if (next[id] === undefined) {
-                    // 没有保存记录且没有设置过，默认第一个（最新的）
-                    next[id] = 0;
-                    changed = true;
                 }
+                // 没有保存记录时不设置默认值，避免 API 还没返回时显示错误的选择
             });
             
             return changed ? next : prev;
@@ -2019,8 +2016,8 @@ export default function Step3_DeconstructionReview({
                         return;
                     }
                 } else {
-                    // 没有保存记录，使用默认值（第一张，最新的）
-                    targetIdx = 0;
+                    // 没有保存记录时不设置默认值，避免 API 还没返回时显示错误的选择
+                    return;
                 }
                 
                 if (prev[id] !== targetIdx) {
