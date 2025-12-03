@@ -367,6 +367,7 @@ class YunwuVideoService:
         
         # 2. 轮询状态
         elapsed = 0
+        api_completed = False
         while task.status == "processing" and elapsed < max_wait:
             await asyncio.sleep(poll_interval)
             elapsed += poll_interval
@@ -374,12 +375,16 @@ class YunwuVideoService:
             result = await self.query_video(task)
             logger.info(f"任务 {task.task_id} 状态: {task.status} (已等待 {elapsed}s)")
             
+            # API 返回 completed 但还需要下载，先标记为 downloading
             if task.status == "completed":
+                api_completed = True
+                task.status = "downloading"
+                self._save_tasks()
                 break
             elif task.status == "failed":
                 return False
         
-        if task.status != "completed":
+        if not api_completed:
             task.status = "failed"
             task.error = f"超时等待 ({max_wait}s)"
             self._save_tasks()
@@ -389,10 +394,14 @@ class YunwuVideoService:
         if task.video_url:
             success = await self.download_video(task)
             if not success:
+                task.status = "failed"
                 task.error = "视频下载失败"
                 self._save_tasks()
                 return False
         
+        # 4. 下载完成，标记为 completed
+        task.status = "completed"
+        self._save_tasks()
         return True
     
     def clear_all_tasks(self) -> dict:
@@ -409,10 +418,12 @@ class YunwuVideoService:
         """转换任务为 API 响应格式"""
         output_url = path_to_url(task.output_path) if task.status == "completed" else task.output_path
         
-        # 从 api_response 提取进度，completed 时为 100
+        # 从 api_response 提取进度
         progress = 0
         if task.status == "completed":
             progress = 100
+        elif task.status == "downloading":
+            progress = 95  # 下载中，显示 95%
         elif task.api_response:
             progress = task.api_response.get("progress", 0)
         
