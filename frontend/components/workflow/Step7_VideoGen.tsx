@@ -1,142 +1,136 @@
 'use client';
 
-import { ArrowRight, Video, Play, Loader2, CheckCircle2, Cloud, Bot, Settings } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
+import { ArrowRight, Video, Play, Loader2, CheckCircle2, Cloud, Bot, RefreshCw, AlertCircle, Image } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useStepNavigator } from '@/lib/hooks/useStepNavigator';
+import { useWorkspace } from '@/components/WorkspaceContext';
+import { useVideoGenStore, VideoTask } from '@/lib/stores/videoGenStore';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8000';
 
-interface VideoGenConfig {
-    mode: 'lovart' | 'yunwu';
-    apiKey: string;
-    model: string;
-    size: string;
-    aspectRatio: string;
-    videosPerShot: number;
-    concurrency: number;
-    pollInterval: number;
+interface ShotWithTasks {
+    shotId: string;
+    description: string;
+    imagePath: string;
+    prompt: string;
+    task?: VideoTask;
 }
 
 export default function Step7_VideoGen() {
     const { nextStep } = useStepNavigator();
-    const [generating, setGenerating] = useState<string | null>(null);
-    const [config, setConfig] = useState<VideoGenConfig | null>(null);
-    const [configLoading, setConfigLoading] = useState(true);
+    const { currentWorkspace } = useWorkspace();
+    const workspaceId = currentWorkspace?.path?.split('/').pop() || '';
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const [playingVideo, setPlayingVideo] = useState<string | null>(null);
+    
+    const { 
+        config, 
+        configLoading, 
+        loadConfig,
+        tasks,
+        activeTasks,
+        addTask,
+        runTask,
+        retryTask,
+    } = useVideoGenStore();
+    
+    const [shots, setShots] = useState<ShotWithTasks[]>([]);
+    const [shotsLoading, setShotsLoading] = useState(true);
 
-    // Load config on mount
-    const loadConfig = useCallback(async () => {
-        try {
-            const res = await fetch(`${API_BASE}/api/video-gen/config`);
-            if (res.ok) {
-                const data = await res.json();
-                setConfig(data);
-            }
-        } catch (e) {
-            console.error('Failed to load video config:', e);
-        } finally {
-            setConfigLoading(false);
-        }
-    }, []);
-
+    // Load config and shots on mount
     useEffect(() => {
         loadConfig();
     }, [loadConfig]);
-
-    // Mock video assets
-    const mockVideos = [
-        {
-            shotId: '1',
-            description: '开场：展示产品全貌',
-            status: 'done',
-            videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4',
-            prompt: 'cinematic shot, camera push in, slow motion'
-        },
-        {
-            shotId: '2',
-            description: '特写：按键细节',
-            status: 'generating',
-            videoUrl: null,
-            prompt: 'macro shot, finger pressing button, tactile feel'
-        },
-        {
-            shotId: '3',
-            description: '展示：屏幕亮起',
-            status: 'pending',
-            videoUrl: null,
-            prompt: 'screen glowing, holographic UI appearing'
-        }
-    ];
-
-    const handleGenerate = async (id: string) => {
-        const video = mockVideos.find(v => v.shotId === id);
-        if (!video) return;
-        
-        setGenerating(id);
+    
+    // Load shots from deconstruction data
+    const loadShots = useCallback(async () => {
+        if (!workspaceId) return;
+        setShotsLoading(true);
         
         try {
-            if (config?.mode === 'yunwu') {
-                console.log(`[云雾 API] 生成视频 shot ${id}`, {
-                    model: config.model,
-                    size: config.size,
-                    aspectRatio: config.aspectRatio,
-                });
+            const res = await fetch(`${API_BASE}/workspaces/${workspaceId}/deconstruction.json`);
+            if (res.ok) {
+                const data = await res.json();
+                const loadedShots: ShotWithTasks[] = [];
                 
-                // 1. 添加任务
-                const addRes = await fetch(`${API_BASE}/api/yunwu/tasks`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        image_path: 'test_image.png', // TODO: 实际图片路径
-                        prompt: video.prompt,
-                        aspect_ratio: config.aspectRatio,
-                        size: config.size,
-                        model: config.model,
-                    }),
-                });
+                // 获取生成的图片目录
+                const projectName = data.project_name || 'generated';
                 
-                if (!addRes.ok) {
-                    const err = await addRes.json();
-                    throw new Error(err.detail || '添加任务失败');
+                if (data.shots) {
+                    for (const [shotId, shotData] of Object.entries(data.shots as Record<string, any>)) {
+                        // 图片路径基于 workspace 结构
+                        const imagePath = `${API_BASE}/workspaces/${workspaceId}/${projectName}/shots/${shotId}/image_url_1.png`;
+                        
+                        loadedShots.push({
+                            shotId,
+                            description: shotData.description || `镜头 ${shotId}`,
+                            imagePath,
+                            prompt: shotData.video_prompt || shotData.motion_prompt || 'camera movement, cinematic',
+                        });
+                    }
                 }
                 
-                const { task } = await addRes.json();
-                console.log('任务已添加:', task.task_id);
-                
-                // 2. 执行任务
-                const runRes = await fetch(`${API_BASE}/api/yunwu/tasks/${task.task_id}/run`, {
-                    method: 'POST',
+                // 按 shotId 排序
+                loadedShots.sort((a, b) => {
+                    const aNum = parseFloat(a.shotId) || 0;
+                    const bNum = parseFloat(b.shotId) || 0;
+                    return aNum - bNum;
                 });
                 
-                if (!runRes.ok) {
-                    const err = await runRes.json();
-                    throw new Error(err.detail || '执行任务失败');
-                }
-                
-                console.log('任务已开始执行');
-                // TODO: 轮询任务状态或使用 SSE
-                
-            } else {
-                console.log(`[Lovart] 生成视频 shot ${id}`);
-                // Lovart 自动化逻辑
+                setShots(loadedShots);
+            }
+        } catch (e) {
+            console.error('Failed to load shots:', e);
+            // 使用 mock 数据作为备用
+            setShots([
+                { shotId: '1.0', description: '开场镜头', imagePath: '', prompt: 'camera push in, cinematic' },
+                { shotId: '2.0', description: '特写镜头', imagePath: '', prompt: 'slow zoom, focus shift' },
+            ]);
+        } finally {
+            setShotsLoading(false);
+        }
+    }, [workspaceId]);
+    
+    useEffect(() => {
+        loadShots();
+    }, [loadShots]);
+
+    const handleGenerate = async (shot: ShotWithTasks) => {
+        if (config?.mode === 'yunwu') {
+            const task = await addTask(shot.shotId, shot.imagePath, shot.prompt);
+            if (task) {
+                await runTask(task.task_id);
+            }
+        } else {
+            // Lovart 模式
+            try {
                 const res = await fetch(`${API_BASE}/api/video/tasks`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        image_path: 'test_image.png', // TODO: 实际图片路径
-                        prompt: video.prompt,
+                        image_path: shot.imagePath,
+                        prompt: shot.prompt,
                     }),
                 });
-                
                 if (res.ok) {
-                    const data = await res.json();
-                    console.log('Lovart 任务已添加:', data);
+                    console.log('Lovart 任务已添加');
                 }
+            } catch (e) {
+                console.error('Lovart 任务添加失败:', e);
             }
-        } catch (e) {
-            console.error('生成视频失败:', e);
-        } finally {
-            setTimeout(() => setGenerating(null), 3000);
         }
+    };
+
+    const handleRetry = async (taskId: string) => {
+        await retryTask(taskId);
+    };
+
+    const getTaskForShot = (shotId: string): VideoTask | undefined => {
+        return Object.values(tasks).find(t => t.image_path.includes(shotId));
+    };
+
+    const handlePlayVideo = (videoUrl: string) => {
+        setPlayingVideo(videoUrl);
     };
 
     return (
@@ -180,62 +174,138 @@ export default function Step7_VideoGen() {
                 </button>
             </div>
 
-            <div className="grid gap-6">
-                {mockVideos.map((video) => (
-                    <div key={video.shotId} className="glass-card p-6 flex gap-6">
-                        {/* Video Preview / Placeholder */}
-                        <div className="w-64 aspect-video bg-black/90 rounded-xl flex items-center justify-center shrink-0 overflow-hidden border border-[var(--glass-border)] relative group">
-                            {video.status === 'done' ? (
-                                <>
-                                    <video src={video.videoUrl!} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100">
-                                            <Play size={20} fill="currentColor" />
+            {/* Shots Grid */}
+            {shotsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                    <Loader2 size={32} className="animate-spin text-blue-500" />
+                </div>
+            ) : shots.length === 0 ? (
+                <div className="glass-card p-12 text-center">
+                    <Image size={48} className="mx-auto mb-4 text-slate-300" />
+                    <p className="text-slate-500">暂无镜头数据</p>
+                    <p className="text-xs text-slate-400 mt-2">请先在 Step6 生成图片</p>
+                </div>
+            ) : (
+                <div className="grid gap-6">
+                    {shots.map((shot) => {
+                        const task = getTaskForShot(shot.shotId);
+                        const isProcessing = task && activeTasks.includes(task.task_id);
+                        const status = task?.status || 'pending';
+                        
+                        return (
+                            <div key={shot.shotId} className="glass-card p-6 flex gap-6">
+                                {/* Preview */}
+                                <div className="w-64 aspect-video bg-black/90 rounded-xl flex items-center justify-center shrink-0 overflow-hidden border border-[var(--glass-border)] relative group">
+                                    {status === 'completed' && task?.video_url ? (
+                                        <>
+                                            <video 
+                                                src={task.video_url} 
+                                                className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                                                controls={playingVideo === task.video_url}
+                                                onClick={() => handlePlayVideo(task.video_url!)}
+                                            />
+                                            {playingVideo !== task.video_url && (
+                                                <div className="absolute inset-0 flex items-center justify-center cursor-pointer" onClick={() => handlePlayVideo(task.video_url!)}>
+                                                    <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100">
+                                                        <Play size={24} fill="currentColor" />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : status === 'processing' || isProcessing ? (
+                                        <div className="flex flex-col items-center gap-2 text-blue-500">
+                                            <Loader2 size={24} className="animate-spin" />
+                                            <span className="text-xs font-medium">生成中...</span>
+                                            {task?.progress !== undefined && (
+                                                <span className="text-xs">{task.progress}%</span>
+                                            )}
                                         </div>
-                                    </div>
-                                </>
-                            ) : video.status === 'generating' || generating === video.shotId ? (
-                                <div className="flex flex-col items-center gap-2 text-blue-500">
-                                    <Loader2 size={24} className="animate-spin" />
-                                    <span className="text-xs font-medium">Generating...</span>
-                                </div>
-                            ) : (
-                                <div className="text-[var(--color-text-tertiary)] flex flex-col items-center gap-2">
-                                    <Video size={24} />
-                                    <span className="text-xs">Ready to Generate</span>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Controls */}
-                        <div className="flex-1 flex flex-col justify-between py-1">
-                            <div>
-                                <div className="flex items-center justify-between mb-2">
-                                    <h3 className="font-semibold text-lg">Shot {video.shotId}: {video.description}</h3>
-                                    {video.status === 'done' && (
-                                        <span className="text-xs bg-green-500/10 text-green-500 px-2 py-1 rounded-full flex items-center gap-1">
-                                            <CheckCircle2 size={12} /> Completed
-                                        </span>
+                                    ) : status === 'failed' ? (
+                                        <div className="flex flex-col items-center gap-2 text-red-500">
+                                            <AlertCircle size={24} />
+                                            <span className="text-xs font-medium">生成失败</span>
+                                        </div>
+                                    ) : shot.imagePath ? (
+                                        <img 
+                                            src={shot.imagePath} 
+                                            alt={shot.description}
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                (e.target as HTMLImageElement).style.display = 'none';
+                                            }}
+                                        />
+                                    ) : (
+                                        <div className="text-[var(--color-text-tertiary)] flex flex-col items-center gap-2">
+                                            <Video size={24} />
+                                            <span className="text-xs">待生成</span>
+                                        </div>
                                     )}
                                 </div>
-                                <p className="text-sm text-[var(--color-text-secondary)] font-mono bg-[var(--color-bg-secondary)] p-3 rounded-lg border border-[var(--glass-border)]">
-                                    Prompt: {video.prompt}
-                                </p>
-                            </div>
 
-                            <div className="flex justify-end gap-3 mt-4">
-                                <button
-                                    onClick={() => handleGenerate(video.shotId)}
-                                    disabled={video.status === 'generating' || generating === video.shotId}
-                                    className="apple-button-primary"
-                                >
-                                    {video.status === 'done' ? '重新生成' : '开始生成'}
-                                </button>
+                                {/* Controls */}
+                                <div className="flex-1 flex flex-col justify-between py-1">
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <h3 className="font-semibold text-lg">镜头 {shot.shotId}: {shot.description}</h3>
+                                            {status === 'completed' && (
+                                                <span className="text-xs bg-green-500/10 text-green-500 px-2 py-1 rounded-full flex items-center gap-1">
+                                                    <CheckCircle2 size={12} /> 完成
+                                                </span>
+                                            )}
+                                            {status === 'failed' && (
+                                                <span className="text-xs bg-red-500/10 text-red-500 px-2 py-1 rounded-full flex items-center gap-1">
+                                                    <AlertCircle size={12} /> 失败
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-sm text-[var(--color-text-secondary)] font-mono bg-[var(--color-bg-secondary)] p-3 rounded-lg border border-[var(--glass-border)]">
+                                            {shot.prompt}
+                                        </p>
+                                        {task?.error && (
+                                            <p className="text-xs text-red-500 mt-2">{task.error}</p>
+                                        )}
+                                    </div>
+
+                                    <div className="flex justify-end gap-3 mt-4">
+                                        {status === 'failed' && task && (
+                                            <button
+                                                onClick={() => handleRetry(task.task_id)}
+                                                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                                            >
+                                                <RefreshCw size={14} /> 重试
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => handleGenerate(shot)}
+                                            disabled={isProcessing || status === 'processing'}
+                                            className="apple-button-primary disabled:opacity-50"
+                                        >
+                                            {status === 'completed' ? '重新生成' : status === 'processing' || isProcessing ? '生成中...' : '开始生成'}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* Video Preview Modal */}
+            {playingVideo && (
+                <div 
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+                    onClick={() => setPlayingVideo(null)}
+                >
+                    <video 
+                        ref={videoRef}
+                        src={playingVideo} 
+                        className="max-w-4xl max-h-[80vh] rounded-xl"
+                        controls
+                        autoPlay
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
+            )}
         </div>
     );
 }

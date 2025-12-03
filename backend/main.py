@@ -2085,3 +2085,59 @@ async def save_video_gen_config(config: VideoGenConfig):
         service.set_api_key(config.apiKey)
     
     return {"success": True, "message": "配置已保存"}
+
+
+class TestConnectionRequest(BaseModel):
+    api_key: str
+
+
+@app.post("/api/yunwu/test-connection")
+async def yunwu_test_connection(request: TestConnectionRequest):
+    """测试云雾 API 连接"""
+    import httpx
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            # 简单测试：发送一个小请求验证 API Key
+            response = await client.get(
+                "https://yunwu.ai/v1/models",
+                headers={"Authorization": f"Bearer {request.api_key}"}
+            )
+            if response.status_code == 200:
+                return {"success": True, "message": "连接成功"}
+            elif response.status_code == 401:
+                raise HTTPException(status_code=401, detail="API Key 无效")
+            else:
+                raise HTTPException(status_code=response.status_code, detail=f"API 返回错误: {response.status_code}")
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="连接超时")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+from sse_starlette.sse import EventSourceResponse
+import asyncio
+
+
+@app.get("/api/yunwu/tasks/{task_id}/progress")
+async def yunwu_task_progress_sse(task_id: str):
+    """SSE 推送任务进度"""
+    service = get_yunwu_video_service()
+    
+    async def event_generator():
+        while True:
+            task = service.get_task(task_id)
+            if not task:
+                yield {"event": "error", "data": json.dumps({"error": "任务不存在"})}
+                break
+            
+            task_data = service.to_response(task)
+            yield {"event": "progress", "data": json.dumps(task_data)}
+            
+            if task.status in ["completed", "failed"]:
+                yield {"event": "done", "data": json.dumps(task_data)}
+                break
+            
+            await asyncio.sleep(_video_gen_config.pollInterval)
+    
+    return EventSourceResponse(event_generator())
