@@ -1921,7 +1921,7 @@ export default function Step3_DeconstructionReview({
                 let savedFilename: string | undefined;
                 for (const key of possibleKeys) {
                     const val = rawSavedFilenames[key];
-                    if (typeof val === 'string') {
+                    if (typeof val === 'string' && val.trim()) {
                         savedFilename = val;
                         break;
                     } else if (typeof val === 'number') {
@@ -1933,19 +1933,23 @@ export default function Step3_DeconstructionReview({
                 // 也尝试从 savedVideoFilenames（数字 key）获取
                 if (!savedFilename) {
                     const fromState = savedVideoFilenames[id];
-                    if (fromState) savedFilename = fromState;
+                    if (fromState && fromState.trim()) savedFilename = fromState;
                 }
                 
                 if (savedFilename) {
-                    // 尝试通过文件名匹配（使用宽松匹配，与图片逻辑一致）
+                    // 尝试通过文件名匹配（使用宽松匹配）
+                    // 提取纯文件名部分用于匹配
+                    const pureFilename = savedFilename.split('/').pop() || savedFilename;
                     const matchedIdx = videos.findIndex((url: string) => {
-                        return url.endsWith(savedFilename) || url.includes(`/${savedFilename}`);
+                        const urlFilename = url.split('/').pop() || url;
+                        return urlFilename === pureFilename || url.endsWith(pureFilename) || url.includes(`/${pureFilename}`);
                     });
                     
                     if (matchedIdx >= 0) {
                         if (next[id] !== matchedIdx) {
                             next[id] = matchedIdx;
                             changed = true;
+                            console.log(`[Video Selection] Shot ${id}: restored to index ${matchedIdx} (${pureFilename})`);
                         }
                     } else {
                         // 兼容旧格式：savedFilename 可能是数字字符串（如 "0"）
@@ -1955,6 +1959,8 @@ export default function Step3_DeconstructionReview({
                                 next[id] = numIdx;
                                 changed = true;
                             }
+                        } else {
+                            console.warn(`[Video Selection] Shot ${id}: saved file "${pureFilename}" not found in video list`);
                         }
                         // 有保存记录但匹配失败，保持当前选择不变（不强制重置为 0）
                     }

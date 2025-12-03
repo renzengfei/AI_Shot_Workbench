@@ -199,7 +199,7 @@ class YunwuVideoService:
             aspect_ratio=request.aspect_ratio,
             size=request.size,
             model=request.model,
-            created_at=datetime.now().isoformat()
+            created_at=datetime.now(beijing_tz).isoformat()
         )
         
         self.tasks.append(task)
@@ -305,7 +305,8 @@ class YunwuVideoService:
                     if api_status == "completed":
                         task.status = "completed"
                         task.video_url = data.get("video_url")
-                        task.completed_at = datetime.now().isoformat()
+                        beijing_tz = timezone(timedelta(hours=8))
+                        task.completed_at = datetime.now(beijing_tz).isoformat()
                     elif api_status == "failed":
                         task.status = "failed"
                         task.error = data.get("error", "API 返回失败状态")
