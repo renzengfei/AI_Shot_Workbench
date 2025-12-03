@@ -10,7 +10,7 @@ import base64
 import asyncio
 import httpx
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel
 import logging
 
@@ -177,7 +177,9 @@ class YunwuVideoService:
         
         # 生成输出路径
         if not request.output_path:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            # 使用北京时间 (UTC+8)
+            beijing_tz = timezone(timedelta(hours=8))
+            timestamp = datetime.now(beijing_tz).strftime("%Y%m%d_%H%M%S")
             filename = f"video_{timestamp}.mp4"
             output_path = os.path.join(self.output_dir, filename)
         else:
