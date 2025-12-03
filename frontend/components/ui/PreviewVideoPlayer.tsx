@@ -27,7 +27,7 @@ export const PreviewVideoPlayer = ({
     const [playing, setPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
-    const [rate, setRate] = useState(1.0);
+    const [rate, setRate] = useState(2.5);
     const [shouldLoad, setShouldLoad] = useState(() => {
         if (!lazy) return true;
         if (typeof window === 'undefined') return false;
@@ -179,11 +179,11 @@ export const PreviewVideoPlayer = ({
 
                     <div className="flex items-center gap-2">
                         <div className="flex bg-[var(--color-bg-secondary)]/50 rounded p-0.5">
-                            {[1, 2, 3, 4].map((r) => (
+                            {[1, 2, 2.5, 3, 4].map((r) => (
                                 <button
                                     key={r}
                                     onClick={() => changeRate(r)}
-                                    className={`text-xs px-1.5 py-0.5 rounded transition ${rate === r
+                                    className={`text-xs px-1 py-0.5 rounded transition ${rate === r
                                         ? 'bg-blue-500 text-white shadow-sm'
                                         : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                                         }`}

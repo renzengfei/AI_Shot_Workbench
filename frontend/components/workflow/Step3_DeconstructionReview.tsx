@@ -184,7 +184,13 @@ export default function Step3_DeconstructionReview({
     const [selectedVideoIndexes, setSelectedVideoIndexes] = useState<Record<number, number>>({});  // 选中的视频索引
     const [savedVideoIndexes, setSavedVideoIndexes] = useState<Record<number, number>>({});  // 已保存的视频索引
     const [savedVideoIndexesLoaded, setSavedVideoIndexesLoaded] = useState(false);  // 是否已加载保存的视频索引
-    const [defaultStream, setDefaultStream] = useState<'image' | 'video'>('image');  // 所有镜头卡片的默认素材流
+    const [defaultStream, setDefaultStream] = useState<'image' | 'video'>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('defaultStream');
+            return saved === 'video' ? 'video' : 'image';
+        }
+        return 'image';
+    });  // 所有镜头卡片的默认素材流
     // Provider selection per shot
     const [providers, setProviders] = useState<Array<{ id: string; name: string; is_default?: boolean }>>([]);
     const [shotProviders, setShotProviders] = useState<Record<number, string>>({});
@@ -206,6 +212,11 @@ export default function Step3_DeconstructionReview({
         revision: '对照修改记录查看修订版，只读',
         final: '查看全新剧本终版，只读',
     };
+
+    // 持久化 defaultStream
+    useEffect(() => {
+        localStorage.setItem('defaultStream', defaultStream);
+    }, [defaultStream]);
 
     const toggleGlobalMute = () => setIsGlobalMuted(!isGlobalMuted);
     const handleGlobalVolumeChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -239,6 +250,30 @@ export default function Step3_DeconstructionReview({
         ? `generatedImages:${workspaceSlug}:${generatedDir}`
         : null;
     const pendingGenKey = workspaceSlug ? `pendingGenerations:${workspaceSlug}:${generatedDir}` : null;
+    
+    // newlyGeneratedVideos 的 localStorage key
+    const newVideosStorageKey = workspaceSlug
+        ? `newlyGeneratedVideos:${workspaceSlug}:${generatedDir}`
+        : null;
+
+    // 加载 newlyGeneratedVideos
+    useEffect(() => {
+        if (!newVideosStorageKey) return;
+        try {
+            const saved = localStorage.getItem(newVideosStorageKey);
+            if (saved) {
+                const parsed = JSON.parse(saved) as Record<number, string[]>;
+                setNewlyGeneratedVideos(parsed);
+            }
+        } catch { /* ignore */ }
+    }, [newVideosStorageKey]);
+
+    // 保存 newlyGeneratedVideos
+    useEffect(() => {
+        if (!newVideosStorageKey) return;
+        localStorage.setItem(newVideosStorageKey, JSON.stringify(newlyGeneratedVideos));
+    }, [newlyGeneratedVideos, newVideosStorageKey]);
+
     const activeImagePreset = useMemo(() => {
         return imagePresets.find((p) => p.id === selectedImagePresetId) || workspacePresetSnapshot;
     }, [imagePresets, selectedImagePresetId, workspacePresetSnapshot]);
@@ -3865,11 +3900,11 @@ export default function Step3_DeconstructionReview({
         </div >
         {toast && (
             <div
-                className="fixed bottom-4 right-4 z-[9999] px-4 py-3 rounded-lg shadow-lg text-sm border"
+                className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 rounded-xl shadow-lg text-sm font-medium border backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-300"
                 style={{
-                    background: toast.type === 'success' ? 'rgba(16,185,129,0.15)' : 'rgba(248,113,113,0.15)',
-                    borderColor: toast.type === 'success' ? 'rgba(16,185,129,0.4)' : 'rgba(248,113,113,0.4)',
-                    color: toast.type === 'success' ? '#10b981' : '#f87171',
+                    background: toast.type === 'success' ? 'rgba(16,185,129,0.95)' : 'rgba(248,113,113,0.95)',
+                    borderColor: toast.type === 'success' ? 'rgba(16,185,129,0.6)' : 'rgba(248,113,113,0.6)',
+                    color: '#fff',
                 }}
             >
                 {toast.message}
