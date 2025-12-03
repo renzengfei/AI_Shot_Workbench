@@ -1136,7 +1136,7 @@ export const ShotCard = ({
                                                 key={`task-${task.taskId}-${idx}`}
                                                 className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} border border-purple-300/50 bg-white/50 backdrop-blur-xl ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
                                             >
-                                                <div className={mediaTitleClass}>生成中...</div>
+                                                <div className={mediaTitleClass}>生成中 <WaitTimer startTime={task.startTime} /></div>
                                                 <div className={`${mediaBaseClass} border border-white/10 shadow-inner flex flex-col items-center justify-center gap-3`}>
                                                     <Loader2 size={36} className="animate-spin text-purple-400" />
                                                     <span className="text-purple-400 text-sm font-medium">
@@ -1151,9 +1151,8 @@ export const ShotCard = ({
                                                         </div>
                                                     )}
                                                 </div>
-                                                <div className="flex items-center justify-center gap-2">
+                                                <div className="flex items-center justify-center">
                                                     <span className="text-xs text-slate-400">视频 #{idx + 1}</span>
-                                                    <WaitTimer startTime={task.startTime} />
                                                 </div>
                                             </div>
                                         ))}
