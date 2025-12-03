@@ -798,6 +798,12 @@ export default function Step3_DeconstructionReview({
         if (currentWorkspace?.path && generatedDir) {
             const videos = generatedVideos[shotId] || [];
             if (idx >= 0 && idx < videos.length) {
+                // 安全检查：确保已保存的视频数据已加载完成，避免覆盖
+                if (!savedVideoIndexesLoaded) {
+                    console.warn('视频选择数据尚未加载完成，跳过保存以避免数据丢失');
+                    return;
+                }
+                
                 const videoUrl = videos[idx];
                 const filename = videoUrl.split('/').pop() || '';
                 
