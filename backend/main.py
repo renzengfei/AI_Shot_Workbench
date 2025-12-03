@@ -1643,8 +1643,35 @@ class VideoGenConfig(BaseModel):
     concurrency: int = 3
     pollInterval: int = 10
 
-# 全局配置存储
-_video_gen_config: VideoGenConfig = VideoGenConfig()
+# 配置文件路径
+VIDEO_GEN_CONFIG_PATH = Path(__file__).parent / "video_gen_config.json"
+
+def load_video_gen_config() -> VideoGenConfig:
+    """从文件加载视频生成配置"""
+    if VIDEO_GEN_CONFIG_PATH.exists():
+        try:
+            with open(VIDEO_GEN_CONFIG_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                config = VideoGenConfig(**data)
+                # 启动时同步 API Key 到云雾服务
+                if config.apiKey:
+                    service = get_yunwu_video_service()
+                    service.set_api_key(config.apiKey)
+                return config
+        except Exception as e:
+            print(f"⚠️ 加载视频配置失败: {e}，使用默认配置")
+    return VideoGenConfig()
+
+def save_video_gen_config_to_file(config: VideoGenConfig):
+    """将配置保存到文件"""
+    try:
+        with open(VIDEO_GEN_CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(config.model_dump(), f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"⚠️ 保存视频配置失败: {e}")
+
+# 全局配置存储（启动时从文件加载）
+_video_gen_config: VideoGenConfig = load_video_gen_config()
 
 
 @app.get("/api/video-gen/config")
@@ -1658,6 +1685,9 @@ async def save_video_gen_config(config: VideoGenConfig):
     """保存视频生成配置"""
     global _video_gen_config
     _video_gen_config = config
+    
+    # 持久化到文件
+    save_video_gen_config_to_file(config)
     
     # 同步更新云雾服务的 API Key
     if config.apiKey:
