@@ -1,12 +1,46 @@
 'use client';
 
-import { ArrowRight, Video, Play, Loader2, CheckCircle2 } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowRight, Video, Play, Loader2, CheckCircle2, Cloud, Bot, Settings } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
 import { useStepNavigator } from '@/lib/hooks/useStepNavigator';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8000';
+
+interface VideoGenConfig {
+    mode: 'lovart' | 'yunwu';
+    apiKey: string;
+    model: string;
+    size: string;
+    aspectRatio: string;
+    videosPerShot: number;
+    concurrency: number;
+    pollInterval: number;
+}
 
 export default function Step7_VideoGen() {
     const { nextStep } = useStepNavigator();
     const [generating, setGenerating] = useState<string | null>(null);
+    const [config, setConfig] = useState<VideoGenConfig | null>(null);
+    const [configLoading, setConfigLoading] = useState(true);
+
+    // Load config on mount
+    const loadConfig = useCallback(async () => {
+        try {
+            const res = await fetch(`${API_BASE}/api/video-gen/config`);
+            if (res.ok) {
+                const data = await res.json();
+                setConfig(data);
+            }
+        } catch (e) {
+            console.error('Failed to load video config:', e);
+        } finally {
+            setConfigLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadConfig();
+    }, [loadConfig]);
 
     // Mock video assets
     const mockVideos = [
@@ -33,18 +67,62 @@ export default function Step7_VideoGen() {
         }
     ];
 
-    const handleGenerate = (id: string) => {
+    const handleGenerate = async (id: string) => {
         setGenerating(id);
+        
+        // TODO: 根据 config.mode 调用不同的 API
+        // 目前只是模拟
+        if (config?.mode === 'yunwu') {
+            console.log(`[云雾 API] 生成视频 shot ${id}`, {
+                model: config.model,
+                size: config.size,
+                aspectRatio: config.aspectRatio,
+            });
+            // 实际调用云雾 API
+            // await fetch(`${API_BASE}/api/yunwu/tasks`, { ... })
+        } else {
+            console.log(`[Lovart] 生成视频 shot ${id}`);
+            // 实际调用 Lovart API
+            // await fetch(`${API_BASE}/api/video/tasks`, { ... })
+        }
+        
         setTimeout(() => setGenerating(null), 3000);
     };
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Status Bar */}
+            <div className="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        {config?.mode === 'yunwu' ? (
+                            <Cloud size={18} className="text-blue-500" />
+                        ) : (
+                            <Bot size={18} className="text-violet-500" />
+                        )}
+                        <span className="text-sm font-medium">
+                            {configLoading ? '加载中...' : config?.mode === 'yunwu' ? '云雾 API' : 'Lovart 自动化'}
+                        </span>
+                    </div>
+                    {config?.mode === 'yunwu' && (
+                        <>
+                            <div className="h-4 w-px bg-slate-300" />
+                            <span className="text-xs text-slate-500">
+                                模型: {config.model} | 尺寸: {config.size} | 比例: {config.aspectRatio}
+                            </span>
+                        </>
+                    )}
+                </div>
+                <div className="text-xs text-slate-400">
+                    在 Step3「生视频配置」中切换模式
+                </div>
+            </div>
+
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="apple-headline text-2xl">视频生成</h2>
                     <p className="apple-body text-[var(--color-text-secondary)]">
-                        将静态画面转化为动态视频 (Runway/Pika/Luma)。
+                        将静态画面转化为动态视频
                     </p>
                 </div>
                 <button onClick={nextStep} className="apple-button-primary flex items-center gap-2">
