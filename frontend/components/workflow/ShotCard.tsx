@@ -692,10 +692,18 @@ export const ShotCard = ({
     const mediaTitleClass = 'h-6 text-sm font-medium text-slate-500 text-center tracking-wide';
 
     // 从URL提取生成时间（格式：MM/DD HH:MM）
+    // 支持两种格式：_YYYYMMDDHHMMSS_ 或 _YYYYMMDD_HHMMSS
     const getGenerationTime = (url: string): string => {
         try {
             const filename = url.split('/').pop() || '';
-            const match = filename.match(/_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
+            // 先尝试匹配连续格式（如 video_20251202173327_v1.mp4）
+            let match = filename.match(/_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})_/);
+            if (match) {
+                const [, , month, day, hour, minute] = match;
+                return `${month}/${day} ${hour}:${minute}`;
+            }
+            // 再尝试匹配分隔格式（如 image_20251202_173327.png）
+            match = filename.match(/_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
             if (match) {
                 const [, , month, day, hour, minute] = match;
                 return `${month}/${day} ${hour}:${minute}`;
