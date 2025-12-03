@@ -1709,3 +1709,343 @@ async def lovart_start_parallel_processing(data: dict = None):
         "max_workers": max_workers,
         "stats": stats
     }
+
+
+# ============================================================
+# 云雾 API 视频生成
+# ============================================================
+
+from services.yunwu_video_service import (
+    get_yunwu_video_service, 
+    YunwuVideoRequest,
+    YunwuVideoTask
+)
+
+
+# 视频生成模式配置
+VIDEO_GEN_MODE_FILE = os.path.join(BASE_DIR, "video_gen_mode.json")
+
+
+def get_video_gen_mode() -> str:
+    """获取当前视频生成模式 (lovart / api)"""
+    if os.path.exists(VIDEO_GEN_MODE_FILE):
+        try:
+            with open(VIDEO_GEN_MODE_FILE, 'r') as f:
+                data = json.load(f)
+                return data.get("mode", "lovart")
+        except:
+            pass
+    return "lovart"  # 默认使用 Lovart 自动化
+
+
+def set_video_gen_mode(mode: str) -> bool:
+    """设置视频生成模式"""
+    if mode not in ["lovart", "api"]:
+        return False
+    try:
+        with open(VIDEO_GEN_MODE_FILE, 'w') as f:
+            json.dump({"mode": mode}, f)
+        return True
+    except:
+        return False
+
+
+class VideoGenModeRequest(BaseModel):
+    mode: str  # "lovart" or "api"
+
+
+@app.get("/api/video/mode")
+async def get_video_mode():
+    """获取当前视频生成模式"""
+    mode = get_video_gen_mode()
+    return {
+        "mode": mode,
+        "description": "Lovart 网页自动化" if mode == "lovart" else "云雾 API"
+    }
+
+
+@app.post("/api/video/mode")
+async def set_video_mode(request: VideoGenModeRequest):
+    """设置视频生成模式"""
+    if request.mode not in ["lovart", "api"]:
+        raise HTTPException(status_code=400, detail="无效的模式，支持: lovart, api")
+    
+    success = set_video_gen_mode(request.mode)
+    if not success:
+        raise HTTPException(status_code=500, detail="保存模式失败")
+    
+    return {
+        "success": True,
+        "mode": request.mode,
+        "description": "Lovart 网页自动化" if request.mode == "lovart" else "云雾 API"
+    }
+
+
+# 云雾 API 路由
+@app.get("/api/yunwu/stats")
+async def yunwu_stats():
+    """获取云雾 API 任务统计"""
+    service = get_yunwu_video_service()
+    return {
+        "tasks": service.get_stats(),
+        "api_key_configured": bool(service.api_key)
+    }
+
+
+@app.post("/api/yunwu/tasks")
+async def yunwu_add_task(request: YunwuVideoRequest):
+    """添加云雾视频生成任务"""
+    service = get_yunwu_video_service()
+    task = service.add_task(request)
+    return {"success": True, "task": service.to_response(task)}
+
+
+@app.get("/api/yunwu/tasks")
+async def yunwu_list_tasks(status: Optional[str] = None):
+    """获取任务列表"""
+    service = get_yunwu_video_service()
+    tasks = service.get_all_tasks(status)
+    return {
+        "tasks": [service.to_response(t) for t in tasks],
+        "count": len(tasks)
+    }
+
+
+@app.get("/api/yunwu/tasks/{task_id}")
+async def yunwu_get_task(task_id: str):
+    """获取任务详情"""
+    service = get_yunwu_video_service()
+    task = service.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    return {"task": service.to_response(task)}
+
+
+@app.post("/api/yunwu/tasks/{task_id}/run")
+async def yunwu_run_task(task_id: str):
+    """
+    执行单个视频生成任务（异步）
+    会创建任务、轮询状态、下载视频
+    """
+    service = get_yunwu_video_service()
+    task = service.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    
+    if task.status not in ["pending", "failed"]:
+        raise HTTPException(status_code=400, detail=f"任务状态不允许执行: {task.status}")
+    
+    # 在后台执行任务
+    async def run_task_async():
+        await service.process_task(task)
+    
+    asyncio.create_task(run_task_async())
+    
+    return {
+        "success": True,
+        "message": "任务已开始执行",
+        "task_id": task_id
+    }
+
+
+@app.post("/api/yunwu/tasks/{task_id}/query")
+async def yunwu_query_task(task_id: str):
+    """查询任务状态（直接调用 API 查询）"""
+    service = get_yunwu_video_service()
+    task = service.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    
+    if not task.api_task_id:
+        return {"task": service.to_response(task), "message": "任务尚未提交到 API"}
+    
+    result = await service.query_video(task)
+    return {
+        "task": service.to_response(task),
+        "api_response": result
+    }
+
+
+@app.post("/api/yunwu/tasks/batch")
+async def yunwu_add_tasks_batch(requests: List[YunwuVideoRequest]):
+    """批量添加视频生成任务"""
+    service = get_yunwu_video_service()
+    tasks = []
+    for req in requests:
+        task = service.add_task(req)
+        tasks.append(service.to_response(task))
+    return {"success": True, "tasks": tasks, "count": len(tasks)}
+
+
+@app.post("/api/yunwu/tasks/run-batch")
+async def yunwu_run_tasks_batch(data: dict):
+    """
+    批量执行多个任务
+    
+    Body:
+        task_ids: 任务ID列表
+    """
+    task_ids = data.get('task_ids', [])
+    
+    if not task_ids:
+        raise HTTPException(status_code=400, detail="task_ids 不能为空")
+    
+    service = get_yunwu_video_service()
+    
+    # 在后台执行所有任务
+    async def run_all_tasks():
+        for task_id in task_ids:
+            task = service.get_task(task_id)
+            if task and task.status in ["pending", "failed"]:
+                await service.process_task(task)
+    
+    asyncio.create_task(run_all_tasks())
+    
+    return {
+        "success": True,
+        "message": f"开始执行 {len(task_ids)} 个任务"
+    }
+
+
+@app.post("/api/yunwu/tasks/stop-all")
+async def yunwu_stop_all_tasks():
+    """停止所有未完成的任务"""
+    service = get_yunwu_video_service()
+    result = service.clear_all_tasks()
+    return {
+        "success": True,
+        "message": f"已取消 {result['cleared']} 个任务",
+        **result
+    }
+
+
+# ============================================================
+# 统一视频生成 API（根据模式自动选择）
+# ============================================================
+
+class UnifiedVideoRequest(BaseModel):
+    """统一视频生成请求"""
+    image_path: str
+    prompt: str
+    output_path: Optional[str] = None
+    aspect_ratio: str = "9:16"
+    size: str = "1080P"
+
+
+@app.post("/api/video/tasks")
+async def unified_add_video_task(request: UnifiedVideoRequest):
+    """
+    统一视频生成接口 - 根据当前模式自动选择服务
+    """
+    mode = get_video_gen_mode()
+    
+    if mode == "api":
+        # 使用云雾 API
+        service = get_yunwu_video_service()
+        yunwu_req = YunwuVideoRequest(
+            image_path=request.image_path,
+            prompt=request.prompt,
+            output_path=request.output_path,
+            aspect_ratio=request.aspect_ratio,
+            size=request.size
+        )
+        task = service.add_task(yunwu_req)
+        return {
+            "success": True,
+            "mode": "api",
+            "task": service.to_response(task)
+        }
+    else:
+        # 使用 Lovart 自动化
+        service = get_lovart_service()
+        lovart_req = VideoGenerationRequest(
+            image_path=request.image_path,
+            prompt=request.prompt,
+            output_path=request.output_path
+        )
+        task = service.add_video_task(lovart_req)
+        return {
+            "success": True,
+            "mode": "lovart",
+            "task": task
+        }
+
+
+@app.get("/api/video/tasks")
+async def unified_list_video_tasks(status: Optional[str] = None):
+    """
+    统一视频任务列表 - 合并两个服务的任务
+    """
+    mode = get_video_gen_mode()
+    
+    lovart_service = get_lovart_service()
+    yunwu_service = get_yunwu_video_service()
+    
+    lovart_tasks = lovart_service.get_all_tasks(status)
+    yunwu_tasks = yunwu_service.get_all_tasks(status)
+    
+    # 标记来源
+    all_tasks = []
+    for t in lovart_tasks:
+        task_dict = t.model_dump() if hasattr(t, 'model_dump') else t.__dict__
+        task_dict["source"] = "lovart"
+        all_tasks.append(task_dict)
+    
+    for t in yunwu_tasks:
+        task_dict = yunwu_service.to_response(t)
+        task_dict["source"] = "api"
+        all_tasks.append(task_dict)
+    
+    return {
+        "current_mode": mode,
+        "tasks": all_tasks,
+        "count": len(all_tasks),
+        "lovart_count": len(lovart_tasks),
+        "api_count": len(yunwu_tasks)
+    }
+
+
+@app.post("/api/video/tasks/{task_id}/run")
+async def unified_run_video_task(task_id: str, source: Optional[str] = None):
+    """
+    统一执行视频任务
+    
+    Query params:
+        source: 指定任务来源 (lovart / api)，不指定则自动查找
+    """
+    # 尝试查找任务
+    lovart_service = get_lovart_service()
+    yunwu_service = get_yunwu_video_service()
+    
+    if source == "api" or source is None:
+        task = yunwu_service.get_task(task_id)
+        if task:
+            if task.status not in ["pending", "failed"]:
+                raise HTTPException(status_code=400, detail=f"任务状态不允许执行: {task.status}")
+            
+            async def run_task_async():
+                await yunwu_service.process_task(task)
+            asyncio.create_task(run_task_async())
+            
+            return {"success": True, "message": "任务已开始执行", "task_id": task_id, "source": "api"}
+    
+    if source == "lovart" or source is None:
+        task = lovart_service.get_task(task_id)
+        if task:
+            if task.status not in ["pending", "failed"]:
+                raise HTTPException(status_code=400, detail=f"任务状态不允许执行: {task.status}")
+            
+            import threading
+            def run_task():
+                batch = lovart_service.batch_generator
+                for t in batch.tasks:
+                    if t.task_id == task_id:
+                        batch.process_single_task(t)
+                        break
+            
+            thread = threading.Thread(target=run_task, daemon=True)
+            thread.start()
+            
+            return {"success": True, "message": "任务已开始执行", "task_id": task_id, "source": "lovart"}
+    
+    raise HTTPException(status_code=404, detail="任务不存在")
