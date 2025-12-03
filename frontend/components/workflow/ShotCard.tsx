@@ -1100,8 +1100,9 @@ export const ShotCard = ({
                             {/* 6. 素材列表 (横向无限滚动) */}
                             <div className="flex flex-nowrap items-start gap-6">
                                 {activeStream === 'video' ? (
-                                    generatedVideoUrls.length > 0 ? (
-                                        generatedVideoUrls.map((url, idx) => {
+                                    <>
+                                        {/* 已有视频 */}
+                                        {generatedVideoUrls.map((url, idx) => {
                                             const isSelected = idx === selectedVideoIndex;
                                             const fullUrl = url.startsWith('/') ? `${API_BASE}${url}` : url;
                                             const isNew = newVideos.includes(url);
@@ -1143,10 +1144,9 @@ export const ShotCard = ({
                                                     </div>
                                                 </div>
                                             );
-                                        })
-                                    ) : isGeneratingVideo && videoTaskProgresses.length > 0 ? (
-                                        // 生成中：显示多个占位卡片
-                                        videoTaskProgresses.map((task, idx) => (
+                                        })}
+                                        {/* 生成中：显示占位卡片（追加到已有视频后面） */}
+                                        {isGeneratingVideo && videoTaskProgresses.length > 0 && videoTaskProgresses.map((task, idx) => (
                                             <div
                                                 key={`task-${task.taskId}-${idx}`}
                                                 className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} border border-purple-300/50 bg-white/50 backdrop-blur-xl ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
@@ -1170,11 +1170,18 @@ export const ShotCard = ({
                                                     <span className="text-xs text-slate-400">视频 #{idx + 1}</span>
                                                 </div>
                                             </div>
-                                        ))
-                                    ) : (
-                                        // 空状态
-                                        <div className={`w-full min-w-[360px] flex flex-col items-center justify-center gap-4 text-slate-400 bg-white/30 ${CARD_RADIUS} border border-dashed border-purple-300/50 p-10 backdrop-blur-sm`}>
-                                            {isGeneratingVideo ? (
+                                        ))}
+                                        {/* 空状态：没有视频且不在生成中 */}
+                                        {generatedVideoUrls.length === 0 && !isGeneratingVideo && (
+                                            <div className={`w-full min-w-[360px] flex flex-col items-center justify-center gap-4 text-slate-400 bg-white/30 ${CARD_RADIUS} border border-dashed border-purple-300/50 p-10 backdrop-blur-sm`}>
+                                                <Video size={36} className="text-purple-300/60" />
+                                                <span>暂无生成视频</span>
+                                                <span className="text-xs text-slate-300">点击「生视频」按钮开始生成</span>
+                                            </div>
+                                        )}
+                                        {/* 空状态：没有视频但正在生成（没有占位卡片时的备用显示） */}
+                                        {generatedVideoUrls.length === 0 && isGeneratingVideo && videoTaskProgresses.length === 0 && (
+                                            <div className={`w-full min-w-[360px] flex flex-col items-center justify-center gap-4 text-slate-400 bg-white/30 ${CARD_RADIUS} border border-dashed border-purple-300/50 p-10 backdrop-blur-sm`}>
                                                 <div className="flex flex-col items-center gap-3 w-full">
                                                     <Loader2 size={36} className="animate-spin text-purple-400" />
                                                     <span className="text-purple-400">
@@ -1196,15 +1203,9 @@ export const ShotCard = ({
                                                         停止生成
                                                     </button>
                                                 </div>
-                                            ) : (
-                                                <>
-                                                    <Video size={36} className="text-purple-300/60" />
-                                                    <span>暂无生成视频</span>
-                                                    <span className="text-xs text-slate-300">点击「生视频」按钮开始生成</span>
-                                                </>
-                                            )}
-                                        </div>
-                                    )
+                                            </div>
+                                        )}
+                                    </>
                                 ) : sortedImages.length > 0 ? (
                                         sortedImages.map((url, idx) => {
                                         const originalIdx = generatedImageUrls.indexOf(url);
