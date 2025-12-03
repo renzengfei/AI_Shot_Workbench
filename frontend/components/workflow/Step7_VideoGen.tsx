@@ -68,25 +68,75 @@ export default function Step7_VideoGen() {
     ];
 
     const handleGenerate = async (id: string) => {
+        const video = mockVideos.find(v => v.shotId === id);
+        if (!video) return;
+        
         setGenerating(id);
         
-        // TODO: 根据 config.mode 调用不同的 API
-        // 目前只是模拟
-        if (config?.mode === 'yunwu') {
-            console.log(`[云雾 API] 生成视频 shot ${id}`, {
-                model: config.model,
-                size: config.size,
-                aspectRatio: config.aspectRatio,
-            });
-            // 实际调用云雾 API
-            // await fetch(`${API_BASE}/api/yunwu/tasks`, { ... })
-        } else {
-            console.log(`[Lovart] 生成视频 shot ${id}`);
-            // 实际调用 Lovart API
-            // await fetch(`${API_BASE}/api/video/tasks`, { ... })
+        try {
+            if (config?.mode === 'yunwu') {
+                console.log(`[云雾 API] 生成视频 shot ${id}`, {
+                    model: config.model,
+                    size: config.size,
+                    aspectRatio: config.aspectRatio,
+                });
+                
+                // 1. 添加任务
+                const addRes = await fetch(`${API_BASE}/api/yunwu/tasks`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image_path: 'test_image.png', // TODO: 实际图片路径
+                        prompt: video.prompt,
+                        aspect_ratio: config.aspectRatio,
+                        size: config.size,
+                        model: config.model,
+                    }),
+                });
+                
+                if (!addRes.ok) {
+                    const err = await addRes.json();
+                    throw new Error(err.detail || '添加任务失败');
+                }
+                
+                const { task } = await addRes.json();
+                console.log('任务已添加:', task.task_id);
+                
+                // 2. 执行任务
+                const runRes = await fetch(`${API_BASE}/api/yunwu/tasks/${task.task_id}/run`, {
+                    method: 'POST',
+                });
+                
+                if (!runRes.ok) {
+                    const err = await runRes.json();
+                    throw new Error(err.detail || '执行任务失败');
+                }
+                
+                console.log('任务已开始执行');
+                // TODO: 轮询任务状态或使用 SSE
+                
+            } else {
+                console.log(`[Lovart] 生成视频 shot ${id}`);
+                // Lovart 自动化逻辑
+                const res = await fetch(`${API_BASE}/api/video/tasks`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image_path: 'test_image.png', // TODO: 实际图片路径
+                        prompt: video.prompt,
+                    }),
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    console.log('Lovart 任务已添加:', data);
+                }
+            }
+        } catch (e) {
+            console.error('生成视频失败:', e);
+        } finally {
+            setTimeout(() => setGenerating(null), 3000);
         }
-        
-        setTimeout(() => setGenerating(null), 3000);
     };
 
     return (

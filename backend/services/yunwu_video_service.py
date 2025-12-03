@@ -74,8 +74,19 @@ class YunwuVideoService:
         self.tasks: List[YunwuVideoTask] = []
         self._load_tasks()
         
-        # API Key
-        self.api_key = os.getenv(YUNWU_API_KEY_ENV, "")
+        # API Key - 优先使用动态设置的，否则从环境变量读取
+        self._dynamic_api_key: Optional[str] = None
+        self._env_api_key = os.getenv(YUNWU_API_KEY_ENV, "")
+    
+    @property
+    def api_key(self) -> str:
+        """获取 API Key，优先使用动态设置的"""
+        return self._dynamic_api_key or self._env_api_key
+    
+    def set_api_key(self, api_key: str):
+        """动态设置 API Key"""
+        self._dynamic_api_key = api_key
+        logger.info(f"已设置云雾 API Key: {api_key[:10]}...{api_key[-4:]}" if len(api_key) > 14 else "已设置云雾 API Key")
     
     def _load_tasks(self):
         """加载任务记录"""

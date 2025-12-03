@@ -2078,4 +2078,10 @@ async def save_video_gen_config(config: VideoGenConfig):
     """保存视频生成配置"""
     global _video_gen_config
     _video_gen_config = config
+    
+    # 同步更新云雾服务的 API Key
+    if config.apiKey:
+        service = get_yunwu_video_service()
+        service.set_api_key(config.apiKey)
+    
     return {"success": True, "message": "配置已保存"}
