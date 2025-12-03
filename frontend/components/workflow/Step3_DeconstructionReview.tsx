@@ -1819,15 +1819,19 @@ export default function Step3_DeconstructionReview({
 
     // 注：自动保存已移除，改为在 handleSelectImageIndex 中点击「选择此图」时保存
 
+    // 加载每个 shot 的图片/视频列表
+    // 必须等 savedIndexesLoaded 和 savedVideoIndexesLoaded 完成后再开始，
+    // 否则浏览器并发请求限制会导致 selected-images/selected-videos 被排队
     useEffect(() => {
         if (!workspaceSlug) return;
         if (!round2Data || typeof round2Data === 'string') return;
+        if (!savedIndexesLoaded || !savedVideoIndexesLoaded) return; // 等选择数据先加载完
         const shotIds = (round2Data.shots || []).map((s, idx) => s.id ?? idx + 1);
         shotIds.forEach((id) => {
             void loadExistingImagesForShot(id);
             void loadVideosForShot(id);  // 同时加载视频列表
         });
-    }, [workspaceSlug, round2Data, loadExistingImagesForShot, loadVideosForShot]);
+    }, [workspaceSlug, round2Data, loadExistingImagesForShot, loadVideosForShot, savedIndexesLoaded, savedVideoIndexesLoaded]);
 
     // 拉取已保存的选中图片（支持新格式文件名和旧格式索引）
     useEffect(() => {
