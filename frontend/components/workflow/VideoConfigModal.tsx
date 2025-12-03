@@ -9,7 +9,7 @@ interface VideoConfigModalProps {
 }
 
 export interface VideoGenConfig {
-  mode: 'lovart' | 'yunwu';
+  mode: 'yunwu';
   apiKey: string;
   model: string;
   size: string;
@@ -20,7 +20,7 @@ export interface VideoGenConfig {
 }
 
 const DEFAULT_CONFIG: VideoGenConfig = {
-  mode: 'lovart',
+  mode: 'yunwu',
   apiKey: '',
   model: 'grok-video-3',
   size: '1080P',
@@ -142,36 +142,7 @@ export function VideoConfigModal({ isOpen, onClose }: VideoConfigModalProps) {
 
         {/* Content */}
         <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
-          {/* Mode Toggle */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">生成模式</label>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setConfig({ ...config, mode: 'lovart' })}
-                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition border ${
-                  config.mode === 'lovart'
-                    ? 'bg-blue-500 text-white border-blue-500'
-                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                🤖 Lovart 自动化
-              </button>
-              <button
-                onClick={() => setConfig({ ...config, mode: 'yunwu' })}
-                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition border ${
-                  config.mode === 'yunwu'
-                    ? 'bg-blue-500 text-white border-blue-500'
-                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                ☁️ 云雾 API
-              </button>
-            </div>
-          </div>
-
-          {/* Yunwu API Settings - Only show when mode is yunwu */}
-          {config.mode === 'yunwu' && (
-            <>
+          {/* 云雾 API 配置 */}
               {/* API Key */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">API Key</label>
@@ -254,8 +225,6 @@ export function VideoConfigModal({ isOpen, onClose }: VideoConfigModalProps) {
                   ))}
                 </div>
               </div>
-            </>
-          )}
 
           {/* Common Settings */}
           <div className="grid grid-cols-2 gap-4">
@@ -287,20 +256,18 @@ export function VideoConfigModal({ isOpen, onClose }: VideoConfigModalProps) {
             </div>
           </div>
 
-          {/* Poll Interval - Only for yunwu mode */}
-          {config.mode === 'yunwu' && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">轮询间隔（秒）</label>
-              <input
-                type="number"
-                min={5}
-                max={60}
-                value={config.pollInterval}
-                onChange={(e) => setConfig({ ...config, pollInterval: Number(e.target.value) })}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition"
-              />
-            </div>
-          )}
+          {/* Poll Interval */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700">轮询间隔（秒）</label>
+            <input
+              type="number"
+              min={5}
+              max={60}
+              value={config.pollInterval}
+              onChange={(e) => setConfig({ ...config, pollInterval: Number(e.target.value) })}
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition"
+            />
+          </div>
 
           {/* Error */}
           {error && (

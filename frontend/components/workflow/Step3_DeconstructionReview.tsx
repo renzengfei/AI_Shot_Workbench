@@ -738,7 +738,7 @@ export default function Step3_DeconstructionReview({
     // 停止单个镜头的视频生成（实际会停止所有任务）
     const handleStopSingleVideoGeneration = async (_shot: Round2Shot, _idx: number) => {
         try {
-            await fetch(`${API_BASE}/api/lovart/tasks/stop-all`, { method: 'POST' });
+            await fetch(`${API_BASE}/api/yunwu/tasks/stop-all`, { method: 'POST' });
             // 清除所有生成中状态（因为后端会停止所有任务）
             setGeneratingVideoShots({});
             setVideoTaskStatuses({});
@@ -1301,24 +1301,23 @@ export default function Step3_DeconstructionReview({
             const timestamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14);
             const shotDirName = Number.isInteger(shotId) ? `${shotId}.0` : String(shotId);
             
-            // 根据配置选择 API 模式
-            const mode = videoGenConfig?.mode || 'lovart';
-            const apiBase = mode === 'yunwu' ? '/api/yunwu' : '/api/lovart';
+            // 使用云雾 API
+            const apiBase = '/api/yunwu';
             
             // 创建多个任务
             const taskIds: string[] = [];
             for (let v = 0; v < videoCount; v++) {
                 const outputPath = `${currentWorkspace.path}/${generatedDir}/shots/${shotDirName}/video_${timestamp}_v${v + 1}.mp4`;
                 
-                // 根据模式构建请求体
+                // 构建请求体（云雾 API）
                 const requestBody: Record<string, unknown> = {
                     image_path: imagePath,
                     prompt: prompt,
                     output_path: outputPath,
                 };
                 
-                // 云雾 API 需要额外参数
-                if (mode === 'yunwu' && videoGenConfig) {
+                // 添加云雾 API 参数
+                if (videoGenConfig) {
                     requestBody.model = videoGenConfig.model;
                     requestBody.size = videoGenConfig.size;
                     requestBody.aspect_ratio = videoGenConfig.aspectRatio;
@@ -1342,8 +1341,7 @@ export default function Step3_DeconstructionReview({
                 throw new Error('创建任务失败');
             }
             
-            const modeLabel = mode === 'yunwu' ? '云雾 API' : 'Lovart';
-            showToast(`已提交 ${taskIds.length} 个视频生成任务 (${modeLabel})`, 'success');
+            showToast(`已提交 ${taskIds.length} 个视频生成任务 (云雾 API)`, 'success');
             setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'processing' }));
             
             // 批量执行任务（并行）
@@ -1357,8 +1355,8 @@ export default function Step3_DeconstructionReview({
                 }),
             });
             
-            // 云雾模式：使用 SSE 订阅进度；Lovart 模式：使用轮询
-            if (mode === 'yunwu') {
+            // 使用 SSE 订阅进度
+            {
                 // SSE 进度订阅
                 const taskProgress: Record<string, number> = {};
                 const taskStatus: Record<string, string> = {};
@@ -1423,52 +1421,6 @@ export default function Step3_DeconstructionReview({
                 
                 // 为每个任务订阅 SSE
                 taskIds.forEach(subscribeSSE);
-            } else {
-                // Lovart 模式：使用轮询
-                const pollTasks = async () => {
-                    const maxAttempts = 120;
-                    const taskStatus: Record<string, string> = {};
-                    taskIds.forEach(id => taskStatus[id] = 'processing');
-                    
-                    for (let i = 0; i < maxAttempts; i++) {
-                        await new Promise(resolve => setTimeout(resolve, 5000));
-                        // 简单估算进度
-                        setVideoProgress(prev => ({ ...prev, [shotId]: Math.min(95, Math.round((i / maxAttempts) * 100)) }));
-                        
-                        let allDone = true;
-                        let anyCompleted = false;
-                        
-                        for (const taskId of taskIds) {
-                            if (taskStatus[taskId] === 'completed' || taskStatus[taskId] === 'failed') continue;
-                            try {
-                                const statusResp = await fetch(`${API_BASE}${apiBase}/tasks/${taskId}`);
-                                const statusData = await statusResp.json();
-                                const status = statusData?.task?.status;
-                                if (status === 'completed') { taskStatus[taskId] = 'completed'; anyCompleted = true; }
-                                else if (status === 'failed') { taskStatus[taskId] = 'failed'; }
-                                else { allDone = false; }
-                            } catch { /* ignore */ }
-                        }
-                        
-                        if (anyCompleted) await loadVideosForShot(shotId, true);
-                        
-                        if (allDone) {
-                            const completed = Object.values(taskStatus).filter(s => s === 'completed').length;
-                            setVideoProgress(prev => ({ ...prev, [shotId]: 100 }));
-                            setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'completed' }));
-                            setGeneratingVideoShots(prev => { const next = { ...prev }; delete next[shotId]; return next; });
-                            showToast(`${completed}/${taskIds.length} 个视频生成完成！`, 'success');
-                            return;
-                        }
-                    }
-                    throw new Error('生成超时');
-                };
-                
-                pollTasks().catch(err => {
-                    setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'failed' }));
-                    setGeneratingVideoShots(prev => { const next = { ...prev }; delete next[shotId]; return next; });
-                    showToast(err.message || '视频生成失败', 'error');
-                });
             }
             
         } catch (err) {
@@ -1486,7 +1438,7 @@ export default function Step3_DeconstructionReview({
     // 停止所有视频生成
     const handleStopAllVideos = async () => {
         try {
-            const resp = await fetch(`${API_BASE}/api/lovart/tasks/stop-all`, {
+            const resp = await fetch(`${API_BASE}/api/yunwu/tasks/stop-all`, {
                 method: 'POST',
             });
             
@@ -1549,7 +1501,7 @@ export default function Step3_DeconstructionReview({
                 setGeneratingVideoShots(prev => ({ ...prev, [task.shotId]: true }));
                 setVideoTaskStatuses(prev => ({ ...prev, [task.shotId]: 'pending' }));
                 
-                const resp = await fetch(`${API_BASE}/api/lovart/tasks`, {
+                const resp = await fetch(`${API_BASE}/api/yunwu/tasks`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1578,7 +1530,7 @@ export default function Step3_DeconstructionReview({
         
         // 批量执行（并行）
         try {
-            await fetch(`${API_BASE}/api/lovart/tasks/run-batch`, {
+            await fetch(`${API_BASE}/api/yunwu/tasks/run-batch`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1601,7 +1553,7 @@ export default function Step3_DeconstructionReview({
                 let allDone = true;
                 for (const taskId of taskIds) {
                     try {
-                        const resp = await fetch(`${API_BASE}/api/lovart/tasks/${taskId}`);
+                        const resp = await fetch(`${API_BASE}/api/yunwu/tasks/${taskId}`);
                         const data = await resp.json();
                         const status = data?.task?.status;
                         
