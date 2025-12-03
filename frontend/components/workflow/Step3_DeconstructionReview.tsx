@@ -184,6 +184,7 @@ export default function Step3_DeconstructionReview({
     const [selectedVideoIndexes, setSelectedVideoIndexes] = useState<Record<number, number>>({});  // 选中的视频索引
     const [savedVideoIndexes, setSavedVideoIndexes] = useState<Record<number, number>>({});  // 已保存的视频索引
     const [savedVideoIndexesLoaded, setSavedVideoIndexesLoaded] = useState(false);  // 是否已加载保存的视频索引
+    const [defaultStream, setDefaultStream] = useState<'image' | 'video'>('image');  // 所有镜头卡片的默认素材流
     // Provider selection per shot
     const [providers, setProviders] = useState<Array<{ id: string; name: string; is_default?: boolean }>>([]);
     const [shotProviders, setShotProviders] = useState<Record<number, string>>({});
@@ -3663,6 +3664,22 @@ export default function Step3_DeconstructionReview({
                     )}
 
                     {/* Shot List - Apple Glass Style */}
+                    {/* 全局素材流切换按钮 */}
+                    {typeof round2Data !== 'string' && round2Data?.shots && round2Data.shots.length > 0 && (
+                        <div className="flex items-center justify-end mb-4">
+                            <button
+                                onClick={() => setDefaultStream(prev => prev === 'image' ? 'video' : 'image')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 active:scale-95 ${
+                                    defaultStream === 'video'
+                                        ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md'
+                                        : 'bg-white/70 border border-slate-200/50 text-slate-600 hover:bg-white hover:border-purple-300 hover:text-purple-600'
+                                }`}
+                            >
+                                <Video size={16} />
+                                {defaultStream === 'video' ? '已选视频流' : '默认选择视频流'}
+                            </button>
+                        </div>
+                    )}
                     {/* Top Pagination Controls */}
                     {typeof round2Data !== 'string' && round2Data?.shots && round2Data.shots.length > shotsPerPage && (
                         <div className="flex items-center justify-center gap-4 py-4 mb-6">
@@ -3776,6 +3793,7 @@ export default function Step3_DeconstructionReview({
                                     newVideos={newlyGeneratedVideos[shot.id ?? index + 1] || []}
                                     onVideoSeen={(url: string) => handleVideoSeen(shot.id ?? index + 1, url)}
                                     onStopVideoGeneration={handleStopSingleVideoGeneration}
+                                    defaultStream={defaultStream}
                                 />
                             );
                         });

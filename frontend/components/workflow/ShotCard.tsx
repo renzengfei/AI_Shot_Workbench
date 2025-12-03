@@ -260,6 +260,7 @@ interface ShotCardProps {
     newVideos?: string[];  // 新生成的视频 URL
     onVideoSeen?: (url: string) => void;  // 播放视频后的回调
     onStopVideoGeneration?: (shot: Round2Shot, index: number) => void;  // 停止视频生成
+    defaultStream?: 'image' | 'video';  // 默认素材流类型
 }
 
 export const ShotCard = ({
@@ -306,6 +307,7 @@ export const ShotCard = ({
     newVideos = [],
     onVideoSeen,
     onStopVideoGeneration,
+    defaultStream = 'image',
 }: ShotCardProps) => {
     const shotId = shot.id ?? index + 1;
     const canEdit = mode === 'review';
@@ -320,8 +322,14 @@ export const ShotCard = ({
 
     // Delete confirmation state: { type: 'fg_char' | 'fg_obj' | 'mg_char' | 'mg_obj', index: number } | null
     const [deleteConfirm, setDeleteConfirm] = useState<{ type: string; index: number; label: string } | null>(null);
-    const [activeStream, setActiveStream] = useState<'image' | 'video'>('image');
+    const [activeStream, setActiveStream] = useState<'image' | 'video'>(defaultStream || 'image');
     const [selectedVideo, setSelectedVideo] = useState<string | null>(clipUrl || null);
+    
+    // 当父组件的 defaultStream 改变时，同步更新 activeStream
+    useEffect(() => {
+        setActiveStream(defaultStream);
+    }, [defaultStream]);
+    
     // 图片放大查看状态
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
