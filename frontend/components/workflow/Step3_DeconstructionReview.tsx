@@ -9,7 +9,7 @@ import { useStepNavigator } from '@/lib/hooks/useStepNavigator';
 import { AutoTextArea } from '@/components/ui/AutoTextArea';
 import { ShotCard } from '@/components/workflow/ShotCard';
 import { ProviderConfigModal } from '@/components/workflow/ProviderConfigModal';
-import { VideoConfigModal } from '@/components/workflow/VideoConfigModal';
+import { VideoConfigModal, VideoGenConfig } from '@/components/workflow/VideoConfigModal';
 import { Video } from 'lucide-react';
 import { Settings } from 'lucide-react';
 import {
@@ -154,6 +154,7 @@ export default function Step3_DeconstructionReview({
     const [showPresetModal, setShowPresetModal] = useState(false);
     const [showProviderModal, setShowProviderModal] = useState(false);
     const [showVideoConfigModal, setShowVideoConfigModal] = useState(false);
+    const [videoGenConfig, setVideoGenConfig] = useState<VideoGenConfig | null>(null);
     const [selectedImagePresetId, setSelectedImagePresetId] = useState<string | null>(null);
     // Shot pagination
     const [shotPage, setShotPage] = useState(0);
@@ -1299,19 +1300,33 @@ export default function Step3_DeconstructionReview({
             const timestamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14);
             const shotDirName = Number.isInteger(shotId) ? `${shotId}.0` : String(shotId);
             
+            // 根据配置选择 API 模式
+            const mode = videoGenConfig?.mode || 'lovart';
+            const apiBase = mode === 'yunwu' ? '/api/yunwu' : '/api/lovart';
+            
             // 创建多个任务
             const taskIds: string[] = [];
             for (let v = 0; v < videoCount; v++) {
                 const outputPath = `${currentWorkspace.path}/${generatedDir}/shots/${shotDirName}/video_${timestamp}_v${v + 1}.mp4`;
                 
-                const resp = await fetch(`${API_BASE}/api/lovart/tasks`, {
+                // 根据模式构建请求体
+                const requestBody: Record<string, unknown> = {
+                    image_path: imagePath,
+                    prompt: prompt,
+                    output_path: outputPath,
+                };
+                
+                // 云雾 API 需要额外参数
+                if (mode === 'yunwu' && videoGenConfig) {
+                    requestBody.model = videoGenConfig.model;
+                    requestBody.size = videoGenConfig.size;
+                    requestBody.aspect_ratio = videoGenConfig.aspectRatio;
+                }
+                
+                const resp = await fetch(`${API_BASE}${apiBase}/tasks`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        image_path: imagePath,
-                        prompt: prompt,
-                        output_path: outputPath,
-                    }),
+                    body: JSON.stringify(requestBody),
                 });
                 
                 if (resp.ok) {
@@ -1326,11 +1341,12 @@ export default function Step3_DeconstructionReview({
                 throw new Error('创建任务失败');
             }
             
-            showToast(`已提交 ${taskIds.length} 个视频生成任务`, 'success');
+            const modeLabel = mode === 'yunwu' ? '云雾 API' : 'Lovart';
+            showToast(`已提交 ${taskIds.length} 个视频生成任务 (${modeLabel})`, 'success');
             setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'processing' }));
             
             // 批量执行任务（并行）
-            await fetch(`${API_BASE}/api/lovart/tasks/run-batch`, {
+            await fetch(`${API_BASE}${apiBase}/tasks/run-batch`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1356,7 +1372,7 @@ export default function Step3_DeconstructionReview({
                         if (taskStatus[taskId] === 'completed' || taskStatus[taskId] === 'failed') continue;
                         
                         try {
-                            const statusResp = await fetch(`${API_BASE}/api/lovart/tasks/${taskId}`);
+                            const statusResp = await fetch(`${API_BASE}${apiBase}/tasks/${taskId}`);
                             const statusData = await statusResp.json();
                             const status = statusData?.task?.status;
                             
@@ -1674,6 +1690,14 @@ export default function Step3_DeconstructionReview({
                 setProviders(data.providers || []);
             })
             .catch(() => setProviders([]));
+    }, []);
+
+    // Load video generation config
+    useEffect(() => {
+        fetch(`${API_BASE}/api/video-gen/config`)
+            .then(resp => resp.ok ? resp.json() : null)
+            .then(data => setVideoGenConfig(data))
+            .catch(() => setVideoGenConfig(null));
     }, []);
 
     // Reset image caches when switching workspace or generatedDir
