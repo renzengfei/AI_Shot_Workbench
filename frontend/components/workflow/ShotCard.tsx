@@ -691,19 +691,25 @@ export const ShotCard = ({
     // 标题样式：固定高度确保对齐
     const mediaTitleClass = 'h-6 text-sm font-medium text-slate-500 text-center tracking-wide';
 
-    // 从URL提取生成时间（格式：MM/DD HH:MM）
-    // 支持两种格式：_YYYYMMDDHHMMSS_ 或 _YYYYMMDD_HHMMSS
-    const getGenerationTime = (url: string): string => {
+    // 从 URL 提取生成时间和版本号（格式：MM/DD HH:MM v1）
+    // 支持两种格式：_YYYYMMDDHHMMSS_vN 或 _YYYYMMDD_HHMMSS
+    const getGenerationInfo = (url: string): string => {
         try {
             const filename = url.split('/').pop() || '';
             // 先尝试匹配连续格式（如 video_20251202173327_v1.mp4）
-            let match = filename.match(/_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})_/);
+            let match = filename.match(/_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})_(v\d+)/);
+            if (match) {
+                const [, , month, day, hour, minute, , version] = match;
+                return `${month}/${day} ${hour}:${minute} ${version}`;
+            }
+            // 再尝试匹配分隔格式（如 image_20251202_173327.png）
+            match = filename.match(/_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
             if (match) {
                 const [, , month, day, hour, minute] = match;
                 return `${month}/${day} ${hour}:${minute}`;
             }
-            // 再尝试匹配分隔格式（如 image_20251202_173327.png）
-            match = filename.match(/_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
+            // 尝试匹配无版本号的连续格式
+            match = filename.match(/_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})_/);
             if (match) {
                 const [, , month, day, hour, minute] = match;
                 return `${month}/${day} ${hour}:${minute}`;
@@ -856,7 +862,7 @@ export const ShotCard = ({
                             {showGeneration && (
                                 <div className={`${mediaCardBase}`}>
                                     <div className={mediaTitleClass}>
-                                        {getGenerationTime(activeImage || '') || '选中生成图'}
+                                        {getGenerationInfo(activeImage || '') || '选中生成图'}
                                     </div>
                                     <div className={`${mediaBaseClass} border ${highlightGenerated || (activeImage && newImages.includes(activeImage)) ? 'border-red-400' : 'border-slate-200'} shadow-sm flex items-center justify-center text-lg text-blue-300`}>
                                         {(activeImage && newImages.includes(activeImage)) && (
@@ -1118,20 +1124,14 @@ export const ShotCard = ({
                                             const isSelected = idx === selectedVideoIndex;
                                             const fullUrl = url.startsWith('/') ? `${API_BASE}${url}` : url;
                                             const isNew = newVideos.includes(url);
-                                            const genTime = getGenerationTime(url);
+                                            const genInfo = getGenerationInfo(url);
                                             return (
                                                 <div
                                                     key={`video-${url}-${idx}`}
                                                     className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} border transition-all duration-300 ${isSelected ? 'border-purple-400/50 shadow-lg ring-1 ring-purple-400/20' : 'border-white/30 hover:shadow-md'} bg-white/50 backdrop-blur-xl ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
                                                 >
-                                                    <div className={mediaTitleClass}>{genTime || ' '}</div>
+                                                    <div className={mediaTitleClass}>{genInfo || ' '}</div>
                                                     <div className={`${mediaBaseClass} border border-white/10 shadow-inner cursor-pointer relative`}>
-                                                        {/* 右上角：生成时间 */}
-                                                        {genTime && (
-                                                            <span className="absolute top-2 right-2 px-2 py-1 rounded-md text-xs font-medium bg-black/50 text-white/90 backdrop-blur-sm z-10">
-                                                                {genTime}
-                                                            </span>
-                                                        )}
                                                         {/* 左上角：NEW 标识 */}
                                                         {isNew && (
                                                             <span className="absolute top-2 left-2 px-2 py-1 rounded-md text-xs font-semibold bg-red-500 text-white z-10">
@@ -1159,11 +1159,6 @@ export const ShotCard = ({
                                                         >
                                                             {isSelected ? <><Check size={14} /> 已选择</> : '选择此视频'}
                                                         </button>
-                                                        {genTime && (
-                                                            <span className={`text-xs font-medium text-slate-400 px-2.5 py-2 bg-slate-100/80 ${BTN_RADIUS} border border-slate-200/30`}>
-                                                                {genTime}
-                                                            </span>
-                                                        )}
                                                     </div>
                                                 </div>
                                             );
@@ -1234,7 +1229,7 @@ export const ShotCard = ({
                                         const originalIdx = generatedImageUrls.indexOf(url);
                                         const isActive = activeImage === url;
                                         const isNew = newImages.includes(url);
-                                        const genTime = getGenerationTime(url);
+                                        const genTime = getGenerationInfo(url);
                                         return (
                                                 <div
                                                     key={`${url}-${idx}`}
