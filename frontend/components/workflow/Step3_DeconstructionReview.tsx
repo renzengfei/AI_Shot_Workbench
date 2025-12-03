@@ -2077,6 +2077,10 @@ export default function Step3_DeconstructionReview({
         if (!savedIndexesLoaded || !Object.keys(generatedImages).length) return;
         
         const savedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string | number> || {};
+        
+        // [调试] 记录每次尝试匹配的结果
+        const debugLog: string[] = [];
+        
         setGeneratedIndexes((prev) => {
             let changed = false;
             const next = { ...prev };
@@ -2109,8 +2113,10 @@ export default function Step3_DeconstructionReview({
                     const foundIdx = imgs.findIndex(url => url.endsWith(filename!) || url.includes(`/${filename}`));
                     if (foundIdx >= 0) {
                         targetIdx = foundIdx;
+                        debugLog.push(`[Shot ${id}] 匹配成功: ${filename} → index ${foundIdx}`);
                     } else {
-                        // 有保存记录但匹配失败，跳过不设置
+                        // 有保存记录但匹配失败，记录调试信息
+                        debugLog.push(`[Shot ${id}] 匹配失败: 找不到 ${filename}，图片列表: ${imgs.map(u => u.split('/').pop()).join(', ')}`);
                         return;
                     }
                 } else {
@@ -2121,8 +2127,14 @@ export default function Step3_DeconstructionReview({
                 if (prev[id] !== targetIdx) {
                     next[id] = targetIdx;
                     changed = true;
+                    debugLog.push(`[Shot ${id}] 设置索引: ${prev[id]} → ${targetIdx}`);
                 }
             });
+            
+            // 如果有调试信息，输出到控制台
+            if (debugLog.length) {
+                console.log('[图片索引匹配]', debugLog.join('\n'));
+            }
             
             return changed ? next : prev;
         });
