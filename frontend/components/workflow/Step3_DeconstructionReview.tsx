@@ -178,6 +178,7 @@ export default function Step3_DeconstructionReview({
     const [generatingVideoShots, setGeneratingVideoShots] = useState<Record<number, boolean>>({});
     const [videoTaskStatuses, setVideoTaskStatuses] = useState<Record<number, 'pending' | 'processing' | 'completed' | 'failed' | null>>({});
     const [videoProgress, setVideoProgress] = useState<Record<number, number>>({}); // 视频生成进度 0-100
+    const [videoTaskProgresses, setVideoTaskProgresses] = useState<Record<number, Array<{taskId: string; progress: number; status: string}>>>({}); // 每个任务的进度
     const [newlyGeneratedVideos, setNewlyGeneratedVideos] = useState<Record<number, string[]>>({});  // 新生成的视频 URL
     const [generatedVideos, setGeneratedVideos] = useState<Record<number, string[]>>({});  // 视频列表
     const [selectedVideoIndexes, setSelectedVideoIndexes] = useState<Record<number, number>>({});  // 选中的视频索引
@@ -1344,6 +1345,12 @@ export default function Step3_DeconstructionReview({
             showToast(`已提交 ${taskIds.length} 个视频生成任务 (云雾 API)`, 'success');
             setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'processing' }));
             
+            // 初始化占位卡片状态
+            setVideoTaskProgresses(prev => ({
+                ...prev,
+                [shotId]: taskIds.map(id => ({ taskId: id, progress: 0, status: 'processing' }))
+            }));
+            
             // 批量执行任务（并行）
             await fetch(`${API_BASE}${apiBase}/tasks/run-batch`, {
                 method: 'POST',
@@ -1362,6 +1369,17 @@ export default function Step3_DeconstructionReview({
                 const taskStatus: Record<string, string> = {};
                 taskIds.forEach(id => { taskStatus[id] = 'processing'; taskProgress[id] = 0; });
                 
+                // 更新占位卡片进度的函数
+                const updateTaskProgress = (taskId: string, progress: number, status: string) => {
+                    setVideoTaskProgresses(prev => {
+                        const tasks = prev[shotId] || [];
+                        return {
+                            ...prev,
+                            [shotId]: tasks.map(t => t.taskId === taskId ? { ...t, progress, status } : t)
+                        };
+                    });
+                };
+                
                 const subscribeSSE = (taskId: string) => {
                     const eventSource = new EventSource(`${API_BASE}/api/yunwu/tasks/${taskId}/progress`);
                     
@@ -1370,6 +1388,8 @@ export default function Step3_DeconstructionReview({
                             const data = JSON.parse(event.data);
                             if (data.progress !== undefined) {
                                 taskProgress[taskId] = data.progress;
+                                // 更新占位卡片进度
+                                updateTaskProgress(taskId, data.progress, taskStatus[taskId] || 'processing');
                                 // 计算总进度
                                 const avgProgress = Object.values(taskProgress).reduce((a, b) => a + b, 0) / taskIds.length;
                                 setVideoProgress(prev => ({ ...prev, [shotId]: Math.round(avgProgress) }));
@@ -1377,11 +1397,13 @@ export default function Step3_DeconstructionReview({
                             if (data.status === 'completed') {
                                 taskStatus[taskId] = 'completed';
                                 taskProgress[taskId] = 100;
+                                updateTaskProgress(taskId, 100, 'completed');
                                 eventSource.close();
                                 void loadVideosForShot(shotId, true);
                                 checkAllDone();
                             } else if (data.status === 'failed') {
                                 taskStatus[taskId] = 'failed';
+                                updateTaskProgress(taskId, taskProgress[taskId] || 0, 'failed');
                                 eventSource.close();
                                 checkAllDone();
                             }
@@ -1415,6 +1437,10 @@ export default function Step3_DeconstructionReview({
                         setVideoProgress(prev => ({ ...prev, [shotId]: 100 }));
                         setVideoTaskStatuses(prev => ({ ...prev, [shotId]: failed < taskIds.length ? 'completed' : 'failed' }));
                         setGeneratingVideoShots(prev => { const next = { ...prev }; delete next[shotId]; return next; });
+                        // 清理占位卡片状态
+                        setVideoTaskProgresses(prev => { const next = { ...prev }; delete next[shotId]; return next; });
+                        // 最终刷新视频列表
+                        void loadVideosForShot(shotId, true);
                         showToast(`${completed}/${taskIds.length} 个视频生成完成！`, completed > 0 ? 'success' : 'error');
                     }
                 };
@@ -1909,10 +1935,9 @@ export default function Step3_DeconstructionReview({
                 }
                 
                 if (savedFilename) {
-                    // 尝试通过文件名匹配
+                    // 尝试通过文件名匹配（使用宽松匹配，与图片逻辑一致）
                     const matchedIdx = videos.findIndex((url: string) => {
-                        const urlFilename = url.split('/').pop() || '';
-                        return urlFilename === savedFilename;
+                        return url.endsWith(savedFilename) || url.includes(`/${savedFilename}`);
                     });
                     
                     if (matchedIdx >= 0) {
@@ -1928,11 +1953,8 @@ export default function Step3_DeconstructionReview({
                                 next[id] = numIdx;
                                 changed = true;
                             }
-                        } else if (next[id] === undefined) {
-                            // 都匹配不上，默认第一个
-                            next[id] = 0;
-                            changed = true;
                         }
+                        // 有保存记录但匹配失败，保持当前选择不变（不强制重置为 0）
                     }
                 } else if (next[id] === undefined) {
                     // 没有保存记录且没有设置过，默认第一个（最新的）
@@ -3735,6 +3757,7 @@ export default function Step3_DeconstructionReview({
                                     isGeneratingVideo={!!generatingVideoShots[shot.id ?? index + 1]}
                                     videoTaskStatus={videoTaskStatuses[shot.id ?? index + 1]}
                                     videoProgress={videoProgress[shot.id ?? index + 1] ?? 0}
+                                    videoTaskProgresses={videoTaskProgresses[shot.id ?? index + 1] || []}
                                     generatedVideoUrls={generatedVideos[shot.id ?? index + 1] || []}
                                     selectedVideoIndex={selectedVideoIndexes[shot.id ?? index + 1] ?? 0}
                                     onSelectVideoIndex={(idx: number) => handleSelectVideoIndex(shot.id ?? index + 1, idx)}
