@@ -1399,7 +1399,16 @@ export default function Step3_DeconstructionReview({
                             if (data.status === 'completed') {
                                 taskStatus[taskId] = 'completed';
                                 taskProgress[taskId] = 100;
-                                updateTaskProgress(taskId, 100, 'completed');
+                                // 任务完成后从占位卡片中移除（而不是只更新状态）
+                                setVideoTaskProgresses(prev => {
+                                    const tasks = (prev[shotId] || []).filter(t => t.taskId !== taskId);
+                                    if (tasks.length === 0) {
+                                        const next = { ...prev };
+                                        delete next[shotId];
+                                        return next;
+                                    }
+                                    return { ...prev, [shotId]: tasks };
+                                });
                                 eventSource.close();
                                 void loadVideosForShot(shotId, true);
                                 checkAllDone();
