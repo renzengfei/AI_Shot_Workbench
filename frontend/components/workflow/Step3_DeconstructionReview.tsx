@@ -1983,39 +1983,33 @@ export default function Step3_DeconstructionReview({
                 const id = Number(k);
                 if (!imgs || !imgs.length) return;
                 
-                // 检查是否有保存的选择
-                const savedValue = savedIndexes[id];
-                let targetIdx: number;
+                // 直接从 savedFilenames 查找文件名（尝试多种 key 格式）
+                const possibleKeys = [String(id), id.toFixed(1), String(Math.floor(id))];
+                let filename: string | undefined;
+                for (const key of possibleKeys) {
+                    const val = savedFilenames[key];
+                    if (typeof val === 'string') {
+                        filename = val;
+                        break;
+                    } else if (typeof val === 'number') {
+                        // 旧格式：数字索引，直接使用
+                        if (val >= 0 && val < imgs.length && prev[id] !== val) {
+                            next[id] = val;
+                            changed = true;
+                        }
+                        return;
+                    }
+                }
                 
-                if (savedValue === -1) {
-                    // 文件名格式，需要匹配（尝试多种 key 格式）
-                    const possibleKeys = [String(id), id.toFixed(1), String(Math.floor(id))];
-                    let filename: string | undefined;
-                    for (const key of possibleKeys) {
-                        const val = savedFilenames[key];
-                        if (typeof val === 'string') {
-                            filename = val;
-                            break;
-                        }
-                    }
-                    if (filename) {
-                        const foundIdx = imgs.findIndex(url => url.endsWith(filename!) || url.includes(`/${filename}`));
-                        if (foundIdx >= 0) {
-                            targetIdx = foundIdx;
-                        } else {
-                            // 有保存记录但匹配失败，跳过不设置
-                            return;
-                        }
+                let targetIdx: number;
+                if (filename) {
+                    const foundIdx = imgs.findIndex(url => url.endsWith(filename!) || url.includes(`/${filename}`));
+                    if (foundIdx >= 0) {
+                        targetIdx = foundIdx;
                     } else {
-                        // 没有找到文件名记录，默认第一张
-                        targetIdx = 0;
+                        // 有保存记录但匹配失败，跳过不设置
+                        return;
                     }
-                } else if (typeof savedValue === 'number' && savedValue >= 0 && savedValue < imgs.length) {
-                    // 旧格式：直接是索引
-                    targetIdx = savedValue;
-                } else if (typeof savedValue === 'number') {
-                    // 有保存记录但索引无效，跳过不设置
-                    return;
                 } else {
                     // 没有保存记录，使用默认值（第一张，最新的）
                     targetIdx = 0;
