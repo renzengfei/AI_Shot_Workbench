@@ -252,6 +252,7 @@ interface ShotCardProps {
     onGenerateVideo?: (shot: Round2Shot, index: number) => void;
     isGeneratingVideo?: boolean;
     videoTaskStatus?: 'pending' | 'processing' | 'completed' | 'failed' | null;
+    videoProgress?: number; // 视频生成进度 0-100
     generatedVideoUrls?: string[];
     selectedVideoIndex?: number;
     onSelectVideoIndex?: (index: number) => void;
@@ -296,6 +297,7 @@ export const ShotCard = ({
     onGenerateVideo,
     isGeneratingVideo = false,
     videoTaskStatus = null,
+    videoProgress = 0,
     generatedVideoUrls = [],
     selectedVideoIndex = 0,
     onSelectVideoIndex,
@@ -922,10 +924,20 @@ export const ShotCard = ({
                                     ) : (
                                         <div className={`${mediaBaseClass} border border-dashed border-purple-300/50 shadow-sm flex flex-col items-center justify-center gap-3`}>
                                             {isGeneratingVideo ? (
-                                                <>
+                                                <div className="flex flex-col items-center gap-2 w-full px-6">
                                                     <Loader2 size={32} className="animate-spin text-purple-400" />
-                                                    <span className="text-sm text-purple-400">{videoTaskStatus === 'processing' ? '生成中...' : '排队中...'}</span>
-                                                </>
+                                                    <span className="text-sm text-purple-400">
+                                                        {videoTaskStatus === 'processing' ? `生成中 ${videoProgress}%` : '排队中...'}
+                                                    </span>
+                                                    {videoTaskStatus === 'processing' && (
+                                                        <div className="w-full h-1.5 bg-purple-100 rounded-full overflow-hidden">
+                                                            <div 
+                                                                className="h-full bg-gradient-to-r from-purple-400 to-pink-400 rounded-full transition-all duration-300"
+                                                                style={{ width: `${videoProgress}%` }}
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
                                             ) : (
                                                 <>
                                                     <Video size={32} className="text-purple-300/60" />
@@ -1149,9 +1161,19 @@ export const ShotCard = ({
                                     ) : (
                                         <div className={`w-full min-w-[360px] flex flex-col items-center justify-center gap-4 text-slate-400 bg-white/30 ${CARD_RADIUS} border border-dashed border-purple-300/50 p-10 backdrop-blur-sm`}>
                                             {isGeneratingVideo ? (
-                                                <>
+                                                <div className="flex flex-col items-center gap-3 w-full">
                                                     <Loader2 size={36} className="animate-spin text-purple-400" />
-                                                    <span className="text-purple-400">{videoTaskStatus === 'processing' ? '视频生成中...' : '排队等待中...'}</span>
+                                                    <span className="text-purple-400">
+                                                        {videoTaskStatus === 'processing' ? `视频生成中 ${videoProgress}%` : '排队等待中...'}
+                                                    </span>
+                                                    {videoTaskStatus === 'processing' && (
+                                                        <div className="w-48 h-2 bg-purple-100 rounded-full overflow-hidden">
+                                                            <div 
+                                                                className="h-full bg-gradient-to-r from-purple-400 to-pink-400 rounded-full transition-all duration-300"
+                                                                style={{ width: `${videoProgress}%` }}
+                                                            />
+                                                        </div>
+                                                    )}
                                                     <button
                                                         onClick={() => onStopVideoGeneration?.(shot, index)}
                                                         className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-red-500 text-white hover:bg-red-600 transition"
@@ -1159,7 +1181,7 @@ export const ShotCard = ({
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
                                                         停止生成
                                                     </button>
-                                                </>
+                                                </div>
                                             ) : (
                                                 <>
                                                     <Video size={36} className="text-purple-300/60" />

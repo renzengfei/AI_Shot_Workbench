@@ -177,6 +177,7 @@ export default function Step3_DeconstructionReview({
     // Video generation state
     const [generatingVideoShots, setGeneratingVideoShots] = useState<Record<number, boolean>>({});
     const [videoTaskStatuses, setVideoTaskStatuses] = useState<Record<number, 'pending' | 'processing' | 'completed' | 'failed' | null>>({});
+    const [videoProgress, setVideoProgress] = useState<Record<number, number>>({}); // 视频生成进度 0-100
     const [newlyGeneratedVideos, setNewlyGeneratedVideos] = useState<Record<number, string[]>>({});  // 新生成的视频 URL
     const [generatedVideos, setGeneratedVideos] = useState<Record<number, string[]>>({});  // 视频列表
     const [selectedVideoIndexes, setSelectedVideoIndexes] = useState<Record<number, number>>({});  // 选中的视频索引
@@ -1356,68 +1357,119 @@ export default function Step3_DeconstructionReview({
                 }),
             });
             
-            // 轮询检查所有任务状态
-            const pollTasks = async () => {
-                const maxAttempts = 120; // 10分钟
+            // 云雾模式：使用 SSE 订阅进度；Lovart 模式：使用轮询
+            if (mode === 'yunwu') {
+                // SSE 进度订阅
+                const taskProgress: Record<string, number> = {};
                 const taskStatus: Record<string, string> = {};
-                taskIds.forEach(id => taskStatus[id] = 'processing');
+                taskIds.forEach(id => { taskStatus[id] = 'processing'; taskProgress[id] = 0; });
                 
-                for (let i = 0; i < maxAttempts; i++) {
-                    await new Promise(resolve => setTimeout(resolve, 5000));
+                const subscribeSSE = (taskId: string) => {
+                    const eventSource = new EventSource(`${API_BASE}/api/yunwu/tasks/${taskId}/progress`);
                     
-                    let allDone = true;
-                    let anyCompleted = false;
-                    
-                    for (const taskId of taskIds) {
-                        if (taskStatus[taskId] === 'completed' || taskStatus[taskId] === 'failed') continue;
-                        
+                    eventSource.onmessage = (event) => {
                         try {
-                            const statusResp = await fetch(`${API_BASE}${apiBase}/tasks/${taskId}`);
-                            const statusData = await statusResp.json();
-                            const status = statusData?.task?.status;
-                            
-                            if (status === 'completed') {
+                            const data = JSON.parse(event.data);
+                            if (data.progress !== undefined) {
+                                taskProgress[taskId] = data.progress;
+                                // 计算总进度
+                                const avgProgress = Object.values(taskProgress).reduce((a, b) => a + b, 0) / taskIds.length;
+                                setVideoProgress(prev => ({ ...prev, [shotId]: Math.round(avgProgress) }));
+                            }
+                            if (data.status === 'completed') {
                                 taskStatus[taskId] = 'completed';
-                                anyCompleted = true;
-                            } else if (status === 'failed') {
+                                taskProgress[taskId] = 100;
+                                eventSource.close();
+                                void loadVideosForShot(shotId, true);
+                                checkAllDone();
+                            } else if (data.status === 'failed') {
                                 taskStatus[taskId] = 'failed';
-                            } else {
-                                allDone = false;
+                                eventSource.close();
+                                checkAllDone();
                             }
                         } catch {
-                            // 忽略错误
+                            // 忽略解析错误
+                        }
+                    };
+                    
+                    eventSource.onerror = () => {
+                        eventSource.close();
+                        // 出错后回退到轮询检查一次
+                        fetch(`${API_BASE}${apiBase}/tasks/${taskId}`)
+                            .then(r => r.json())
+                            .then(d => {
+                                if (d?.task?.status === 'completed') {
+                                    taskStatus[taskId] = 'completed';
+                                    void loadVideosForShot(shotId, true);
+                                } else if (d?.task?.status === 'failed') {
+                                    taskStatus[taskId] = 'failed';
+                                }
+                                checkAllDone();
+                            })
+                            .catch(() => checkAllDone());
+                    };
+                };
+                
+                const checkAllDone = () => {
+                    const completed = Object.values(taskStatus).filter(s => s === 'completed').length;
+                    const failed = Object.values(taskStatus).filter(s => s === 'failed').length;
+                    if (completed + failed === taskIds.length) {
+                        setVideoProgress(prev => ({ ...prev, [shotId]: 100 }));
+                        setVideoTaskStatuses(prev => ({ ...prev, [shotId]: failed < taskIds.length ? 'completed' : 'failed' }));
+                        setGeneratingVideoShots(prev => { const next = { ...prev }; delete next[shotId]; return next; });
+                        showToast(`${completed}/${taskIds.length} 个视频生成完成！`, completed > 0 ? 'success' : 'error');
+                    }
+                };
+                
+                // 为每个任务订阅 SSE
+                taskIds.forEach(subscribeSSE);
+            } else {
+                // Lovart 模式：使用轮询
+                const pollTasks = async () => {
+                    const maxAttempts = 120;
+                    const taskStatus: Record<string, string> = {};
+                    taskIds.forEach(id => taskStatus[id] = 'processing');
+                    
+                    for (let i = 0; i < maxAttempts; i++) {
+                        await new Promise(resolve => setTimeout(resolve, 5000));
+                        // 简单估算进度
+                        setVideoProgress(prev => ({ ...prev, [shotId]: Math.min(95, Math.round((i / maxAttempts) * 100)) }));
+                        
+                        let allDone = true;
+                        let anyCompleted = false;
+                        
+                        for (const taskId of taskIds) {
+                            if (taskStatus[taskId] === 'completed' || taskStatus[taskId] === 'failed') continue;
+                            try {
+                                const statusResp = await fetch(`${API_BASE}${apiBase}/tasks/${taskId}`);
+                                const statusData = await statusResp.json();
+                                const status = statusData?.task?.status;
+                                if (status === 'completed') { taskStatus[taskId] = 'completed'; anyCompleted = true; }
+                                else if (status === 'failed') { taskStatus[taskId] = 'failed'; }
+                                else { allDone = false; }
+                            } catch { /* ignore */ }
+                        }
+                        
+                        if (anyCompleted) await loadVideosForShot(shotId, true);
+                        
+                        if (allDone) {
+                            const completed = Object.values(taskStatus).filter(s => s === 'completed').length;
+                            setVideoProgress(prev => ({ ...prev, [shotId]: 100 }));
+                            setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'completed' }));
+                            setGeneratingVideoShots(prev => { const next = { ...prev }; delete next[shotId]; return next; });
+                            showToast(`${completed}/${taskIds.length} 个视频生成完成！`, 'success');
+                            return;
                         }
                     }
-                    
-                    // 有完成的就刷新视频列表，标记为新视频
-                    if (anyCompleted) {
-                        await loadVideosForShot(shotId, true);
-                    }
-                    
-                    if (allDone) {
-                        const completed = Object.values(taskStatus).filter(s => s === 'completed').length;
-                        setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'completed' }));
-                        setGeneratingVideoShots(prev => {
-                            const next = { ...prev };
-                            delete next[shotId];
-                            return next;
-                        });
-                        showToast(`${completed}/${taskIds.length} 个视频生成完成！`, 'success');
-                        return;
-                    }
-                }
-                throw new Error('生成超时');
-            };
-            
-            pollTasks().catch(err => {
-                setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'failed' }));
-                setGeneratingVideoShots(prev => {
-                    const next = { ...prev };
-                    delete next[shotId];
-                    return next;
+                    throw new Error('生成超时');
+                };
+                
+                pollTasks().catch(err => {
+                    setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'failed' }));
+                    setGeneratingVideoShots(prev => { const next = { ...prev }; delete next[shotId]; return next; });
+                    showToast(err.message || '视频生成失败', 'error');
                 });
-                showToast(err.message || '视频生成失败', 'error');
-            });
+            }
             
         } catch (err) {
             const msg = err instanceof Error ? err.message : '视频生成失败';
@@ -3730,6 +3782,7 @@ export default function Step3_DeconstructionReview({
                                     onGenerateVideo={handleGenerateVideo}
                                     isGeneratingVideo={!!generatingVideoShots[shot.id ?? index + 1]}
                                     videoTaskStatus={videoTaskStatuses[shot.id ?? index + 1]}
+                                    videoProgress={videoProgress[shot.id ?? index + 1] ?? 0}
                                     generatedVideoUrls={generatedVideos[shot.id ?? index + 1] || []}
                                     selectedVideoIndex={selectedVideoIndexes[shot.id ?? index + 1] ?? 0}
                                     onSelectVideoIndex={(idx: number) => handleSelectVideoIndex(shot.id ?? index + 1, idx)}
