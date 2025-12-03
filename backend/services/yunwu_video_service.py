@@ -407,10 +407,18 @@ class YunwuVideoService:
         """转换任务为 API 响应格式"""
         output_url = path_to_url(task.output_path) if task.status == "completed" else task.output_path
         
+        # 从 api_response 提取进度，completed 时为 100
+        progress = 0
+        if task.status == "completed":
+            progress = 100
+        elif task.api_response:
+            progress = task.api_response.get("progress", 0)
+        
         return {
             "task_id": task.task_id,
             "api_task_id": task.api_task_id,
             "status": task.status,
+            "progress": progress,  # 添加百分比进度
             "image_path": task.image_path,
             "prompt": task.prompt,
             "output_path": output_url,
