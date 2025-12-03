@@ -1155,7 +1155,7 @@ export const ShotCard = ({
                                                 <div className={`${mediaBaseClass} border border-white/10 shadow-inner flex flex-col items-center justify-center gap-3`}>
                                                     <Loader2 size={36} className="animate-spin text-purple-400" />
                                                     <span className="text-purple-400 text-sm font-medium">
-                                                        {task.status === 'downloading' ? '下载中...' : task.status === 'processing' ? `${task.progress}%` : '排队中...'}
+                                                        {task.status === 'downloading' ? '下载中...' : task.status === 'processing' ? (task.progress > 0 ? `${task.progress}%` : '生成中...') : '排队中...'}
                                                     </span>
                                                     {(task.status === 'processing' || task.status === 'downloading') && (
                                                         <div className="w-32 h-2 bg-purple-100 rounded-full overflow-hidden">

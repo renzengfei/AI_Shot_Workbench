@@ -484,5 +484,25 @@
       "status_update_time": 1764755639,
       "upscale_on_complete": true
     }
+  },
+  {
+    "task_id": "aad478de",
+    "api_task_id": "grok:18e59915-22b0-4c62-9024-b7e3a0a37821",
+    "status": "processing",
+    "image_path": "http://127.0.0.1:8000/workspaces/7/generated_漫展拉腿版/shots/2.0/image_url_42.png",
+    "prompt": "A cat walking",
+    "output_path": "/tmp/test_video.mp4",
+    "aspect_ratio": "9:16",
+    "size": "1080P",
+    "model": "grok-video-3",
+    "video_url": null,
+    "error": null,
+    "created_at": "2025-12-03T18:06:57.812536",
+    "completed_at": null,
+    "api_response": {
+      "id": "grok:18e59915-22b0-4c62-9024-b7e3a0a37821",
+      "status": "processing",
+      "status_update_time": 1764756435
+    }
   }
 ]
