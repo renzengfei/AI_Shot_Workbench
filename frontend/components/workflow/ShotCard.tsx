@@ -55,7 +55,7 @@ const ErrorTooltip = ({ error }: { error: string }) => {
     );
 };
 
-// 定稿按钮组件 - 冰晶加冕风格 (Frost Crown)
+// 定稿按钮组件 - Apple Style (SF Symbols checkmark.circle)
 const FinalizeButton = ({
     isFinalized,
     onClick,
@@ -63,69 +63,31 @@ const FinalizeButton = ({
     isFinalized: boolean;
     onClick: () => void;
 }) => {
-    const [isAnimating, setIsAnimating] = useState(false);
-
-    const handleClick = () => {
-        if (!isFinalized) {
-            setIsAnimating(true);
-            setTimeout(() => setIsAnimating(false), 1000);
-        }
-        onClick();
-    };
-
     return (
         <button
-            onClick={handleClick}
-            className={`group relative w-9 h-9 rounded-full transition-all duration-700 ease-out
+            onClick={onClick}
+            className={`relative w-6 h-6 rounded-full transition-all duration-200 ease-out
                 ${isFinalized
-                    ? 'bg-gradient-to-br from-violet-500 via-blue-500 to-cyan-400 shadow-[0_0_24px_rgba(139,92,246,0.5),0_0_48px_rgba(59,130,246,0.2)]'
-                    : 'bg-white/90 border border-slate-200 hover:border-violet-300 hover:shadow-[0_0_20px_rgba(139,92,246,0.15)]'
+                    ? 'bg-[#007AFF]'
+                    : 'bg-transparent border-[1.5px] border-slate-300 hover:border-slate-400'
                 }
-                ${isAnimating ? 'scale-95' : 'hover:scale-105 active:scale-95'}
+                active:scale-90
             `}
             title={isFinalized ? '取消定稿' : '设为定稿'}
         >
-            {/* 钻石光泽层 */}
+            {/* 对勾 - 仅在定稿时显示 */}
             {isFinalized && (
-                <span className="absolute inset-0 rounded-full overflow-hidden">
-                    <span className="absolute inset-0 bg-gradient-to-tr from-white/50 via-transparent to-transparent" />
-                    <span className="absolute top-0 left-1/4 w-1/2 h-1/3 bg-gradient-to-b from-white/60 to-transparent blur-[2px]" />
-                </span>
-            )}
-
-            {/* 图标：精致的钻石/皇冠 */}
-            <svg
-                viewBox="0 0 24 24"
-                className={`absolute inset-0 m-auto w-4 h-4 transition-all duration-500
-                    ${isFinalized ? 'text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]' : 'text-slate-400 group-hover:text-violet-500'}
-                    ${isAnimating ? 'scale-0 rotate-180' : 'scale-100 rotate-0'}
-                `}
-                fill={isFinalized ? 'currentColor' : 'none'}
-                stroke="currentColor"
-                strokeWidth={1.5}
-            >
-                {/* 钻石形状 */}
-                <path d="M12 2L2 9l10 13 10-13-10-7z" />
-                {isFinalized && <path d="M2 9h20M7 9l5 13 5-13" strokeWidth={1} className="text-white/60" />}
-            </svg>
-
-            {/* 冰蓝涟漪 */}
-            {isAnimating && (
-                <>
-                    <span className="absolute inset-0 rounded-full animate-frost-ripple-1 border-2 border-violet-400/60" />
-                    <span className="absolute inset-0 rounded-full animate-frost-ripple-2 border border-blue-400/40" />
-                    <span className="absolute inset-0 rounded-full animate-frost-ripple-3 border border-cyan-300/30" />
-                </>
-            )}
-
-            {/* 定稿态：优雅的光晕 */}
-            {isFinalized && !isAnimating && (
-                <span className="absolute -inset-0.5 rounded-full bg-gradient-to-br from-violet-400/20 to-cyan-400/20 animate-shimmer" />
-            )}
-
-            {/* 底部金色细线 - 皇冠底座 */}
-            {isFinalized && (
-                <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-4 h-[2px] bg-gradient-to-r from-transparent via-amber-300/80 to-transparent rounded-full" />
+                <svg
+                    viewBox="0 0 24 24"
+                    className="absolute inset-0 m-auto w-3.5 h-3.5 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                >
+                    <polyline points="20 6 9 17 4 12" />
+                </svg>
             )}
         </button>
     );
