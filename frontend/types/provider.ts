@@ -2,7 +2,7 @@
  * 生图供应商相关类型定义
  */
 
-export type ProviderType = 'rabbit' | 'candy';
+export type ProviderType = 'rabbit' | 'candy' | 'gemini';
 
 export interface ImageProvider {
   id: string;
@@ -44,5 +44,11 @@ export const PROVIDER_TYPE_CONFIG: Record<ProviderType, { label: string; descrip
     description: 'Nano 协议，适合高质量图片生成',
     defaultEndpoint: '',
     defaultModel: 'flux-schnell',
+  },
+  gemini: {
+    label: 'Gemini',
+    description: 'Google Gemini 原生 API，高质量多模态',
+    defaultEndpoint: 'https://yunwu.ai',
+    defaultModel: 'gemini-3-pro-image-preview',
   },
 };
