@@ -1509,11 +1509,18 @@ export default function Step3_DeconstructionReview({
         const prompt = presetText ? `${basePrompt}\n\n生图设定：${presetText}` : basePrompt;
         
         // 构建参考图列表
-        let refs = extractReferenceIds(shot);
+        let refs: string[];
         
-        // 线稿模式下添加线稿图作为参考
         if (isOutlineMode && activeOutline) {
-            refs = [...refs, activeOutline];
+            // 线稿模式下，按提示词中角色出现顺序构建 refs（确保 image1 对应第一个角色）
+            const characterMatches = initialFrameDesc.match(/【([^】]+)】/g) || [];
+            const orderedCharacters = [...new Set(characterMatches.map((m: string) => m.replace(/[【】]/g, '')))];
+            const orderedRefs = orderedCharacters
+                .map(char => characterRefs[char])
+                .filter((id): id is string => !!id);
+            refs = [...orderedRefs, activeOutline];
+        } else {
+            refs = extractReferenceIds(shot);
         }
         setGeneratingShots((prev) => ({ ...prev, [shotId]: true }));
         let taskStarted = false;
