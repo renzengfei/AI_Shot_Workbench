@@ -24,6 +24,7 @@ class ProviderType(str, Enum):
     """供应商类型"""
     RABBIT = "rabbit"
     CANDY = "candy"
+    GEMINI = "gemini"
 
 
 @dataclass
@@ -116,6 +117,8 @@ class ImageProvider(ABC):
             return RabbitProvider(config)
         elif config.type == ProviderType.CANDY:
             return CandyProvider(config)
+        elif config.type == ProviderType.GEMINI:
+            return GeminiProvider(config)
         else:
             raise ValueError(f"Unknown provider type: {config.type}")
 
@@ -413,5 +416,123 @@ class CandyProvider(ImageProvider):
                 image_urls=[url],
                 text_response=content if isinstance(content, str) else json.dumps(content),
                 effective_prompt="\n---\n".join([t for t in effective_prompt_parts if t]),
+            )
+
+
+class GeminiProvider(ImageProvider):
+    """
+    Gemini 原生 API 供应商实现
+    使用 Google Gemini 原生格式（非 OpenAI 兼容格式）
+    端点示例: https://yunwu.ai/v1beta/models/gemini-3-pro-image-preview:generateContent
+    """
+    
+    async def generate(
+        self,
+        prompt: str,
+        reference_data_urls: Optional[List[str]] = None,
+        aspect_ratio: str = "9:16",
+        **kwargs,
+    ) -> GenerateResult:
+        # 构建 contents 部分
+        parts: List[Dict[str, Any]] = []
+        
+        # 添加文本提示
+        parts.append({"text": prompt})
+        
+        # 添加参考图片（如果有）
+        if reference_data_urls:
+            for data_url in reference_data_urls:
+                # 解析 data URL: data:image/jpeg;base64,xxxxx
+                if data_url.startswith("data:"):
+                    try:
+                        # 提取 mime_type 和 base64 数据
+                        header, b64_data = data_url.split(",", 1)
+                        mime_type = header.split(":")[1].split(";")[0]
+                        parts.append({
+                            "inline_data": {
+                                "mime_type": mime_type,
+                                "data": b64_data
+                            }
+                        })
+                    except (ValueError, IndexError):
+                        print(f"[GeminiProvider] 无法解析 data URL: {data_url[:50]}...")
+        
+        # 构建请求体
+        payload = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": parts
+                }
+            ],
+            "generationConfig": {
+                "responseModalities": ["TEXT", "IMAGE"],
+                "imageConfig": {
+                    "aspectRatio": aspect_ratio,
+                    "imageSize": kwargs.get("image_size", "1K")
+                }
+            }
+        }
+        
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.config.api_key}"
+        }
+        
+        # 构建端点 URL
+        endpoint = self.config.endpoint.rstrip("/")
+        # 如果端点不包含 :generateContent，则追加模型路径
+        if ":generateContent" not in endpoint:
+            model = self.config.model or "gemini-3-pro-image-preview"
+            endpoint = f"{endpoint}/v1beta/models/{model}:generateContent"
+        
+        timeout = httpx.Timeout(connect=30.0, read=300.0, write=30.0, pool=None)
+        
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(endpoint, headers=headers, json=payload)
+            
+            if resp.status_code >= 400:
+                detail = resp.text
+                raise RuntimeError(f"[Gemini] API 错误 ({resp.status_code}): {detail[:500]}")
+            
+            data = resp.json()
+            
+            # 解析 Gemini 原生响应格式
+            # 结构: candidates[].content.parts[] 其中 parts 可能包含:
+            # - {"text": "...", "thought": true}  思考过程
+            # - {"text": "..."}  普通文本
+            # - {"inline_data": {"mime_type": "image/png", "data": "base64..."}}  图片
+            image_urls: List[str] = []
+            text_parts: List[str] = []
+            
+            candidates = data.get("candidates", [])
+            for candidate in candidates:
+                content = candidate.get("content", {})
+                parts_list = content.get("parts", [])
+                
+                for part in parts_list:
+                    # 提取文本（跳过思考过程）
+                    if "text" in part and not part.get("thought"):
+                        text_parts.append(part["text"])
+                    
+                    # 提取图片 - 支持两种命名格式
+                    # Gemini API 使用驼峰命名 inlineData，但也兼容蛇形命名 inline_data
+                    inline = part.get("inlineData") or part.get("inline_data")
+                    if inline:
+                        # 同样支持两种命名格式
+                        mime_type = inline.get("mimeType") or inline.get("mime_type", "image/png")
+                        b64_data = inline.get("data", "")
+                        if b64_data:
+                            # 构建 data URL
+                            data_url = f"data:{mime_type};base64,{b64_data}"
+                            image_urls.append(data_url)
+            
+            if not image_urls:
+                raise RuntimeError(f"[Gemini] 响应中未找到图片数据")
+            
+            return GenerateResult(
+                image_urls=image_urls,
+                text_response="\n".join(text_parts),
+                effective_prompt=prompt,
             )
 
