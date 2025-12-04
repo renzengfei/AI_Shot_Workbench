@@ -160,11 +160,7 @@ export default function Step3_DeconstructionReview({
     const [shotPage, setShotPage] = useState(0);
     const shotsPerPage = 5;
     const [workspacePresetSnapshot, setWorkspacePresetSnapshot] = useState<ImagePreset | null>(null);
-    const [presetForm, setPresetForm] = useState<{ 
-        content: string; 
-        character_ref_template: string; 
-        scene_ref_template: string;
-    }>({ content: '', character_ref_template: '', scene_ref_template: '' });
+    const [presetForm, setPresetForm] = useState<{ content: string }>({ content: '' });
     const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
     const [presetSaving, setPresetSaving] = useState(false);
     // Generated images per shot
@@ -209,6 +205,8 @@ export default function Step3_DeconstructionReview({
     // 全局线稿模式配置（从 workspace 加载）
     const [globalOutlineMode, setGlobalOutlineMode] = useState<boolean>(false);
     const [globalOutlinePrompt, setGlobalOutlinePrompt] = useState<string>('');
+    const [globalCharRefTemplate, setGlobalCharRefTemplate] = useState<string>('');
+    const [globalSceneRefTemplate, setGlobalSceneRefTemplate] = useState<string>('');
     // Provider selection per shot
     const [providers, setProviders] = useState<Array<{ id: string; name: string; is_default?: boolean }>>([]);
     const [shotProviders, setShotProviders] = useState<Record<number, string>>({});
@@ -245,19 +243,31 @@ export default function Step3_DeconstructionReview({
                 if (config) {
                     setGlobalOutlineMode(config.globalOutlineMode ?? false);
                     setGlobalOutlinePrompt(config.globalOutlinePrompt ?? '');
+                    setGlobalCharRefTemplate(config.charRefTemplate ?? '');
+                    setGlobalSceneRefTemplate(config.sceneRefTemplate ?? '');
                 }
             })
             .catch(err => console.error('Failed to load outline config:', err));
     }, [currentWorkspace?.path]);
 
     // 保存线稿配置到 workspace
-    const saveOutlineConfig = async (mode: boolean, prompt: string) => {
+    const saveOutlineConfig = async (config?: {
+        mode?: boolean;
+        prompt?: string;
+        charRefTemplate?: string;
+        sceneRefTemplate?: string;
+    }) => {
         if (!currentWorkspace?.path) return;
         try {
             await fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/outline-config`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ globalOutlineMode: mode, globalOutlinePrompt: prompt }),
+                body: JSON.stringify({
+                    globalOutlineMode: config?.mode ?? globalOutlineMode,
+                    globalOutlinePrompt: config?.prompt ?? globalOutlinePrompt,
+                    charRefTemplate: config?.charRefTemplate ?? globalCharRefTemplate,
+                    sceneRefTemplate: config?.sceneRefTemplate ?? globalSceneRefTemplate,
+                }),
             });
         } catch (err) {
             console.error('Failed to save outline config:', err);
@@ -267,13 +277,7 @@ export default function Step3_DeconstructionReview({
     // 更新全局线稿模式时同步保存
     const handleSetGlobalOutlineMode = (mode: boolean) => {
         setGlobalOutlineMode(mode);
-        saveOutlineConfig(mode, globalOutlinePrompt);
-    };
-
-    // 更新全局线稿提示词时同步保存
-    const handleSetGlobalOutlinePrompt = (prompt: string) => {
-        setGlobalOutlinePrompt(prompt);
-        saveOutlineConfig(globalOutlineMode, prompt);
+        saveOutlineConfig({ mode });
     };
 
     const toggleGlobalMute = () => setIsGlobalMuted(!isGlobalMuted);
@@ -881,16 +885,12 @@ export default function Step3_DeconstructionReview({
 
     const handleEditPreset = (preset: ImagePreset) => {
         setEditingPresetId(preset.id);
-        setPresetForm({ 
-            content: preset.content,
-            character_ref_template: preset.character_ref_template || '',
-            scene_ref_template: preset.scene_ref_template || '',
-        });
+        setPresetForm({ content: preset.content });
     };
 
     const handleResetPresetForm = () => {
         setEditingPresetId(null);
-        setPresetForm({ content: '', character_ref_template: '', scene_ref_template: '' });
+        setPresetForm({ content: '' });
     };
 
     const handleSavePreset = async () => {
@@ -904,8 +904,6 @@ export default function Step3_DeconstructionReview({
             const formData = {
                 content: presetForm.content,
                 name: autoName,
-                character_ref_template: presetForm.character_ref_template || null,
-                scene_ref_template: presetForm.scene_ref_template || null,
             };
             if (editingPresetId) {
                 const updated = await updateImagePreset(editingPresetId, formData);
@@ -1509,10 +1507,10 @@ export default function Step3_DeconstructionReview({
             const characterMatches = initialFrameDesc.match(/【([^】]+)】/g) || [];
             const characters = [...new Set(characterMatches.map((m: string) => m.replace(/[【】]/g, '')))];
             
-            // 使用生图设定中的模板，如果没有则使用默认值
-            const charTemplate = activeImagePreset?.character_ref_template 
+            // 使用全局配置的模板，如果没有则使用默认值
+            const charTemplate = globalCharRefTemplate.trim() 
                 || '角色【{name}】的形象、服装、发型严格参考图{image}。';
-            const sceneTemplate = activeImagePreset?.scene_ref_template 
+            const sceneTemplate = globalSceneRefTemplate.trim() 
                 || '画面的景别、人物姿势和动作严格参考图{image}。';
             
             let referenceGuide = '\n\n';
@@ -4998,23 +4996,55 @@ export default function Step3_DeconstructionReview({
 
                         {/* 线稿提取设定（线稿模式专用） */}
                         {globalOutlineMode && (
-                            <div className="p-4 rounded-xl border border-[#6B7280]/30 bg-[#6B7280]/5">
-                                <div className="flex items-center gap-2 mb-3">
+                            <div className="p-4 rounded-xl border border-[#6B7280]/30 bg-[#6B7280]/5 space-y-4">
+                                <div className="flex items-center gap-2">
                                     <Pencil size={16} className="text-[#6B7280]" />
                                     <span className="text-sm font-semibold text-[#6B7280]">线稿提取设定（线稿模式专用）</span>
                                 </div>
-                                <div className="mb-2">
+                                
+                                {/* 线稿提示词 */}
+                                <div>
                                     <label className="text-xs text-slate-600">线稿提示词：</label>
+                                    <textarea
+                                        value={globalOutlinePrompt}
+                                        onChange={(e) => setGlobalOutlinePrompt(e.target.value)}
+                                        onBlur={(e) => saveOutlineConfig({ prompt: e.target.value })}
+                                        className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-[#6B7280]/20 bg-white/80 focus:outline-none focus:ring-2 focus:ring-[#6B7280]/30 resize-none"
+                                        rows={2}
+                                        placeholder="描述线稿提取风格..."
+                                    />
                                 </div>
-                                <textarea
-                                    value={globalOutlinePrompt}
-                                    onChange={(e) => setGlobalOutlinePrompt(e.target.value)}
-                                    onBlur={(e) => saveOutlineConfig(globalOutlineMode, e.target.value)}
-                                    className="w-full px-3 py-2 text-sm rounded-lg border border-[#6B7280]/20 bg-white/80 focus:outline-none focus:ring-2 focus:ring-[#6B7280]/30 resize-none"
-                                    rows={3}
-                                    placeholder="描述线稿提取风格..."
-                                />
-                                <div className="mt-2 text-xs text-slate-500">
+                                
+                                {/* 📐 参考图指引模板 */}
+                                <div className="space-y-2 p-3 rounded-lg border border-[#6B7280]/20 bg-white/50">
+                                    <div className="text-xs font-medium text-[#6B7280]">📐 参考图指引模板（留空使用默认）</div>
+                                    <div>
+                                        <label className="text-xs text-slate-500">角色参考：</label>
+                                        <input
+                                            type="text"
+                                            value={globalCharRefTemplate}
+                                            onChange={(e) => setGlobalCharRefTemplate(e.target.value)}
+                                            onBlur={(e) => saveOutlineConfig({ charRefTemplate: e.target.value })}
+                                            className="w-full mt-1 px-3 py-1.5 rounded-lg border border-[#6B7280]/20 bg-white text-sm focus:ring-2 focus:ring-[#6B7280]/20"
+                                            placeholder="角色【{name}】的形象、服装、发型严格参考图{image}。"
+                                        />
+                                        <div className="mt-0.5 text-[10px] text-slate-400">占位符：{'{name}'} = 角色名，{'{image}'} = 参考图编号</div>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-slate-500">场景参考：</label>
+                                        <input
+                                            type="text"
+                                            value={globalSceneRefTemplate}
+                                            onChange={(e) => setGlobalSceneRefTemplate(e.target.value)}
+                                            onBlur={(e) => saveOutlineConfig({ sceneRefTemplate: e.target.value })}
+                                            className="w-full mt-1 px-3 py-1.5 rounded-lg border border-[#6B7280]/20 bg-white text-sm focus:ring-2 focus:ring-[#6B7280]/20"
+                                            placeholder="画面的景别、人物姿势和动作严格参考图{image}。"
+                                        />
+                                        <div className="mt-0.5 text-[10px] text-slate-400">占位符：{'{image}'} = 线稿图编号</div>
+                                    </div>
+                                </div>
+                                
+                                <div className="text-xs text-slate-500">
                                     ⚠️ 线稿模式下，若镜头未生成线稿，点击生图时将自动生成
                                 </div>
                             </div>
@@ -5093,34 +5123,6 @@ export default function Step3_DeconstructionReview({
                                 className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none"
                                 placeholder="描述画风、用词模板、比例等，将在生成时拼接到首帧描述后"
                             />
-                            
-                            {/* 线稿模式参考图指引模板（可选） */}
-                            <div className="space-y-2 p-3 rounded-xl border border-slate-200 bg-white/50">
-                                <div className="text-xs font-medium text-slate-600">📐 线稿模式参考图指引（可选，留空使用默认）</div>
-                                <div>
-                                    <label className="text-xs text-slate-500">角色参考模板：</label>
-                                    <input
-                                        type="text"
-                                        value={presetForm.character_ref_template}
-                                        onChange={(e) => setPresetForm((prev) => ({ ...prev, character_ref_template: e.target.value }))}
-                                        className="w-full mt-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
-                                        placeholder="角色【{name}】的形象、服装、发型严格参考图{image}。"
-                                    />
-                                    <div className="mt-0.5 text-[10px] text-slate-400">占位符：{'{name}'} = 角色名，{'{image}'} = 参考图编号</div>
-                                </div>
-                                <div>
-                                    <label className="text-xs text-slate-500">场景参考模板：</label>
-                                    <input
-                                        type="text"
-                                        value={presetForm.scene_ref_template}
-                                        onChange={(e) => setPresetForm((prev) => ({ ...prev, scene_ref_template: e.target.value }))}
-                                        className="w-full mt-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
-                                        placeholder="画面的景别、人物姿势和动作严格参考图{image}。"
-                                    />
-                                    <div className="mt-0.5 text-[10px] text-slate-400">占位符：{'{image}'} = 线稿图编号</div>
-                                </div>
-                            </div>
-                            
                             <div className="flex gap-2 justify-end">
                                 <button
                                     onClick={() => void handleSavePreset()}
