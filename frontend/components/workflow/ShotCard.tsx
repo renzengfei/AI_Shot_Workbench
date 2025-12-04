@@ -891,15 +891,9 @@ export const ShotCard = ({
                 {/* Header: Shot Number & Duration */}
                 <div className="relative z-10 flex items-center justify-between mb-8">
                     <div className="flex items-center gap-3 flex-wrap">
-                        <div className="px-4 py-1.5 rounded-full text-sm font-semibold bg-gradient-to-r from-blue-500/25 via-cyan-500/20 to-purple-500/25 text-white/90 border border-white/20 shadow-sm">
-                            SHOT {shotId}
-                        </div>
-                        <div className="relative">
-                            <span className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-white/10 tracking-tighter">
-                                {String(index + 1).padStart(2, '0')}
-                            </span>
-                            <div className="absolute -bottom-2 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full opacity-50 blur-sm" />
-                        </div>
+                        <span className="text-5xl font-semibold text-slate-800 tracking-tight tabular-nums">
+                            {String(index + 1).padStart(2, '0')}
+                        </span>
                     </div>
 
                     <div className="flex items-center gap-4 flex-wrap justify-end">
