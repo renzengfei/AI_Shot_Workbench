@@ -66,12 +66,12 @@ const FinalizeButton = ({
     return (
         <button
             onClick={onClick}
-            className={`relative w-6 h-6 rounded-full transition-all duration-200 ease-out
+            className={`relative w-6 h-6 rounded-full transition-colors duration-100
                 ${isFinalized
                     ? 'bg-[#007AFF]'
                     : 'bg-transparent border-[1.5px] border-slate-300 hover:border-slate-400'
                 }
-                active:scale-90
+                active:scale-95 transition-transform duration-75
             `}
             title={isFinalized ? '取消定稿' : '设为定稿'}
         >
