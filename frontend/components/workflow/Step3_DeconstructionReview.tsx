@@ -160,7 +160,11 @@ export default function Step3_DeconstructionReview({
     const [shotPage, setShotPage] = useState(0);
     const shotsPerPage = 5;
     const [workspacePresetSnapshot, setWorkspacePresetSnapshot] = useState<ImagePreset | null>(null);
-    const [presetForm, setPresetForm] = useState<{ content: string }>({ content: '' });
+    const [presetForm, setPresetForm] = useState<{ 
+        content: string; 
+        character_ref_template: string; 
+        scene_ref_template: string;
+    }>({ content: '', character_ref_template: '', scene_ref_template: '' });
     const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
     const [presetSaving, setPresetSaving] = useState(false);
     // Generated images per shot
@@ -877,12 +881,16 @@ export default function Step3_DeconstructionReview({
 
     const handleEditPreset = (preset: ImagePreset) => {
         setEditingPresetId(preset.id);
-        setPresetForm({ content: preset.content });
+        setPresetForm({ 
+            content: preset.content,
+            character_ref_template: preset.character_ref_template || '',
+            scene_ref_template: preset.scene_ref_template || '',
+        });
     };
 
     const handleResetPresetForm = () => {
         setEditingPresetId(null);
-        setPresetForm({ content: '' });
+        setPresetForm({ content: '', character_ref_template: '', scene_ref_template: '' });
     };
 
     const handleSavePreset = async () => {
@@ -892,17 +900,22 @@ export default function Step3_DeconstructionReview({
         }
         setPresetSaving(true);
         try {
+            const autoName = presetForm.content.trim().split(/\s+/).join(' ').slice(0, 24) || '生图设定';
+            const formData = {
+                content: presetForm.content,
+                name: autoName,
+                character_ref_template: presetForm.character_ref_template || null,
+                scene_ref_template: presetForm.scene_ref_template || null,
+            };
             if (editingPresetId) {
-                const updated = await updateImagePreset(editingPresetId, presetForm.content);
+                const updated = await updateImagePreset(editingPresetId, formData);
                 setImagePresets((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
                 if (selectedImagePresetId === updated.id) {
                     setWorkspacePresetSnapshot(updated);
                 }
                 showToast('设定已更新', 'success');
             } else {
-                // 自动生成名称（前 24 个字符）
-                const autoName = presetForm.content.trim().split(/\s+/).join(' ').slice(0, 24) || '生图设定';
-                const created = await createImagePreset(presetForm.content, autoName);
+                const created = await createImagePreset(formData);
                 setImagePresets((prev) => [created, ...prev]);
                 showToast('设定已创建', 'success');
             }
@@ -5071,7 +5084,7 @@ export default function Step3_DeconstructionReview({
                             )}
                         </div>
                         <div className="p-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 space-y-3">
-                            <div className="text-sm font-semibold text-slate-800">新增设定</div>
+                            <div className="text-sm font-semibold text-slate-800">{editingPresetId ? '编辑设定' : '新增设定'}</div>
                             <AutoTextArea
                                 value={presetForm.content}
                                 onChange={(e) => setPresetForm((prev) => ({ ...prev, content: e.target.value }))}
@@ -5080,6 +5093,34 @@ export default function Step3_DeconstructionReview({
                                 className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none"
                                 placeholder="描述画风、用词模板、比例等，将在生成时拼接到首帧描述后"
                             />
+                            
+                            {/* 线稿模式参考图指引模板（可选） */}
+                            <div className="space-y-2 p-3 rounded-xl border border-slate-200 bg-white/50">
+                                <div className="text-xs font-medium text-slate-600">📐 线稿模式参考图指引（可选，留空使用默认）</div>
+                                <div>
+                                    <label className="text-xs text-slate-500">角色参考模板：</label>
+                                    <input
+                                        type="text"
+                                        value={presetForm.character_ref_template}
+                                        onChange={(e) => setPresetForm((prev) => ({ ...prev, character_ref_template: e.target.value }))}
+                                        className="w-full mt-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+                                        placeholder="角色【{name}】的形象、服装、发型严格参考图{image}。"
+                                    />
+                                    <div className="mt-0.5 text-[10px] text-slate-400">占位符：{'{name}'} = 角色名，{'{image}'} = 参考图编号</div>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-slate-500">场景参考模板：</label>
+                                    <input
+                                        type="text"
+                                        value={presetForm.scene_ref_template}
+                                        onChange={(e) => setPresetForm((prev) => ({ ...prev, scene_ref_template: e.target.value }))}
+                                        className="w-full mt-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+                                        placeholder="画面的景别、人物姿势和动作严格参考图{image}。"
+                                    />
+                                    <div className="mt-0.5 text-[10px] text-slate-400">占位符：{'{image}'} = 线稿图编号</div>
+                                </div>
+                            </div>
+                            
                             <div className="flex gap-2 justify-end">
                                 <button
                                     onClick={() => void handleSavePreset()}

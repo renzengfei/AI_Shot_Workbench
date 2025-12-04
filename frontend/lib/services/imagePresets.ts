@@ -19,26 +19,33 @@ export async function fetchImagePresets(): Promise<ImagePreset[]> {
     return (data?.presets as ImagePreset[]) || [];
 }
 
-export async function createImagePreset(content: string, name?: string): Promise<ImagePreset> {
+export interface PresetFormData {
+    content: string;
+    name?: string;
+    character_ref_template?: string | null;
+    scene_ref_template?: string | null;
+}
+
+export async function createImagePreset(data: PresetFormData): Promise<ImagePreset> {
     const resp = await fetch(`${API_BASE}/api/image-presets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, content }),
+        body: JSON.stringify(data),
     });
     if (!resp.ok) throw new Error(`创建生图设定失败: ${resp.status}`);
-    const data = await resp.json();
-    return data?.preset as ImagePreset;
+    const result = await resp.json();
+    return result?.preset as ImagePreset;
 }
 
-export async function updateImagePreset(id: string, content: string, name?: string): Promise<ImagePreset> {
+export async function updateImagePreset(id: string, data: PresetFormData): Promise<ImagePreset> {
     const resp = await fetch(`${API_BASE}/api/image-presets/${encodeURIComponent(id)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, content }),
+        body: JSON.stringify(data),
     });
     if (!resp.ok) throw new Error(`更新生图设定失败: ${resp.status}`);
-    const data = await resp.json();
-    return data?.preset as ImagePreset;
+    const result = await resp.json();
+    return result?.preset as ImagePreset;
 }
 
 export async function deleteImagePreset(id: string) {
