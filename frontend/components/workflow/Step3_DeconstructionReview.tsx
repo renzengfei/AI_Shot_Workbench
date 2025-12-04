@@ -4288,8 +4288,8 @@ export default function Step3_DeconstructionReview({
                                     onClick={() => setDefaultStream('outline')}
                                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                                         defaultStream === 'outline'
-                                            ? 'bg-[#34C759] text-white shadow-sm'
-                                            : 'text-slate-500 hover:text-[#34C759] hover:bg-[#34C759]/10'
+                                            ? 'bg-[#6B7280] text-white shadow-sm'
+                                            : 'text-slate-500 hover:text-[#6B7280] hover:bg-[#6B7280]/10'
                                     }`}
                                 >
                                     <Pencil size={14} />
@@ -4299,8 +4299,8 @@ export default function Step3_DeconstructionReview({
                                     onClick={() => setDefaultStream('image')}
                                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                                         defaultStream === 'image'
-                                            ? 'bg-blue-500 text-white shadow-sm'
-                                            : 'text-slate-500 hover:text-blue-500 hover:bg-blue-500/10'
+                                            ? 'bg-[#6366F1] text-white shadow-sm'
+                                            : 'text-slate-500 hover:text-[#6366F1] hover:bg-[#6366F1]/10'
                                     }`}
                                 >
                                     <ImageIcon size={14} />
@@ -4310,8 +4310,8 @@ export default function Step3_DeconstructionReview({
                                     onClick={() => setDefaultStream('video')}
                                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                                         defaultStream === 'video'
-                                            ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm'
-                                            : 'text-slate-500 hover:text-purple-500 hover:bg-purple-500/10'
+                                            ? 'bg-[#EC4899] text-white shadow-sm'
+                                            : 'text-slate-500 hover:text-[#EC4899] hover:bg-[#EC4899]/10'
                                     }`}
                                 >
                                     <Video size={14} />
@@ -4323,7 +4323,7 @@ export default function Step3_DeconstructionReview({
                                 <button
                                     onClick={handleBatchGenerateOutlines}
                                     disabled={batchGeneratingOutlines}
-                                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 active:scale-95 bg-gradient-to-r from-[#34C759] to-[#30D158] text-white shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 active:scale-95 bg-gradient-to-r from-[#6B7280] to-[#5B6370] text-white shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {batchGeneratingOutlines ? <Loader2 size={16} className="animate-spin" /> : <Pencil size={16} />}
                                     {batchGeneratingOutlines ? '生成中...' : '批量生成线稿'}
@@ -4957,8 +4957,8 @@ export default function Step3_DeconstructionReview({
                                     onClick={() => handleSetGlobalOutlineMode(true)}
                                     className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all ${
                                         globalOutlineMode
-                                            ? 'bg-[#34C759] text-white shadow-md'
-                                            : 'bg-white border border-slate-200 text-slate-600 hover:border-[#34C759]'
+                                            ? 'bg-[#6B7280] text-white shadow-md'
+                                            : 'bg-white border border-slate-200 text-slate-600 hover:border-[#6B7280]'
                                     }`}
                                 >
                                     线稿模式 ✓
@@ -4972,10 +4972,10 @@ export default function Step3_DeconstructionReview({
 
                         {/* 线稿提取设定（线稿模式专用） */}
                         {globalOutlineMode && (
-                            <div className="p-4 rounded-xl border border-[#34C759]/30 bg-[#34C759]/5">
+                            <div className="p-4 rounded-xl border border-[#6B7280]/30 bg-[#6B7280]/5">
                                 <div className="flex items-center gap-2 mb-3">
-                                    <Pencil size={16} className="text-[#34C759]" />
-                                    <span className="text-sm font-semibold text-[#34C759]">线稿提取设定（线稿模式专用）</span>
+                                    <Pencil size={16} className="text-[#6B7280]" />
+                                    <span className="text-sm font-semibold text-[#6B7280]">线稿提取设定（线稿模式专用）</span>
                                 </div>
                                 <div className="mb-2">
                                     <label className="text-xs text-slate-600">线稿提示词：</label>
@@ -4984,7 +4984,7 @@ export default function Step3_DeconstructionReview({
                                     value={globalOutlinePrompt}
                                     onChange={(e) => setGlobalOutlinePrompt(e.target.value)}
                                     onBlur={(e) => saveOutlineConfig(globalOutlineMode, e.target.value)}
-                                    className="w-full px-3 py-2 text-sm rounded-lg border border-[#34C759]/20 bg-white/80 focus:outline-none focus:ring-2 focus:ring-[#34C759]/30 resize-none"
+                                    className="w-full px-3 py-2 text-sm rounded-lg border border-[#6B7280]/20 bg-white/80 focus:outline-none focus:ring-2 focus:ring-[#6B7280]/30 resize-none"
                                     rows={3}
                                     placeholder="描述线稿提取风格..."
                                 />
