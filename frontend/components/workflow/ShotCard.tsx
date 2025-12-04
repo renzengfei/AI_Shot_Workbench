@@ -706,8 +706,10 @@ export const ShotCard = ({
     const alternatives = shot.alternatives || [];
     const showGeneration = !!onGenerateImage;
     const hasGeneratedImages = Array.isArray(generatedImageUrls) && generatedImageUrls.length > 0;
-    const activeIndex = generatedImageIndex !== undefined ? generatedImageIndex : (hasGeneratedImages ? generatedImageUrls.length - 1 : 0);
-    const activeImage = hasGeneratedImages ? generatedImageUrls[Math.min(activeIndex, generatedImageUrls.length - 1)] : null;
+    // 【修复】不使用默认索引，只有当明确传入 generatedImageIndex 时才显示选中图片
+    // 避免在 savedIndexes 加载完成前显示错误的图片
+    const activeIndex = generatedImageIndex;
+    const activeImage = hasGeneratedImages && activeIndex !== undefined ? generatedImageUrls[Math.min(activeIndex, generatedImageUrls.length - 1)] : null;
     const isNewShot = !Number.isInteger(shotId) || shot.timestamp === 'N/A' || shot.end_time === 'N/A';
     
     // 从图片URL提取文件名序号（如 image_url_27.png → 27）
