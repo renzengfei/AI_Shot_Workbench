@@ -382,7 +382,32 @@ export default function Step3_DeconstructionReview({
                     }
                 }
                 setGeneratedOutlines(outlinesMap);
-                setActiveOutlineUrls(activeMap);
+                
+                // 从后端加载保存的线稿选择
+                try {
+                    const savedResp = await fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-outlines?generated_dir=${generatedDir}`);
+                    if (savedResp.ok) {
+                        const savedData = await savedResp.json() as { urls: Record<string, string> };
+                        if (savedData.urls && Object.keys(savedData.urls).length > 0) {
+                            // 用保存的选择覆盖默认选择
+                            const mergedMap = { ...activeMap };
+                            for (const [shotIdStr, url] of Object.entries(savedData.urls)) {
+                                const shotId = Number(shotIdStr);
+                                // 只有当 URL 仍然存在于线稿列表中时才使用
+                                if (outlinesMap[shotId]?.includes(url)) {
+                                    mergedMap[shotId] = url;
+                                }
+                            }
+                            setActiveOutlineUrls(mergedMap);
+                        } else {
+                            setActiveOutlineUrls(activeMap);
+                        }
+                    } else {
+                        setActiveOutlineUrls(activeMap);
+                    }
+                } catch {
+                    setActiveOutlineUrls(activeMap);
+                }
                 
                 // 恢复 pending outline 状态
                 const pending = readPendingOutlines();
@@ -1580,10 +1605,32 @@ export default function Step3_DeconstructionReview({
         setOutlinePrompts((prev) => ({ ...prev, [shotId]: prompt }));
     };
 
+    // 保存选中线稿到后端
+    const saveSelectedOutlines = useCallback(async (urls: Record<number, string>) => {
+        if (!currentWorkspace?.path) return;
+        try {
+            await fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-outlines`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    generated_dir: generatedDir,
+                    urls,
+                }),
+            });
+        } catch (err) {
+            console.error('保存选中线稿失败:', err);
+        }
+    }, [currentWorkspace?.path, generatedDir]);
+
     // 选择线稿回调
     const handleSelectOutline = (shot: Round2Shot, index: number, url: string) => {
         const shotId = shot.id ?? index + 1;
-        setActiveOutlineUrls((prev) => ({ ...prev, [shotId]: url }));
+        setActiveOutlineUrls((prev) => {
+            const newUrls = { ...prev, [shotId]: url };
+            // 保存到后端
+            saveSelectedOutlines(newUrls);
+            return newUrls;
+        });
     };
 
     // 生成线稿回调（使用原片首帧）
