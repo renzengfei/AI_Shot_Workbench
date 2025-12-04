@@ -1492,9 +1492,9 @@ export default function Step3_DeconstructionReview({
         
         // 线稿模式下添加参考图指引
         if (isOutlineMode && activeOutline) {
-            // 从首帧描述中提取角色名（【xxx】格式）
+            // 从首帧描述中提取角色名（【xxx】格式），去重
             const characterMatches = initialFrameDesc.match(/【([^】]+)】/g) || [];
-            const characters = characterMatches.map((m: string) => m.replace(/[【】]/g, ''));
+            const characters = [...new Set(characterMatches.map((m: string) => m.replace(/[【】]/g, '')))];
             
             let referenceGuide = '\n\n';
             characters.forEach((char: string, idx: number) => {
