@@ -201,21 +201,11 @@ export default function Step3_DeconstructionReview({
     const [generatingOutlines, setGeneratingOutlines] = useState<Record<number, boolean>>({});  // 正在生成线稿的镜头
     const [batchGeneratingOutlines, setBatchGeneratingOutlines] = useState(false);  // 批量生成线稿中
     const [outlineProgress, setOutlineProgress] = useState({ completed: 0, total: 0 });  // 线稿生成进度
-    // 全局线稿模式配置
-    const [globalOutlineMode, setGlobalOutlineMode] = useState<boolean>(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('globalOutlineMode');
-            return saved === 'true';
-        }
-        return false;
-    });
-    const [globalOutlinePrompt, setGlobalOutlinePrompt] = useState<string>(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('globalOutlinePrompt');
-            return saved || 'extract clean line art, black outlines on white background, no shading, anime style';
-        }
-        return 'extract clean line art, black outlines on white background, no shading, anime style';
-    });
+    // 全局线稿模式配置（从 workspace 加载）
+    const [globalOutlineMode, setGlobalOutlineMode] = useState<boolean>(false);
+    const [globalOutlinePrompt, setGlobalOutlinePrompt] = useState<string>(
+        'extract clean line art, black outlines on white background, no shading, anime style'
+    );
     // Provider selection per shot
     const [providers, setProviders] = useState<Array<{ id: string; name: string; is_default?: boolean }>>([]);
     const [shotProviders, setShotProviders] = useState<Record<number, string>>({});
@@ -243,14 +233,45 @@ export default function Step3_DeconstructionReview({
         localStorage.setItem('defaultStream', defaultStream);
     }, [defaultStream]);
 
-    // 持久化全局线稿模式配置
+    // 从 workspace 加载线稿配置
     useEffect(() => {
-        localStorage.setItem('globalOutlineMode', String(globalOutlineMode));
-    }, [globalOutlineMode]);
+        if (!currentWorkspace?.path) return;
+        fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/outline-config`)
+            .then(res => res.ok ? res.json() : null)
+            .then(config => {
+                if (config) {
+                    setGlobalOutlineMode(config.globalOutlineMode ?? false);
+                    setGlobalOutlinePrompt(config.globalOutlinePrompt ?? 'extract clean line art, black outlines on white background, no shading, anime style');
+                }
+            })
+            .catch(err => console.error('Failed to load outline config:', err));
+    }, [currentWorkspace?.path]);
 
-    useEffect(() => {
-        localStorage.setItem('globalOutlinePrompt', globalOutlinePrompt);
-    }, [globalOutlinePrompt]);
+    // 保存线稿配置到 workspace
+    const saveOutlineConfig = async (mode: boolean, prompt: string) => {
+        if (!currentWorkspace?.path) return;
+        try {
+            await fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/outline-config`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ globalOutlineMode: mode, globalOutlinePrompt: prompt }),
+            });
+        } catch (err) {
+            console.error('Failed to save outline config:', err);
+        }
+    };
+
+    // 更新全局线稿模式时同步保存
+    const handleSetGlobalOutlineMode = (mode: boolean) => {
+        setGlobalOutlineMode(mode);
+        saveOutlineConfig(mode, globalOutlinePrompt);
+    };
+
+    // 更新全局线稿提示词时同步保存
+    const handleSetGlobalOutlinePrompt = (prompt: string) => {
+        setGlobalOutlinePrompt(prompt);
+        saveOutlineConfig(globalOutlineMode, prompt);
+    };
 
     const toggleGlobalMute = () => setIsGlobalMuted(!isGlobalMuted);
     const handleGlobalVolumeChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -1562,6 +1583,8 @@ export default function Step3_DeconstructionReview({
         // 并发控制：最多 20 个并发
         const CONCURRENCY = 20;
         let completedCount = 0;
+        let successCount = 0;
+        let failedCount = 0;
         
         const generateOne = async (shot: Round2Shot, idx: number) => {
             const shotId = shot.id ?? idx + 1;
@@ -1582,7 +1605,7 @@ export default function Step3_DeconstructionReview({
                         workspace_path: currentWorkspace.path,
                         shot_id: shotId,
                         source_image_path: imagePath,
-                        prompt: outlinePrompts[shotId] || 'extract clean line art, black outlines on white background, no shading, anime style',
+                        prompt: outlinePrompts[shotId] || globalOutlinePrompt,
                     }),
                 });
                 if (resp.ok) {
@@ -1593,10 +1616,16 @@ export default function Step3_DeconstructionReview({
                             [shotId]: [...(prev[shotId] || []), data.outline_url!],
                         }));
                         setActiveOutlineUrls((prev) => ({ ...prev, [shotId]: data.outline_url! }));
+                        successCount++;
+                    } else {
+                        failedCount++;
                     }
+                } else {
+                    failedCount++;
                 }
             } catch (err) {
                 console.error(`Shot ${shotId} outline generation failed:`, err);
+                failedCount++;
             } finally {
                 setGeneratingOutlines((prev) => ({ ...prev, [shotId]: false }));
                 completedCount++;
@@ -1614,7 +1643,11 @@ export default function Step3_DeconstructionReview({
         }
         
         setBatchGeneratingOutlines(false);
-        showToast(`线稿生成完成 ${completedCount}/${shotsWithImages.length}`, 'success');
+        if (failedCount > 0) {
+            showToast(`线稿生成完成：成功 ${successCount} 个，失败 ${failedCount} 个`, failedCount === shotsWithImages.length ? 'error' : 'success');
+        } else {
+            showToast(`线稿生成完成 ${successCount}/${shotsWithImages.length}`, 'success');
+        }
     };
 
     // 生视频回调（支持同时生成多个视频变体）
@@ -4698,7 +4731,7 @@ export default function Step3_DeconstructionReview({
                             </div>
                             <div className="flex gap-3 mb-3">
                                 <button
-                                    onClick={() => setGlobalOutlineMode(false)}
+                                    onClick={() => handleSetGlobalOutlineMode(false)}
                                     className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all ${
                                         !globalOutlineMode
                                             ? 'bg-blue-500 text-white shadow-md'
@@ -4708,7 +4741,7 @@ export default function Step3_DeconstructionReview({
                                     标准模式
                                 </button>
                                 <button
-                                    onClick={() => setGlobalOutlineMode(true)}
+                                    onClick={() => handleSetGlobalOutlineMode(true)}
                                     className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all ${
                                         globalOutlineMode
                                             ? 'bg-[#34C759] text-white shadow-md'
@@ -4737,6 +4770,7 @@ export default function Step3_DeconstructionReview({
                                 <textarea
                                     value={globalOutlinePrompt}
                                     onChange={(e) => setGlobalOutlinePrompt(e.target.value)}
+                                    onBlur={(e) => saveOutlineConfig(globalOutlineMode, e.target.value)}
                                     className="w-full px-3 py-2 text-sm rounded-lg border border-[#34C759]/20 bg-white/80 focus:outline-none focus:ring-2 focus:ring-[#34C759]/30 resize-none"
                                     rows={3}
                                     placeholder="描述线稿提取风格..."
