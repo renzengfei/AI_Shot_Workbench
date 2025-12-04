@@ -168,6 +168,7 @@ export default function Step3_DeconstructionReview({
     const generatedImagesRef = useRef<Record<number, string[]>>({});
     const [generatedIndexes, setGeneratedIndexes] = useState<Record<number, number>>({});
     const [savedIndexes, setSavedIndexes] = useState<Record<number, number>>({});
+    const [savedImageFilenames, setSavedImageFilenames] = useState<Record<string, string | number>>({}); // 保存的文件名映射（关键状态）
     const [savedIndexesLoaded, setSavedIndexesLoaded] = useState(false); // 区分"加载中"vs"加载完成但为空"
     const savedIndexesRef = useRef<Record<number, number>>({});
     const [generatingShots, setGeneratingShots] = useState<Record<number, boolean>>({});
@@ -2345,7 +2346,8 @@ export default function Step3_DeconstructionReview({
         setGeneratedImages({});
         setGeneratedIndexes({});
         setSavedIndexesLoaded(false); // 重置加载状态
-        // 同时清空 window 临时变量
+        setSavedImageFilenames({}); // 重置保存的文件名映射
+        // 同时清空 window 临时变量（向后兼容）
         (window as unknown as Record<string, unknown>).__savedImageFilenames = {};
         setNewlyGenerated({});
         setGeneratingShots({});
@@ -2467,9 +2469,12 @@ export default function Step3_DeconstructionReview({
                     });
                 }
                 setSavedIndexes(mapped);
+                // 【关键】将文件名映射存储到 React 状态（可靠）
+                const filenames = data.indexes || {};
+                setSavedImageFilenames(filenames);
+                // 同时更新 window 变量（向后兼容 appendNewImages 等）
+                (window as unknown as Record<string, unknown>).__savedImageFilenames = filenames;
                 setSavedIndexesLoaded(true); // 标记加载完成
-                // 存储文件名到临时变量，供后续匹配
-                (window as unknown as Record<string, unknown>).__savedImageFilenames = data.indexes || {};
             })
             .catch(() => {
                 setSavedIndexes({});
@@ -2585,15 +2590,14 @@ export default function Step3_DeconstructionReview({
     }, [savedVideoIndexesLoaded, savedVideoFilenames, generatedVideos]);
 
     // 当远端已保存的索引到达后，应用到对应镜头（支持文件名匹配）
-    // 同时为没有保存记录的 shot 设置默认索引（最后一张图片）
+    // 【关键改进】使用 React 状态 savedImageFilenames 而非 window 全局变量，确保数据可靠
     useEffect(() => {
         // 必须等 savedIndexes 加载完成且有图片列表才设置索引，避免闪烁
         if (!savedIndexesLoaded || !Object.keys(generatedImages).length) return;
         
-        const savedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string | number> || {};
-        
         // [调试] 记录每次尝试匹配的结果
         const debugLog: string[] = [];
+        debugLog.push(`[开始匹配] savedImageFilenames keys: ${Object.keys(savedImageFilenames).join(', ')}`);
         
         setGeneratedIndexes((prev) => {
             let changed = false;
@@ -2604,11 +2608,11 @@ export default function Step3_DeconstructionReview({
                 const id = Number(k);
                 if (!imgs || !imgs.length) return;
                 
-                // 直接从 savedFilenames 查找文件名（尝试多种 key 格式）
+                // 【关键】从 React 状态读取文件名（尝试多种 key 格式）
                 const possibleKeys = [String(id), id.toFixed(1), String(Math.floor(id))];
                 let filename: string | undefined;
                 for (const key of possibleKeys) {
-                    const val = savedFilenames[key];
+                    const val = savedImageFilenames[key];
                     if (typeof val === 'string') {
                         filename = val;
                         break;
@@ -2617,6 +2621,7 @@ export default function Step3_DeconstructionReview({
                         if (val >= 0 && val < imgs.length && prev[id] !== val) {
                             next[id] = val;
                             changed = true;
+                            debugLog.push(`[Shot ${id}] 旧格式索引: ${val}`);
                         }
                         return;
                     }
@@ -2652,7 +2657,7 @@ export default function Step3_DeconstructionReview({
             
             return changed ? next : prev;
         });
-    }, [savedIndexes, generatedImages, savedIndexesLoaded]);
+    }, [savedImageFilenames, generatedImages, savedIndexesLoaded]);
 
     const optimizedMapped = useMemo(() => {
         if (!optimizedStoryboard) return { r1: null as Round1Data | null, r2: null as Round2Data | null };
