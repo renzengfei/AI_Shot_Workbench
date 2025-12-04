@@ -1082,7 +1082,7 @@ export const ShotCard = ({
                                             disabled={isGenerating}
                                             className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shadow-md transition-all duration-200 active:scale-95 ${isGenerating
                                                     ? 'bg-slate-400 text-white cursor-not-allowed'
-                                                    : 'bg-[#6366F1] text-white hover:bg-[#5457E5]'
+                                                    : 'bg-[#007AFF] text-white hover:bg-[#0066DD]'
                                                 }`}
                                         >
                                             {isGenerating ? (
@@ -1190,7 +1190,7 @@ export const ShotCard = ({
                                     </div>
                                 )}
                                 <div className="flex flex-col gap-2 basis-[58%] min-h-0 overflow-hidden">
-                                    <div className="flex items-center justify-between text-sm font-semibold text-[#6366F1] flex-shrink-0">
+                                    <div className="flex items-center justify-between text-sm font-medium text-slate-500 flex-shrink-0">
                                         <div className="flex items-center gap-2">
                                             <ImageIcon size={14} />
                                             <span>首帧描述</span>
@@ -1224,7 +1224,7 @@ export const ShotCard = ({
                                                     disabled={isGenerating}
                                                     className={`flex items-center justify-center gap-2 w-[100px] py-1.5 rounded-xl text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${isGenerating
                                                             ? 'bg-slate-400 text-white cursor-not-allowed'
-                                                            : 'bg-[#6366F1] text-white hover:bg-[#5457E5]'
+                                                            : 'bg-[#007AFF] text-white hover:bg-[#0066DD]'
                                                         }`}
                                                 >
                                                     {isGenerating ? (
@@ -1260,7 +1260,7 @@ export const ShotCard = ({
                                     </div>
                                 </div>
                                 <div className="flex flex-col gap-2 basis-[30%] min-h-0">
-                                    <div className="flex items-center justify-between text-sm font-semibold text-[#EC4899] flex-shrink-0">
+                                    <div className="flex items-center justify-between text-sm font-medium text-slate-500 flex-shrink-0">
                                         <div className="flex items-center gap-2">
                                             <Film size={14} />
                                             <span>视频描述</span>
@@ -1276,7 +1276,7 @@ export const ShotCard = ({
                                                         ? 'bg-red-500 text-white hover:bg-red-600'
                                                         : !hasGeneratedImages
                                                             ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                                                            : 'bg-[#EC4899] text-white hover:bg-[#DB2777]'
+                                                            : 'bg-[#007AFF] text-white hover:bg-[#0066DD]'
                                                     }`}
                                             >
                                                 {isGeneratingVideo ? (
