@@ -134,6 +134,15 @@ def save_categories(categories):
 
 
 def get_reference_image_path(image_id: str):
+    # 支持 /workspaces/ 开头的 URL（如线稿图）
+    if image_id.startswith("/workspaces/"):
+        rel_path = image_id[len("/workspaces/"):]
+        full_path = os.path.join(os.path.abspath(WORKSPACES_DIR), rel_path)
+        if os.path.exists(full_path):
+            return full_path
+        return None
+    
+    # 原有逻辑：从角色库中查找
     items = load_reference_metadata()
     for item in items:
         if item.get("id") == image_id:
