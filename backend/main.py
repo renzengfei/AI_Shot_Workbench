@@ -712,6 +712,13 @@ async def generate_images_internal(request: GenerateImageRequest) -> dict:
         request.prompt if not preset_text else f"{request.prompt}\n\n生图设定：{preset_text}"
     )
 
+    # 打印完整提示词到终端
+    print(f"\n{'='*60}")
+    print(f"[生成图片] Shot: {request.shot_id}, Provider: {provider_config.name}")
+    print(f"{'='*60}")
+    print(f"完整提示词:\n{final_prompt}")
+    print(f"{'='*60}\n")
+
     # 3. 准备参考图片的 data URLs
     image_data_urls = []
     for img_id in request.reference_image_ids or []:
@@ -1975,6 +1982,13 @@ async def generate_outline(request: GenerateOutlineRequest):
     os.makedirs(outlines_dir, exist_ok=True)
     
     try:
+        # 打印完整提示词到终端
+        print(f"\n{'='*60}")
+        print(f"[生成线稿] Shot: {request.shot_id}, Provider: {provider_config.name}")
+        print(f"{'='*60}")
+        print(f"完整提示词:\n{request.outline_prompt}")
+        print(f"{'='*60}\n")
+        
         # 调用生图供应商
         provider = ImageProvider.create(provider_config)
         result = await provider.generate(
