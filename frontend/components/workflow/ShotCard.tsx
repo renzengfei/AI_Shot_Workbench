@@ -1,4 +1,4 @@
-import { Clock, Zap, Image as ImageIcon, Layers, Sparkles, Users, Sun, Palette, CheckCircle2, RefreshCw, Box, Layout, Trash2, ChevronDown, Check, AlertCircle, Video, Wand2, Loader2, FileText, X, ChevronLeft, ChevronRight, Undo2, Square, Pencil } from 'lucide-react';
+import { Clock, Zap, Image as ImageIcon, Layers, Sparkles, Users, Sun, Palette, CheckCircle2, RefreshCw, Box, Layout, Trash2, ChevronDown, Check, AlertCircle, Video, Wand2, Loader2, FileText, X, ChevronLeft, ChevronRight, Undo2, Square, Pencil, Film } from 'lucide-react';
 import { type ReactNode, useState, useEffect, useMemo } from 'react';
 import { AutoTextArea } from '@/components/ui/AutoTextArea';
 import { PreviewVideoPlayer } from '@/components/ui/PreviewVideoPlayer';
@@ -1090,7 +1090,7 @@ export const ShotCard = ({
                                                 <button
                                                     onClick={() => onGenerateOutline?.(shot, index)}
                                                     disabled={isGeneratingOutline}
-                                                    className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${
+                                                    className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${
                                                         isGeneratingOutline
                                                             ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
                                                             : 'bg-[#6B7280] text-white hover:bg-[#5B6370]'
@@ -1113,8 +1113,9 @@ export const ShotCard = ({
                                     </div>
                                 )}
                                 <div className="flex flex-col gap-2 basis-[58%] min-h-0 overflow-hidden">
-                                    <div className="flex items-center justify-between text-sm font-semibold text-blue-600 flex-shrink-0">
+                                    <div className="flex items-center justify-between text-sm font-semibold text-[#6366F1] flex-shrink-0">
                                         <div className="flex items-center gap-2">
+                                            <ImageIcon size={14} />
                                             <span>首帧描述</span>
                                             {renderAnnotationControl?.(`shot-${shot.id ?? index}-initial`, `Shot #${shot.id ?? index + 1} Initial Frame`)}
                                         </div>
@@ -1144,7 +1145,7 @@ export const ShotCard = ({
                                                         }, 50);
                                                     }}
                                                     disabled={isGenerating}
-                                                    className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${
+                                                    className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${
                                                         isGenerating
                                                             ? 'bg-slate-400 text-white cursor-not-allowed'
                                                             : 'bg-[#6366F1] text-white hover:bg-[#5457E5]'
@@ -1183,8 +1184,9 @@ export const ShotCard = ({
                                     </div>
                                 </div>
                                 <div className="flex flex-col gap-2 basis-[30%] min-h-0">
-                                    <div className="flex items-center justify-between text-sm font-semibold text-purple-600 flex-shrink-0">
+                                    <div className="flex items-center justify-between text-sm font-semibold text-[#EC4899] flex-shrink-0">
                                         <div className="flex items-center gap-2">
+                                            <Film size={14} />
                                             <span>视频描述</span>
                                             {renderAnnotationControl?.(`shot-${shot.id ?? index}-visual`, `Shot #${shot.id ?? index + 1} Visual`)}
                                         </div>
@@ -1194,7 +1196,7 @@ export const ShotCard = ({
                                                 onClick={() => isGeneratingVideo ? onStopVideoGeneration?.(shot, index) : onGenerateVideo(shot, index)}
                                                 disabled={!isGeneratingVideo && !hasGeneratedImages}
                                                 title={isGeneratingVideo ? '停止生成视频' : !hasGeneratedImages ? '请先生成图片' : '使用当前图片生成视频'}
-                                                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${
+                                                className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${
                                                     isGeneratingVideo
                                                         ? 'bg-red-500 text-white hover:bg-red-600'
                                                         : !hasGeneratedImages
