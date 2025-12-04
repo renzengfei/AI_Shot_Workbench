@@ -94,6 +94,11 @@ export interface Round2Shot {
     density_score?: number;
     discarded?: boolean;
     merge_with_previous?: boolean;
+    // 线稿模式相关字段
+    outlineMode?: boolean;           // 是否启用线稿模式（单镜头覆盖）
+    outlinePrompt?: string;          // 线稿提示词（单镜头自定义）
+    activeOutlineUrl?: string;       // 当前激活的线稿图 URL
+    outlineUrls?: string[];          // 所有线稿图 URL 列表
 }
 
 export interface Round2Data {

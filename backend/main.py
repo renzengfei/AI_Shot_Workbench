@@ -1834,3 +1834,224 @@ async def export_selected_videos(request: ExportVideosRequest):
         "total": len(exported_files),
         "files": exported_files
     }
+
+
+# ============== 线稿图生成相关 API ==============
+
+class GenerateOutlineRequest(BaseModel):
+    workspace_path: str
+    shot_id: str
+    frame_url: str           # 原片首帧 URL
+    outline_prompt: str      # 线稿提示词
+    provider_id: Optional[str] = None
+
+
+class OutlineConfigModel(BaseModel):
+    globalOutlineMode: bool = False
+    globalOutlinePrompt: str = "extract clean line art, black outlines on white background, no shading, anime style"
+
+
+@app.post("/api/generate-outline")
+async def generate_outline(request: GenerateOutlineRequest):
+    """
+    生成线稿图 - 复用生图 API
+    将原片首帧作为参考图，使用线稿提示词生成线稿
+    """
+    ensure_workspace_exists(request.workspace_path)
+    
+    # 获取供应商配置
+    if request.provider_id:
+        provider_config = provider_config_manager.get_provider(request.provider_id)
+        if not provider_config:
+            raise HTTPException(status_code=404, detail=f"供应商不存在: {request.provider_id}")
+    else:
+        provider_config = provider_config_manager.get_default_provider()
+        if not provider_config:
+            raise HTTPException(status_code=500, detail="未配置任何生图供应商")
+    
+    logger.info(f"生成线稿图 - 使用供应商: {provider_config.name}")
+    
+    # 准备参考图（原片首帧）
+    image_data_urls = []
+    frame_path = None
+    
+    # 解析首帧路径
+    if request.frame_url.startswith('/api/'):
+        # 从 API URL 解析实际路径
+        # 例如 /api/workspaces/.../assets/frames/frame_001_xxx.jpg
+        parts = request.frame_url.replace('/api/workspaces/', '').split('/')
+        if len(parts) >= 4:
+            ws_path = '/'.join(parts[:-3])  # workspace path
+            frame_filename = parts[-1]
+            frame_path = os.path.join(request.workspace_path, 'assets', 'frames', frame_filename)
+    elif request.frame_url.startswith('http'):
+        # 外部 URL，需要下载
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.get(request.frame_url)
+                if resp.status_code == 200:
+                    content_type = resp.headers.get('content-type', 'image/jpeg')
+                    encoded = base64.b64encode(resp.content).decode('utf-8')
+                    image_data_urls.append(f"data:{content_type};base64,{encoded}")
+        except Exception as e:
+            logger.error(f"下载首帧失败: {e}")
+            raise HTTPException(status_code=400, detail=f"无法获取首帧图片: {e}")
+    else:
+        # 直接路径
+        frame_path = request.frame_url
+    
+    # 读取本地首帧文件
+    if frame_path and os.path.exists(frame_path):
+        with open(frame_path, "rb") as f:
+            encoded = base64.b64encode(f.read()).decode("utf-8")
+            mime = "image/png"
+            if frame_path.lower().endswith((".jpg", ".jpeg")):
+                mime = "image/jpeg"
+            elif frame_path.lower().endswith(".webp"):
+                mime = "image/webp"
+            image_data_urls.append(f"data:{mime};base64,{encoded}")
+    
+    if not image_data_urls:
+        raise HTTPException(status_code=400, detail="无法获取首帧图片")
+    
+    # 准备输出目录
+    shot_label = str(request.shot_id).strip()
+    if ".." in shot_label or "/" in shot_label or "\\" in shot_label:
+        raise HTTPException(status_code=400, detail="shot_id 无效")
+    
+    outlines_dir = os.path.join(request.workspace_path, "assets", "outlines", shot_label)
+    os.makedirs(outlines_dir, exist_ok=True)
+    
+    try:
+        # 调用生图供应商
+        provider = ImageProvider.create(provider_config)
+        result = await provider.generate(
+            prompt=request.outline_prompt,
+            reference_data_urls=image_data_urls,
+            aspect_ratio="9:16",
+        )
+        
+        # 保存生成的线稿图
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        saved_outline = None
+        
+        # 处理 base64 结果
+        for img_data in (result.images_base64 or []):
+            if not img_data:
+                continue
+            try:
+                header, b64data = img_data.split(",", 1)
+            except ValueError:
+                continue
+            ext = "png"
+            if "jpeg" in header or "jpg" in header:
+                ext = "jpg"
+            filename = f"outline_{timestamp}.{ext}"
+            path = os.path.join(outlines_dir, filename)
+            with open(path, "wb") as f:
+                f.write(base64.b64decode(b64data))
+            saved_outline = f"/api/workspaces/{request.workspace_path}/assets/outlines/{shot_label}/{filename}"
+            break
+        
+        # 处理 URL 结果
+        if not saved_outline:
+            for url in (result.images_url or []):
+                if not url:
+                    continue
+                try:
+                    async with httpx.AsyncClient(timeout=60.0) as client:
+                        resp = await client.get(url)
+                        if resp.status_code == 200:
+                            ext = "png"
+                            ct = resp.headers.get("content-type", "")
+                            if "jpeg" in ct or "jpg" in ct:
+                                ext = "jpg"
+                            filename = f"outline_{timestamp}.{ext}"
+                            path = os.path.join(outlines_dir, filename)
+                            with open(path, "wb") as f:
+                                f.write(resp.content)
+                            saved_outline = f"/api/workspaces/{request.workspace_path}/assets/outlines/{shot_label}/{filename}"
+                            break
+                except Exception as e:
+                    logger.error(f"下载线稿图失败: {e}")
+                    continue
+        
+        if not saved_outline:
+            raise HTTPException(status_code=500, detail="线稿生成结果为空")
+        
+        return {"success": True, "outline_url": saved_outline}
+        
+    except Exception as e:
+        logger.exception(f"生成线稿失败: {e}")
+        raise HTTPException(status_code=500, detail=f"生成线稿失败: {e}")
+
+
+@app.get("/api/workspaces/{workspace_path:path}/outlines")
+async def list_outlines(workspace_path: str, shot_id: str):
+    """获取镜头的所有线稿图列表"""
+    if not os.path.exists(workspace_path):
+        raise HTTPException(status_code=404, detail="workspace_path 不存在")
+    
+    shot_label = str(shot_id).strip()
+    outlines_dir = os.path.join(workspace_path, "assets", "outlines", shot_label)
+    
+    if not os.path.exists(outlines_dir):
+        return {"outlines": []}
+    
+    outlines = []
+    for fname in sorted(os.listdir(outlines_dir), reverse=True):
+        if fname.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+            outlines.append(f"/api/workspaces/{workspace_path}/assets/outlines/{shot_label}/{fname}")
+    
+    return {"outlines": outlines}
+
+
+@app.delete("/api/workspaces/{workspace_path:path}/outlines/{shot_id}/{filename}")
+async def delete_outline(workspace_path: str, shot_id: str, filename: str):
+    """删除线稿图"""
+    if not os.path.exists(workspace_path):
+        raise HTTPException(status_code=404, detail="workspace_path 不存在")
+    
+    shot_label = str(shot_id).strip()
+    outline_path = os.path.join(workspace_path, "assets", "outlines", shot_label, filename)
+    
+    if not os.path.exists(outline_path):
+        raise HTTPException(status_code=404, detail="线稿图不存在")
+    
+    try:
+        os.remove(outline_path)
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"删除失败: {e}")
+
+
+@app.get("/api/workspaces/{workspace_path:path}/outline-config")
+async def get_outline_config(workspace_path: str):
+    """获取线稿配置"""
+    if not os.path.exists(workspace_path):
+        raise HTTPException(status_code=404, detail="workspace_path 不存在")
+    
+    config_path = os.path.join(workspace_path, "outline_config.json")
+    if not os.path.exists(config_path):
+        return OutlineConfigModel().dict()
+    
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return OutlineConfigModel().dict()
+
+
+@app.put("/api/workspaces/{workspace_path:path}/outline-config")
+async def save_outline_config(workspace_path: str, config: OutlineConfigModel):
+    """保存线稿配置"""
+    if not os.path.exists(workspace_path):
+        raise HTTPException(status_code=404, detail="workspace_path 不存在")
+    
+    config_path = os.path.join(workspace_path, "outline_config.json")
+    try:
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(config.dict(), f, ensure_ascii=False, indent=2)
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"保存失败: {e}")
