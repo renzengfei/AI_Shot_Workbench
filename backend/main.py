@@ -1964,8 +1964,9 @@ async def generate_outline(request: GenerateOutlineRequest):
                 path = os.path.join(outlines_dir, filename)
                 with open(path, "wb") as f:
                     f.write(base64.b64decode(b64data))
-                ws_path_for_url = request.workspace_path.lstrip('/')
-                saved_outline = f"/api/workspaces/{ws_path_for_url}/assets/outlines/{shot_label}/{filename}"
+                # 生成相对于 workspaces 目录的 URL
+                rel_path = os.path.relpath(path, os.path.abspath(WORKSPACES_DIR))
+                saved_outline = f"/workspaces/{rel_path}"
                 break
             elif img_url.startswith("http"):
                 # HTTP URL，需要下载
@@ -1981,8 +1982,9 @@ async def generate_outline(request: GenerateOutlineRequest):
                             path = os.path.join(outlines_dir, filename)
                             with open(path, "wb") as f:
                                 f.write(resp.content)
-                            ws_path_for_url = request.workspace_path.lstrip('/')
-                            saved_outline = f"/api/workspaces/{ws_path_for_url}/assets/outlines/{shot_label}/{filename}"
+                            # 生成相对于 workspaces 目录的 URL
+                            rel_path = os.path.relpath(path, os.path.abspath(WORKSPACES_DIR))
+                            saved_outline = f"/workspaces/{rel_path}"
                             break
                 except Exception as e:
                     logger.error(f"下载线稿图失败: {e}")
@@ -2013,7 +2015,10 @@ async def list_outlines(workspace_path: str, shot_id: str):
     outlines = []
     for fname in sorted(os.listdir(outlines_dir), reverse=True):
         if fname.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
-            outlines.append(f"/api/workspaces/{workspace_path}/assets/outlines/{shot_label}/{fname}")
+            # 生成相对于 workspaces 目录的 URL
+            file_path = os.path.join(outlines_dir, fname)
+            rel_path = os.path.relpath(file_path, os.path.abspath(WORKSPACES_DIR))
+            outlines.append(f"/workspaces/{rel_path}")
     
     return {"outlines": outlines}
 
