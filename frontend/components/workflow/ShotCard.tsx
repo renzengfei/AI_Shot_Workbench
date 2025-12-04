@@ -1020,7 +1020,7 @@ export const ShotCard = ({
                                             className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shadow-md transition-all duration-200 active:scale-95 ${
                                                 isGenerating
                                                     ? 'bg-slate-400 text-white cursor-not-allowed'
-                                                    : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600'
+                                                    : 'bg-[#6366F1] text-white hover:bg-[#5457E5]'
                                             }`}
                                         >
                                             {isGenerating ? (
@@ -1147,7 +1147,7 @@ export const ShotCard = ({
                                                     className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${
                                                         isGenerating
                                                             ? 'bg-slate-400 text-white cursor-not-allowed'
-                                                            : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600'
+                                                            : 'bg-[#6366F1] text-white hover:bg-[#5457E5]'
                                                     }`}
                                                 >
                                                     {isGenerating ? (
