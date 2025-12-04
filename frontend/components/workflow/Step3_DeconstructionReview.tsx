@@ -282,6 +282,37 @@ export default function Step3_DeconstructionReview({
         localStorage.setItem(newVideosStorageKey, JSON.stringify(newlyGeneratedVideos));
     }, [newlyGeneratedVideos, newVideosStorageKey]);
 
+    // 加载已有线稿
+    useEffect(() => {
+        if (!currentWorkspace?.path) return;
+        const loadOutlines = async () => {
+            try {
+                // 获取 round2 数据中的 shots
+                if (typeof round2Data === 'string' || !round2Data?.shots) return;
+                const shots = round2Data.shots;
+                const outlinesMap: Record<number, string[]> = {};
+                const activeMap: Record<number, string> = {};
+                
+                for (const shot of shots) {
+                    const shotId = shot.id ?? (shots.indexOf(shot) + 1);
+                    const resp = await fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/outlines?shot_id=${shotId}`);
+                    if (resp.ok) {
+                        const data = await resp.json() as { outlines: string[] };
+                        if (data.outlines && data.outlines.length > 0) {
+                            outlinesMap[shotId] = data.outlines;
+                            activeMap[shotId] = data.outlines[data.outlines.length - 1];
+                        }
+                    }
+                }
+                setGeneratedOutlines(outlinesMap);
+                setActiveOutlineUrls(activeMap);
+            } catch (err) {
+                console.error('加载线稿失败:', err);
+            }
+        };
+        loadOutlines();
+    }, [currentWorkspace?.path, round2Data]);
+
     const activeImagePreset = useMemo(() => {
         return imagePresets.find((p) => p.id === selectedImagePresetId) || workspacePresetSnapshot;
     }, [imagePresets, selectedImagePresetId, workspacePresetSnapshot]);

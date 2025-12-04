@@ -917,6 +917,42 @@ export const ShotCard = ({
                                 )}
                             </div>
 
+                            {/* 1.5 选中线稿图 - 仅在线稿模式下显示 */}
+                            {showGeneration && outlineMode && (
+                                <div className={`${mediaCardBase}`}>
+                                    <div className={mediaTitleClass}>选中线稿图</div>
+                                    <div className={`${mediaBaseClass} border border-[#34C759]/30 shadow-sm flex items-center justify-center`}>
+                                        {activeOutlineUrl ? (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img src={activeOutlineUrl.startsWith('/') ? `${API_BASE}${activeOutlineUrl}` : activeOutlineUrl} alt="线稿图" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="flex flex-col items-center gap-2 text-slate-400">
+                                                <Pencil size={28} className="text-[#34C759]/50" />
+                                                <span className="text-sm">暂无线稿</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {/* 生成线稿按钮 */}
+                                    <div className="mt-2">
+                                        <button
+                                            onClick={() => onGenerateOutline?.(shot, index)}
+                                            disabled={isGeneratingOutline}
+                                            className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shadow-md transition-all duration-200 active:scale-95 ${
+                                                isGeneratingOutline
+                                                    ? 'bg-slate-400 text-white cursor-not-allowed'
+                                                    : 'bg-gradient-to-r from-[#34C759] to-[#30D158] text-white hover:from-[#2db350] hover:to-[#28c050]'
+                                            }`}
+                                        >
+                                            {isGeneratingOutline ? (
+                                                <><Loader2 size={16} className="animate-spin" />生成中...</>
+                                            ) : (
+                                                <><Pencil size={16} />生成线稿</>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* 2. 选中的生成图片 - 放大 */}
                             {showGeneration && (
                                 <div className={`${mediaCardBase}`}>
@@ -1008,6 +1044,47 @@ export const ShotCard = ({
 
                             {/* 4. 首帧/视频描述 */}
                                 <div className={`flex-shrink-0 ${DESC_WIDTH} ${CARD_HEIGHT} ${CARD_RADIUS} border border-white/30 bg-white/50 backdrop-blur-xl shadow-md ${CARD_PADDING} flex flex-col ${CARD_GAP} transition-all duration-300 hover:bg-white/60 hover:shadow-lg overflow-y-auto`}>
+                                {/* 线稿提示词输入框 - 仅在线稿模式下显示 */}
+                                {outlineMode && (
+                                    <div className="flex-shrink-0 mb-2 p-3 rounded-xl border border-[#34C759]/30 bg-[#34C759]/5">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-sm font-semibold text-[#34C759] flex items-center gap-1.5">
+                                                <Pencil size={14} />
+                                                线稿提示词
+                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                {outlinePrompt && outlinePrompt !== 'extract clean line art, black outlines on white background, no shading, anime style' && (
+                                                    <button
+                                                        onClick={() => onOutlinePromptChange?.(shot, index, 'extract clean line art, black outlines on white background, no shading, anime style')}
+                                                        className="text-xs text-slate-500 hover:text-[#34C759] transition-colors flex items-center gap-1"
+                                                        title="恢复默认提示词"
+                                                    >
+                                                        <Undo2 size={12} />
+                                                        恢复默认
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => onGenerateOutline?.(shot, index)}
+                                                    disabled={isGeneratingOutline}
+                                                    className={`text-xs px-2.5 py-1 rounded-lg font-medium transition-all ${
+                                                        isGeneratingOutline
+                                                            ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                                                            : 'bg-[#34C759] text-white hover:bg-[#2db350]'
+                                                    }`}
+                                                >
+                                                    {isGeneratingOutline ? '生成中...' : '生成线稿'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <textarea
+                                            value={outlinePrompt || 'extract clean line art, black outlines on white background, no shading, anime style'}
+                                            onChange={(e) => onOutlinePromptChange?.(shot, index, e.target.value)}
+                                            placeholder="描述线稿风格..."
+                                            className="w-full px-3 py-2 text-sm rounded-lg border border-[#34C759]/20 bg-white/80 focus:outline-none focus:ring-2 focus:ring-[#34C759]/30 resize-none"
+                                            rows={2}
+                                        />
+                                    </div>
+                                )}
                                 <div className="flex flex-col gap-2 basis-[58%] min-h-0 overflow-hidden">
                                     <div className="flex items-center justify-between text-sm font-semibold text-blue-600 flex-shrink-0">
                                         <div className="flex items-center gap-2">
