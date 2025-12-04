@@ -1,4 +1,4 @@
-import { Clock, Zap, Image as ImageIcon, Layers, Sparkles, Users, Sun, Palette, CheckCircle2, RefreshCw, Box, Layout, Trash2, ChevronDown, Check, AlertCircle, Video, Wand2, Loader2, FileText, X, ChevronLeft, ChevronRight, Undo2, Square } from 'lucide-react';
+import { Clock, Zap, Image as ImageIcon, Layers, Sparkles, Users, Sun, Palette, CheckCircle2, RefreshCw, Box, Layout, Trash2, ChevronDown, Check, AlertCircle, Video, Wand2, Loader2, FileText, X, ChevronLeft, ChevronRight, Undo2, Square, Pencil } from 'lucide-react';
 import { type ReactNode, useState, useEffect, useMemo } from 'react';
 import { AutoTextArea } from '@/components/ui/AutoTextArea';
 import { PreviewVideoPlayer } from '@/components/ui/PreviewVideoPlayer';
@@ -280,7 +280,18 @@ interface ShotCardProps {
     newVideos?: string[];  // 新生成的视频 URL
     onVideoSeen?: (url: string) => void;  // 播放视频后的回调
     onStopVideoGeneration?: (shot: Round2Shot, index: number) => void;  // 停止视频生成
-    defaultStream?: 'image' | 'video';  // 默认素材流类型
+    defaultStream?: 'image' | 'video' | 'outline';  // 默认素材流类型
+    // 线稿模式相关
+    outlineMode?: boolean;                // 该镜头是否启用线稿模式
+    onToggleOutlineMode?: (shot: Round2Shot, index: number) => void;  // 切换线稿模式
+    outlinePrompt?: string;               // 该镜头的线稿提示词
+    onOutlinePromptChange?: (shot: Round2Shot, index: number, prompt: string) => void;  // 更新线稿提示词
+    outlineUrls?: string[];               // 该镜头的线稿图列表
+    activeOutlineUrl?: string;            // 当前激活的线稿图
+    onSelectOutline?: (shot: Round2Shot, index: number, url: string) => void;  // 选择线稿图
+    onGenerateOutline?: (shot: Round2Shot, index: number) => void;  // 生成线稿
+    isGeneratingOutline?: boolean;        // 是否正在生成线稿
+    onDeleteOutline?: (shot: Round2Shot, index: number, url: string) => void;  // 删除线稿
 }
 
 export const ShotCard = ({
@@ -328,6 +339,17 @@ export const ShotCard = ({
     onVideoSeen,
     onStopVideoGeneration,
     defaultStream = 'image',
+    // 线稿模式相关
+    outlineMode = false,
+    onToggleOutlineMode,
+    outlinePrompt = '',
+    onOutlinePromptChange,
+    outlineUrls = [],
+    activeOutlineUrl,
+    onSelectOutline,
+    onGenerateOutline,
+    isGeneratingOutline = false,
+    onDeleteOutline,
 }: ShotCardProps) => {
     const shotId = shot.id ?? index + 1;
     const canEdit = mode === 'review';
@@ -342,13 +364,8 @@ export const ShotCard = ({
 
     // Delete confirmation state: { type: 'fg_char' | 'fg_obj' | 'mg_char' | 'mg_obj', index: number } | null
     const [deleteConfirm, setDeleteConfirm] = useState<{ type: string; index: number; label: string } | null>(null);
-    const [activeStream, setActiveStream] = useState<'image' | 'video'>(defaultStream || 'image');
-    const [selectedVideo, setSelectedVideo] = useState<string | null>(clipUrl || null);
-    
-    // 当父组件的 defaultStream 改变时，同步更新 activeStream
-    useEffect(() => {
-        setActiveStream(defaultStream);
-    }, [defaultStream]);
+    const [activeStream, setActiveStream] = useState<'image' | 'video' | 'outline'>(defaultStream || 'image');
+    const [selectedVideo] = useState<string | null>(clipUrl || null);
     
     // 图片放大查看状态
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -828,6 +845,20 @@ export const ShotCard = ({
                                 {shot.duration && <span className="ml-2 px-2 py-0.5 rounded-full bg-white/5 text-xs">({shot.duration}s)</span>}
                             </div>
                         )}
+                        {/* 线稿模式切换按钮 */}
+                        <button
+                            onClick={() => onToggleOutlineMode?.(shot, index)}
+                            className={`relative z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+                                outlineMode
+                                    ? 'bg-[#34C759] text-white hover:bg-[#2db350] shadow-lg shadow-[#34C759]/30'
+                                    : 'bg-slate-500/20 text-slate-300 hover:bg-slate-500/30 border border-slate-500/30'
+                            }`}
+                            title={outlineMode ? '线稿模式已开启' : '点击开启线稿模式'}
+                        >
+                            <Pencil size={14} />
+                            <span>线稿</span>
+                            {outlineMode && <Check size={12} />}
+                        </button>
                         <button
                             onClick={() => updateField('discarded', !isDiscarded)}
                             className={`relative z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
@@ -1096,6 +1127,15 @@ export const ShotCard = ({
                             {/* 5. 流切换器 (竖向Tab) */}
                             {showGeneration && (
                                 <div className={`flex-shrink-0 w-24 ${CARD_HEIGHT} flex flex-col gap-3 items-center justify-center bg-white/50 backdrop-blur-xl border border-white/30 ${CARD_RADIUS} shadow-md`}>
+                                    {/* 线稿 Tab */}
+                                    <button
+                                        onClick={() => setActiveStream('outline')}
+                                        className={`w-16 h-16 ${BTN_RADIUS} flex flex-col items-center justify-center gap-1 transition-all duration-200 active:scale-95 ${activeStream === 'outline' ? 'bg-[#34C759] text-white shadow-md' : 'bg-white/60 text-slate-400 hover:bg-white/80 hover:text-slate-600'}`}
+                                    >
+                                        <Pencil size={20} />
+                                        <span className="text-xs font-medium">线稿</span>
+                                    </button>
+                                    {/* 图片 Tab */}
                                     <div className="relative">
                                         <button
                                             onClick={() => {
@@ -1116,6 +1156,7 @@ export const ShotCard = ({
                                             </span>
                                         )}
                                     </div>
+                                    {/* 视频 Tab */}
                                     <button
                                         onClick={() => setActiveStream('video')}
                                         className={`w-16 h-16 ${BTN_RADIUS} flex flex-col items-center justify-center gap-1 transition-all duration-200 active:scale-95 ${activeStream === 'video' ? 'bg-[#AF52DE] text-white shadow-md' : 'bg-white/60 text-slate-400 hover:bg-white/80 hover:text-slate-600'}`}
@@ -1233,6 +1274,68 @@ export const ShotCard = ({
                                                         停止生成
                                                     </button>
                                                 </div>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : activeStream === 'outline' ? (
+                                    <>
+                                        {/* 线稿流：生成中 */}
+                                        {isGeneratingOutline && (
+                                            <div className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} border border-[#34C759]/50 bg-white/50 backdrop-blur-xl ${CARD_PADDING} flex flex-col ${CARD_GAP}`}>
+                                                <div className={mediaTitleClass}>生成线稿中...</div>
+                                                <div className={`${mediaBaseClass} border border-white/10 shadow-inner flex flex-col items-center justify-center gap-3`}>
+                                                    <Loader2 size={36} className="animate-spin text-[#34C759]" />
+                                                    <span className="text-[#34C759] text-sm font-medium">正在提取线稿...</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {/* 线稿流：已有线稿 */}
+                                        {outlineUrls.map((url, idx) => {
+                                            const isActive = url === activeOutlineUrl;
+                                            const genInfo = getGenerationInfo(url);
+                                            return (
+                                                <div
+                                                    key={`outline-${url}-${idx}`}
+                                                    className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} border transition-all duration-300 ${isActive ? 'border-[#34C759]/50 shadow-lg ring-1 ring-[#34C759]/20' : 'border-white/30 hover:shadow-md'} bg-white/50 backdrop-blur-xl ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
+                                                >
+                                                    <div className={mediaTitleClass}>{genInfo || '线稿图'}</div>
+                                                    <div className={`${mediaBaseClass} border border-white/10 shadow-inner cursor-pointer relative`}>
+                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                        <img src={url.startsWith('/') ? `${API_BASE}${url}` : url} alt={`线稿 ${idx + 1}`} className="w-full h-full object-cover" />
+                                                    </div>
+                                                    {/* 操作按钮区 */}
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={() => onSelectOutline?.(shot, index, url)}
+                                                            className={`flex-1 flex items-center justify-center gap-2 text-sm font-medium ${BTN_RADIUS} px-4 py-2.5 transition-all duration-200 active:scale-[0.98] ${isActive 
+                                                                ? 'bg-gradient-to-r from-[#34C759] to-[#30D158] text-white shadow-md' 
+                                                                : 'bg-white/70 border border-slate-200/50 text-slate-600 hover:bg-white hover:border-[#34C759]/50 hover:text-[#34C759]'}`}
+                                                        >
+                                                            {isActive ? <><Check size={14} /> 已选择</> : '选择此线稿'}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => onDeleteOutline?.(shot, index, url)}
+                                                            className={`p-2.5 ${BTN_RADIUS} bg-white/70 border border-slate-200/50 text-slate-400 hover:bg-red-50 hover:border-red-300 hover:text-red-500 transition-all duration-200`}
+                                                            title="删除线稿"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        {/* 线稿流：空状态 */}
+                                        {!isGeneratingOutline && outlineUrls.length === 0 && (
+                                            <div className={`w-full min-w-[360px] flex flex-col items-center justify-center gap-4 text-slate-400 bg-white/30 ${CARD_RADIUS} border border-dashed border-[#34C759]/30 p-10 backdrop-blur-sm`}>
+                                                <Pencil size={36} className="text-[#34C759]/60" />
+                                                <span>暂无线稿图</span>
+                                                <button
+                                                    onClick={() => onGenerateOutline?.(shot, index)}
+                                                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-[#34C759] text-white hover:bg-[#2db350] transition shadow-md"
+                                                >
+                                                    <Wand2 size={14} />
+                                                    生成线稿
+                                                </button>
                                             </div>
                                         )}
                                     </>
