@@ -1307,11 +1307,11 @@ export const ShotCard = ({
 
                             {/* 5. 流切换器 (竖向Tab) */}
                             {showGeneration && (
-                                <div className={`flex-shrink-0 w-24 ${CARD_HEIGHT} flex flex-col gap-3 items-center justify-center bg-white/50 backdrop-blur-xl border border-white/30 ${CARD_RADIUS} shadow-md`}>
+                                <div className={`flex-shrink-0 w-20 ${CARD_HEIGHT} flex flex-col gap-2 items-center justify-center bg-white/40 backdrop-blur-2xl border border-white/50 ${CARD_RADIUS} shadow-lg shadow-black/5`}>
                                     {/* 线稿 Tab */}
                                     <button
                                         onClick={() => setActiveStream('outline')}
-                                        className={`w-16 h-16 ${BTN_RADIUS} flex flex-col items-center justify-center gap-1 transition-all duration-200 active:scale-95 ${activeStream === 'outline' ? 'bg-[#6B7280] text-white shadow-md' : 'bg-white/60 text-slate-400 hover:bg-white/80 hover:text-slate-600'}`}
+                                        className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all duration-300 active:scale-95 ${activeStream === 'outline' ? 'bg-[#007AFF] text-white shadow-lg shadow-[#007AFF]/25' : 'bg-white/50 text-slate-500 hover:bg-white/70 hover:text-slate-700 border border-white/60'}`}
                                     >
                                         <Pencil size={20} />
                                         <span className="text-xs font-medium">线稿</span>
@@ -1326,21 +1326,20 @@ export const ShotCard = ({
                                                     onClearNewImages?.(shot, index);
                                                 }
                                             }}
-                                            className={`w-16 h-16 ${BTN_RADIUS} flex flex-col items-center justify-center gap-1 transition-all duration-200 active:scale-95 ${activeStream === 'image' ? 'bg-[#007AFF] text-white shadow-md' : 'bg-white/60 text-slate-400 hover:bg-white/80 hover:text-slate-600'}`}
+                                            className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all duration-300 active:scale-95 ${activeStream === 'image' ? 'bg-[#007AFF] text-white shadow-lg shadow-[#007AFF]/25' : 'bg-white/50 text-slate-500 hover:bg-white/70 hover:text-slate-700 border border-white/60'}`}
                                         >
                                             <ImageIcon size={20} />
                                             <span className="text-xs font-medium">图片</span>
                                         </button>
                                         {newImages.length > 0 && (
-                                            <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-red-500 text-white shadow-sm animate-pulse">
-                                                NEW
-                                            </span>
+                                            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#FF3B30] shadow-sm animate-pulse">
+</span>
                                         )}
                                     </div>
                                     {/* 视频 Tab */}
                                     <button
                                         onClick={() => setActiveStream('video')}
-                                        className={`w-16 h-16 ${BTN_RADIUS} flex flex-col items-center justify-center gap-1 transition-all duration-200 active:scale-95 ${activeStream === 'video' ? 'bg-[#AF52DE] text-white shadow-md' : 'bg-white/60 text-slate-400 hover:bg-white/80 hover:text-slate-600'}`}
+                                        className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all duration-300 active:scale-95 ${activeStream === 'video' ? 'bg-[#007AFF] text-white shadow-lg shadow-[#007AFF]/25' : 'bg-white/50 text-slate-500 hover:bg-white/70 hover:text-slate-700 border border-white/60'}`}
                                     >
                                         <Video size={20} />
                                         <span className="text-xs font-medium">视频</span>
