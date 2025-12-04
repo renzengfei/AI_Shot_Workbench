@@ -4171,9 +4171,11 @@ export default function Step3_DeconstructionReview({
                                     onStopVideoGeneration={handleStopSingleVideoGeneration}
                                     defaultStream={defaultStream}
                                     // 线稿模式相关
-                                    outlineMode={outlineModes[shot.id ?? index + 1] || false}
+                                    globalOutlineMode={globalOutlineMode}
+                                    globalOutlinePrompt={globalOutlinePrompt}
+                                    outlineMode={outlineModes[shot.id ?? index + 1]}
                                     onToggleOutlineMode={handleToggleOutlineMode}
-                                    outlinePrompt={outlinePrompts[shot.id ?? index + 1] || ''}
+                                    outlinePrompt={outlinePrompts[shot.id ?? index + 1]}
                                     onOutlinePromptChange={handleOutlinePromptChange}
                                     outlineUrls={generatedOutlines[shot.id ?? index + 1] || []}
                                     activeOutlineUrl={activeOutlineUrls[shot.id ?? index + 1] || ''}

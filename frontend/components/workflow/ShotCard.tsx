@@ -282,9 +282,11 @@ interface ShotCardProps {
     onStopVideoGeneration?: (shot: Round2Shot, index: number) => void;  // 停止视频生成
     defaultStream?: 'image' | 'video' | 'outline';  // 默认素材流类型
     // 线稿模式相关
-    outlineMode?: boolean;                // 该镜头是否启用线稿模式
+    globalOutlineMode?: boolean;          // 全局线稿模式
+    globalOutlinePrompt?: string;         // 全局线稿提示词
+    outlineMode?: boolean;                // 该镜头是否启用线稿模式（覆盖全局）
     onToggleOutlineMode?: (shot: Round2Shot, index: number) => void;  // 切换线稿模式
-    outlinePrompt?: string;               // 该镜头的线稿提示词
+    outlinePrompt?: string;               // 该镜头的线稿提示词（覆盖全局）
     onOutlinePromptChange?: (shot: Round2Shot, index: number, prompt: string) => void;  // 更新线稿提示词
     outlineUrls?: string[];               // 该镜头的线稿图列表
     activeOutlineUrl?: string;            // 当前激活的线稿图
@@ -340,9 +342,11 @@ export const ShotCard = ({
     onStopVideoGeneration,
     defaultStream = 'image',
     // 线稿模式相关
-    outlineMode = false,
+    globalOutlineMode = false,
+    globalOutlinePrompt = 'extract clean line art, black outlines on white background, no shading, anime style',
+    outlineMode,               // undefined 表示使用全局
     onToggleOutlineMode,
-    outlinePrompt = '',
+    outlinePrompt,             // undefined 表示使用全局
     onOutlinePromptChange,
     outlineUrls = [],
     activeOutlineUrl,
@@ -353,6 +357,10 @@ export const ShotCard = ({
 }: ShotCardProps) => {
     const shotId = shot.id ?? index + 1;
     const canEdit = mode === 'review';
+    
+    // 计算实际使用的线稿模式和提示词（考虑全局和局部覆盖）
+    const effectiveOutlineMode = outlineMode !== undefined ? outlineMode : globalOutlineMode;
+    const effectiveOutlinePrompt = outlinePrompt !== undefined ? outlinePrompt : globalOutlinePrompt;
 
     // 将相对路径转换为完整 URL（使用选中的视频）
     const videoSrc = useMemo(() => {
@@ -849,15 +857,15 @@ export const ShotCard = ({
                         <button
                             onClick={() => onToggleOutlineMode?.(shot, index)}
                             className={`relative z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
-                                outlineMode
+                                effectiveOutlineMode
                                     ? 'bg-[#34C759] text-white hover:bg-[#2db350] shadow-lg shadow-[#34C759]/30'
                                     : 'bg-slate-500/20 text-slate-300 hover:bg-slate-500/30 border border-slate-500/30'
                             }`}
-                            title={outlineMode ? '线稿模式已开启' : '点击开启线稿模式'}
+                            title={effectiveOutlineMode ? '线稿模式已开启' : '点击开启线稿模式'}
                         >
                             <Pencil size={14} />
                             <span>线稿</span>
-                            {outlineMode && <Check size={12} />}
+                            {effectiveOutlineMode && <Check size={12} />}
                         </button>
                         <button
                             onClick={() => updateField('discarded', !isDiscarded)}
@@ -918,7 +926,7 @@ export const ShotCard = ({
                             </div>
 
                             {/* 1.5 选中线稿图 - 仅在线稿模式下显示 */}
-                            {showGeneration && outlineMode && (
+                            {showGeneration && effectiveOutlineMode && (
                                 <div className={`${mediaCardBase}`}>
                                     <div className={mediaTitleClass}>选中线稿图</div>
                                     <div className={`${mediaBaseClass} border border-[#34C759]/30 shadow-sm flex items-center justify-center`}>
@@ -1045,7 +1053,7 @@ export const ShotCard = ({
                             {/* 4. 首帧/视频描述 */}
                                 <div className={`flex-shrink-0 ${DESC_WIDTH} ${CARD_HEIGHT} ${CARD_RADIUS} border border-white/30 bg-white/50 backdrop-blur-xl shadow-md ${CARD_PADDING} flex flex-col ${CARD_GAP} transition-all duration-300 hover:bg-white/60 hover:shadow-lg overflow-y-auto`}>
                                 {/* 线稿提示词输入框 - 仅在线稿模式下显示 */}
-                                {outlineMode && (
+                                {effectiveOutlineMode && (
                                     <div className="flex-shrink-0 mb-2 p-3 rounded-xl border border-[#34C759]/30 bg-[#34C759]/5">
                                         <div className="flex items-center justify-between mb-2">
                                             <span className="text-sm font-semibold text-[#34C759] flex items-center gap-1.5">
@@ -1053,7 +1061,7 @@ export const ShotCard = ({
                                                 线稿提示词
                                             </span>
                                             <div className="flex items-center gap-2">
-                                                {outlinePrompt && outlinePrompt !== 'extract clean line art, black outlines on white background, no shading, anime style' && (
+                                                {effectiveOutlinePrompt && effectiveOutlinePrompt !== globalOutlinePrompt && (
                                                     <button
                                                         onClick={() => onOutlinePromptChange?.(shot, index, 'extract clean line art, black outlines on white background, no shading, anime style')}
                                                         className="text-xs text-slate-500 hover:text-[#34C759] transition-colors flex items-center gap-1"
