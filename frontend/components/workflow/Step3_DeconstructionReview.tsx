@@ -305,6 +305,36 @@ export default function Step3_DeconstructionReview({
         ? `generatedImages:${workspaceSlug}:${generatedDir}`
         : null;
     const pendingGenKey = workspaceSlug ? `pendingGenerations:${workspaceSlug}:${generatedDir}` : null;
+    const pendingOutlineKey = workspaceSlug ? `pendingOutlineGenerations:${workspaceSlug}` : null;
+    
+    // 线稿生成持久化类型
+    type PendingOutline = { startedAt: number; lastOutlineCount: number };
+    
+    // 读取 pending outline generations
+    const readPendingOutlines = useCallback((): Record<number, PendingOutline> => {
+        if (!pendingOutlineKey) return {};
+        try {
+            const raw = localStorage.getItem(pendingOutlineKey);
+            return raw ? JSON.parse(raw) : {};
+        } catch {
+            return {};
+        }
+    }, [pendingOutlineKey]);
+    
+    // 写入 pending outline generations
+    const writePendingOutlines = useCallback((pending: Record<number, PendingOutline>) => {
+        if (!pendingOutlineKey) return;
+        try {
+            localStorage.setItem(pendingOutlineKey, JSON.stringify(pending));
+        } catch { /* ignore */ }
+    }, [pendingOutlineKey]);
+    
+    // 清除单个 pending outline
+    const clearPendingOutline = useCallback((shotId: number) => {
+        const pending = readPendingOutlines();
+        delete pending[shotId];
+        writePendingOutlines(pending);
+    }, [readPendingOutlines, writePendingOutlines]);
     
     // newlyGeneratedVideos 的 localStorage key
     const newVideosStorageKey = workspaceSlug
@@ -329,7 +359,7 @@ export default function Step3_DeconstructionReview({
         localStorage.setItem(newVideosStorageKey, JSON.stringify(newlyGeneratedVideos));
     }, [newlyGeneratedVideos, newVideosStorageKey]);
 
-    // 加载已有线稿
+    // 加载已有线稿 + 恢复 pending 状态
     // 【关键修复】必须等待 savedIndexesLoaded 完成后再加载，避免占用请求队列导致 selected-images API 被延迟
     useEffect(() => {
         if (!currentWorkspace?.path) return;
@@ -355,12 +385,92 @@ export default function Step3_DeconstructionReview({
                 }
                 setGeneratedOutlines(outlinesMap);
                 setActiveOutlineUrls(activeMap);
+                
+                // 恢复 pending outline 状态
+                const pending = readPendingOutlines();
+                const TIMEOUT_MS = 2 * 60 * 1000; // 2分钟超时
+                const now = Date.now();
+                const toRestore: Record<number, boolean> = {};
+                const toCleanup: number[] = [];
+                
+                for (const [shotIdStr, info] of Object.entries(pending)) {
+                    const shotId = Number(shotIdStr);
+                    const elapsed = now - info.startedAt;
+                    const currentCount = outlinesMap[shotId]?.length || 0;
+                    
+                    if (elapsed > TIMEOUT_MS) {
+                        // 超时，清除
+                        toCleanup.push(shotId);
+                    } else if (currentCount > info.lastOutlineCount) {
+                        // 已有新线稿，生成完成
+                        toCleanup.push(shotId);
+                    } else {
+                        // 仍在生成中（可能后端还在处理）
+                        toRestore[shotId] = true;
+                    }
+                }
+                
+                // 清除已完成或超时的 pending
+                if (toCleanup.length > 0) {
+                    const newPending = { ...pending };
+                    toCleanup.forEach(id => delete newPending[id]);
+                    writePendingOutlines(newPending);
+                }
+                
+                // 恢复生成中状态
+                if (Object.keys(toRestore).length > 0) {
+                    setGeneratingOutlines(prev => ({ ...prev, ...toRestore }));
+                    // 启动轮询检查是否已完成
+                    const pollInterval = setInterval(async () => {
+                        const stillPending = readPendingOutlines();
+                        let allDone = true;
+                        
+                        for (const shotIdStr of Object.keys(stillPending)) {
+                            const shotId = Number(shotIdStr);
+                            const info = stillPending[shotId];
+                            const elapsed = Date.now() - info.startedAt;
+                            
+                            if (elapsed > TIMEOUT_MS) {
+                                clearPendingOutline(shotId);
+                                setGeneratingOutlines(prev => ({ ...prev, [shotId]: false }));
+                                continue;
+                            }
+                            
+                            // 检查是否有新线稿
+                            try {
+                                const resp = await fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/outlines?shot_id=${shotId}`);
+                                if (resp.ok) {
+                                    const data = await resp.json() as { outlines: string[] };
+                                    if ((data.outlines?.length || 0) > info.lastOutlineCount) {
+                                        // 生成完成
+                                        setGeneratedOutlines(prev => ({
+                                            ...prev,
+                                            [shotId]: data.outlines,
+                                        }));
+                                        setActiveOutlineUrls(prev => ({ ...prev, [shotId]: data.outlines[data.outlines.length - 1] }));
+                                        clearPendingOutline(shotId);
+                                        setGeneratingOutlines(prev => ({ ...prev, [shotId]: false }));
+                                    } else {
+                                        allDone = false;
+                                    }
+                                }
+                            } catch { /* ignore */ }
+                        }
+                        
+                        if (allDone || Object.keys(readPendingOutlines()).length === 0) {
+                            clearInterval(pollInterval);
+                        }
+                    }, 3000); // 每3秒检查一次
+                    
+                    // 组件卸载时清除轮询
+                    return () => clearInterval(pollInterval);
+                }
             } catch (err) {
                 console.error('加载线稿失败:', err);
             }
         };
         loadOutlines();
-    }, [currentWorkspace?.path, round2Data, savedIndexesLoaded]);
+    }, [currentWorkspace?.path, round2Data, savedIndexesLoaded, readPendingOutlines, writePendingOutlines, clearPendingOutline]);
 
     const activeImagePreset = useMemo(() => {
         return imagePresets.find((p) => p.id === selectedImagePresetId) || workspacePresetSnapshot;
@@ -1500,6 +1610,10 @@ export default function Step3_DeconstructionReview({
         const frameUrl = `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/assets/frames/${frameName}`;
         
         setGeneratingOutlines((prev) => ({ ...prev, [shotId]: true }));
+        // 记录 pending 状态（刷新后可恢复）
+        const pending = readPendingOutlines();
+        pending[shotId] = { startedAt: Date.now(), lastOutlineCount: generatedOutlines[shotId]?.length || 0 };
+        writePendingOutlines(pending);
         
         try {
             const resp = await fetch(`${API_BASE}/api/generate-outline`, {
@@ -1530,6 +1644,8 @@ export default function Step3_DeconstructionReview({
             showToast(err instanceof Error ? err.message : '线稿生成失败', 'error');
         } finally {
             setGeneratingOutlines((prev) => ({ ...prev, [shotId]: false }));
+            // 清除 pending 状态
+            clearPendingOutline(shotId);
         }
     };
 
@@ -1612,6 +1728,10 @@ export default function Step3_DeconstructionReview({
             const frameUrl = `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug!)}/assets/frames/${frameName}`;
             
             setGeneratingOutlines((prev) => ({ ...prev, [shotId]: true }));
+            // 记录 pending 状态
+            const pending = readPendingOutlines();
+            pending[shotId] = { startedAt: Date.now(), lastOutlineCount: generatedOutlines[shotId]?.length || 0 };
+            writePendingOutlines(pending);
             
             try {
                 const resp = await fetch(`${API_BASE}/api/generate-outline`, {
@@ -1644,6 +1764,8 @@ export default function Step3_DeconstructionReview({
                 failedCount++;
             } finally {
                 setGeneratingOutlines((prev) => ({ ...prev, [shotId]: false }));
+                // 清除 pending 状态
+                clearPendingOutline(shotId);
                 completedCount++;
                 setOutlineProgress((prev) => ({ ...prev, completed: completedCount }));
             }
