@@ -1090,7 +1090,7 @@ export const ShotCard = ({
                                                 <button
                                                     onClick={() => onGenerateOutline?.(shot, index)}
                                                     disabled={isGeneratingOutline}
-                                                    className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${
+                                                    className={`flex items-center justify-center gap-2 w-[100px] py-1.5 rounded-xl text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${
                                                         isGeneratingOutline
                                                             ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
                                                             : 'bg-[#6B7280] text-white hover:bg-[#5B6370]'
@@ -1149,7 +1149,7 @@ export const ShotCard = ({
                                                         }, 50);
                                                     }}
                                                     disabled={isGenerating}
-                                                    className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${
+                                                    className={`flex items-center justify-center gap-2 w-[100px] py-1.5 rounded-xl text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${
                                                         isGenerating
                                                             ? 'bg-slate-400 text-white cursor-not-allowed'
                                                             : 'bg-[#6366F1] text-white hover:bg-[#5457E5]'
@@ -1200,7 +1200,7 @@ export const ShotCard = ({
                                                 onClick={() => isGeneratingVideo ? onStopVideoGeneration?.(shot, index) : onGenerateVideo(shot, index)}
                                                 disabled={!isGeneratingVideo && !hasGeneratedImages}
                                                 title={isGeneratingVideo ? '停止生成视频' : !hasGeneratedImages ? '请先生成图片' : '使用当前图片生成视频'}
-                                                className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${
+                                                className={`flex items-center justify-center gap-2 w-[100px] py-1.5 rounded-xl text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${
                                                     isGeneratingVideo
                                                         ? 'bg-red-500 text-white hover:bg-red-600'
                                                         : !hasGeneratedImages
