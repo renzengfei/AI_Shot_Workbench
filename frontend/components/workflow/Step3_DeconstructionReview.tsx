@@ -234,10 +234,9 @@ export default function Step3_DeconstructionReview({
         localStorage.setItem('defaultStream', defaultStream);
     }, [defaultStream]);
 
-    // 从 workspace 加载线稿配置
+    // 加载全局线稿配置（所有工作空间共用）
     useEffect(() => {
-        if (!currentWorkspace?.path) return;
-        fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/outline-config`)
+        fetch(`${API_BASE}/api/outline-config`)
             .then(res => res.ok ? res.json() : null)
             .then(config => {
                 if (config) {
@@ -248,18 +247,17 @@ export default function Step3_DeconstructionReview({
                 }
             })
             .catch(err => console.error('Failed to load outline config:', err));
-    }, [currentWorkspace?.path]);
+    }, []);
 
-    // 保存线稿配置到 workspace
+    // 保存全局线稿配置
     const saveOutlineConfig = async (config?: {
         mode?: boolean;
         prompt?: string;
         charRefTemplate?: string;
         sceneRefTemplate?: string;
     }) => {
-        if (!currentWorkspace?.path) return;
         try {
-            await fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/outline-config`, {
+            await fetch(`${API_BASE}/api/outline-config`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

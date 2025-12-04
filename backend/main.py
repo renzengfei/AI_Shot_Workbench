@@ -2112,13 +2112,15 @@ async def delete_outline(workspace_path: str, shot_id: str, filename: str):
         raise HTTPException(status_code=500, detail=f"删除失败: {e}")
 
 
-@app.get("/api/workspaces/{workspace_path:path}/outline-config")
-async def get_outline_config(workspace_path: str):
-    """获取线稿配置"""
-    if not os.path.exists(workspace_path):
-        raise HTTPException(status_code=404, detail="workspace_path 不存在")
-    
-    config_path = os.path.join(workspace_path, "outline_config.json")
+# 全局配置目录
+GLOBAL_CONFIG_DIR = os.path.join(os.path.dirname(__file__), "config")
+os.makedirs(GLOBAL_CONFIG_DIR, exist_ok=True)
+
+
+@app.get("/api/outline-config")
+async def get_outline_config():
+    """获取全局线稿配置"""
+    config_path = os.path.join(GLOBAL_CONFIG_DIR, "outline_config.json")
     if not os.path.exists(config_path):
         return OutlineConfigModel().dict()
     
@@ -2129,13 +2131,10 @@ async def get_outline_config(workspace_path: str):
         return OutlineConfigModel().dict()
 
 
-@app.put("/api/workspaces/{workspace_path:path}/outline-config")
-async def save_outline_config(workspace_path: str, config: OutlineConfigModel):
-    """保存线稿配置"""
-    if not os.path.exists(workspace_path):
-        raise HTTPException(status_code=404, detail="workspace_path 不存在")
-    
-    config_path = os.path.join(workspace_path, "outline_config.json")
+@app.put("/api/outline-config")
+async def save_outline_config(config: OutlineConfigModel):
+    """保存全局线稿配置"""
+    config_path = os.path.join(GLOBAL_CONFIG_DIR, "outline_config.json")
     try:
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config.dict(), f, ensure_ascii=False, indent=2)
