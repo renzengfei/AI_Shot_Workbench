@@ -1072,9 +1072,9 @@ export const ShotCard = ({
                                                 onClick={() => setOutlinePromptExpanded(!outlinePromptExpanded)}
                                                 className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
                                             >
-                                                <ChevronDown size={14} className={`transition-transform duration-200 ${outlinePromptExpanded ? '' : '-rotate-90'}`} />
                                                 <Pencil size={14} />
                                                 <span>线稿提示词</span>
+                                                <ChevronDown size={14} className={`transition-transform duration-200 ${outlinePromptExpanded ? '' : '-rotate-90'}`} />
                                             </button>
                                             <div className="flex items-center gap-2">
                                                 {outlinePromptExpanded && effectiveOutlinePrompt && effectiveOutlinePrompt !== globalOutlinePrompt && (
@@ -1096,7 +1096,11 @@ export const ShotCard = ({
                                                             : 'bg-[#6B7280] text-white hover:bg-[#5B6370]'
                                                     }`}
                                                 >
-                                                    {isGeneratingOutline ? '生成中...' : '生成线稿'}
+                                                    {isGeneratingOutline ? (
+                                                        <><Loader2 size={14} className="animate-spin" />生成中</>
+                                                    ) : (
+                                                        <><Pencil size={14} />生成线稿</>
+                                                    )}
                                                 </button>
                                             </div>
                                         </div>
