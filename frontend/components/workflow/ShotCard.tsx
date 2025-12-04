@@ -1311,7 +1311,7 @@ export const ShotCard = ({
                                     {/* 线稿 Tab */}
                                     <button
                                         onClick={() => setActiveStream('outline')}
-                                        className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all duration-300 active:scale-95 ${activeStream === 'outline' ? 'bg-[#007AFF] text-white shadow-lg shadow-[#007AFF]/25' : 'bg-white/50 text-slate-500 hover:bg-white/70 hover:text-slate-700 border border-white/60'}`}
+                                        className={`w-14 h-[72px] rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all duration-300 active:scale-95 ${activeStream === 'outline' ? 'bg-[#007AFF] text-white shadow-lg shadow-[#007AFF]/25' : 'bg-white/50 text-slate-500 hover:bg-white/70 hover:text-slate-700 border border-white/60'}`}
                                     >
                                         <Pencil size={20} />
                                         <span className="text-xs font-medium">线稿</span>
@@ -1326,7 +1326,7 @@ export const ShotCard = ({
                                                     onClearNewImages?.(shot, index);
                                                 }
                                             }}
-                                            className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all duration-300 active:scale-95 ${activeStream === 'image' ? 'bg-[#007AFF] text-white shadow-lg shadow-[#007AFF]/25' : 'bg-white/50 text-slate-500 hover:bg-white/70 hover:text-slate-700 border border-white/60'}`}
+                                            className={`w-14 h-[72px] rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all duration-300 active:scale-95 ${activeStream === 'image' ? 'bg-[#007AFF] text-white shadow-lg shadow-[#007AFF]/25' : 'bg-white/50 text-slate-500 hover:bg-white/70 hover:text-slate-700 border border-white/60'}`}
                                         >
                                             <ImageIcon size={20} />
                                             <span className="text-xs font-medium">图片</span>
@@ -1339,7 +1339,7 @@ export const ShotCard = ({
                                     {/* 视频 Tab */}
                                     <button
                                         onClick={() => setActiveStream('video')}
-                                        className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all duration-300 active:scale-95 ${activeStream === 'video' ? 'bg-[#007AFF] text-white shadow-lg shadow-[#007AFF]/25' : 'bg-white/50 text-slate-500 hover:bg-white/70 hover:text-slate-700 border border-white/60'}`}
+                                        className={`w-14 h-[72px] rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all duration-300 active:scale-95 ${activeStream === 'video' ? 'bg-[#007AFF] text-white shadow-lg shadow-[#007AFF]/25' : 'bg-white/50 text-slate-500 hover:bg-white/70 hover:text-slate-700 border border-white/60'}`}
                                     >
                                         <Video size={20} />
                                         <span className="text-xs font-medium">视频</span>
