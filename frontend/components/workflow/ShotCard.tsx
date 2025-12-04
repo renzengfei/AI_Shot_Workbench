@@ -55,6 +55,69 @@ const ErrorTooltip = ({ error }: { error: string }) => {
     );
 };
 
+// 定稿星星按钮组件 - 带奖励动效
+const FinalizeStarButton = ({
+    isFinalized,
+    onClick,
+    size = 16,
+}: {
+    isFinalized: boolean;
+    onClick: () => void;
+    size?: number;
+}) => {
+    const [isAnimating, setIsAnimating] = useState(false);
+    const [showSparkle, setShowSparkle] = useState(false);
+    
+    const handleClick = () => {
+        if (!isFinalized) {
+            // 点亮时播放动画
+            setIsAnimating(true);
+            setShowSparkle(true);
+            setTimeout(() => setIsAnimating(false), 600);
+            setTimeout(() => setShowSparkle(false), 800);
+        }
+        onClick();
+    };
+    
+    return (
+        <button
+            onClick={handleClick}
+            className={`relative p-1.5 rounded-full transition-all duration-300 
+                ${isFinalized 
+                    ? 'text-amber-500 bg-amber-100/60 shadow-[0_0_12px_rgba(245,158,11,0.4)]' 
+                    : 'text-slate-300 hover:text-amber-400 hover:bg-amber-50'
+                }
+                ${isAnimating ? 'animate-bounce-star' : 'hover:scale-110 active:scale-95'}
+            `}
+            title={isFinalized ? '取消定稿' : '设为定稿'}
+        >
+            {/* 脉冲光晕 - 仅在已定稿时显示 */}
+            {isFinalized && (
+                <span className="absolute inset-0 rounded-full bg-amber-400/30 animate-ping-slow" />
+            )}
+            
+            {/* 点亮时的闪光效果 */}
+            {showSparkle && (
+                <>
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-300 rounded-full animate-sparkle-1" />
+                    <span className="absolute -top-0.5 -left-1 w-1.5 h-1.5 bg-amber-200 rounded-full animate-sparkle-2" />
+                    <span className="absolute -bottom-1 right-0 w-1.5 h-1.5 bg-amber-400 rounded-full animate-sparkle-3" />
+                </>
+            )}
+            
+            {/* 星星图标 */}
+            <Star 
+                size={size} 
+                fill={isFinalized ? 'currentColor' : 'none'}
+                className={`relative z-10 transition-transform duration-300 
+                    ${isAnimating ? 'animate-star-spin scale-125' : ''}
+                    ${isFinalized ? 'drop-shadow-[0_0_3px_rgba(245,158,11,0.8)]' : ''}
+                `}
+            />
+        </button>
+    );
+};
+
 // 图片放大查看组件
 const ImageLightbox = ({
     images,
@@ -951,21 +1014,14 @@ export const ShotCard = ({
                                     <div className="flex items-center justify-between">
                                         <div className={mediaTitleClass}>选中线稿图</div>
                                         {activeOutlineUrl && (
-                                            <button
+                                            <FinalizeStarButton
+                                                isFinalized={!!(shot.finalizedOutline && activeOutlineUrl.includes(shot.finalizedOutline))}
                                                 onClick={() => {
                                                     const filename = activeOutlineUrl.split('/').pop() || '';
                                                     const isFinalized = shot.finalizedOutline === filename;
                                                     onFinalizeOutline?.(shot, index, isFinalized ? null : filename);
                                                 }}
-                                                className={`p-1 rounded-full transition-all duration-200 hover:scale-110 ${
-                                                    shot.finalizedOutline && activeOutlineUrl.includes(shot.finalizedOutline)
-                                                        ? 'text-amber-500 drop-shadow-[0_0_4px_rgba(245,158,11,0.5)]'
-                                                        : 'text-slate-300 hover:text-amber-400 hover:bg-amber-100/50'
-                                                }`}
-                                                title={shot.finalizedOutline ? '取消定稿' : '设为定稿'}
-                                            >
-                                                <Star size={16} fill={shot.finalizedOutline && activeOutlineUrl.includes(shot.finalizedOutline) ? 'currentColor' : 'none'} />
-                                            </button>
+                                            />
                                         )}
                                     </div>
                                     <div className={`${mediaBaseClass} border ${shot.finalizedOutline && activeOutlineUrl?.includes(shot.finalizedOutline) ? 'border-amber-400' : 'border-[#6B7280]/30'} shadow-sm flex items-center justify-center`}>
@@ -1008,21 +1064,14 @@ export const ShotCard = ({
                                             {getGenerationInfo(activeImage || '') || '选中生成图'}
                                         </div>
                                         {activeImage && (
-                                            <button
+                                            <FinalizeStarButton
+                                                isFinalized={!!(shot.finalizedImage && activeImage.includes(shot.finalizedImage))}
                                                 onClick={() => {
                                                     const filename = activeImage.split('/').pop() || '';
                                                     const isFinalized = shot.finalizedImage === filename;
                                                     onFinalizeImage?.(shot, index, isFinalized ? null : filename);
                                                 }}
-                                                className={`p-1 rounded-full transition-all duration-200 hover:scale-110 ${
-                                                    shot.finalizedImage && activeImage.includes(shot.finalizedImage)
-                                                        ? 'text-amber-500 drop-shadow-[0_0_4px_rgba(245,158,11,0.5)]'
-                                                        : 'text-slate-300 hover:text-amber-400 hover:bg-amber-100/50'
-                                                }`}
-                                                title={shot.finalizedImage ? '取消定稿' : '设为定稿'}
-                                            >
-                                                <Star size={16} fill={shot.finalizedImage && activeImage.includes(shot.finalizedImage) ? 'currentColor' : 'none'} />
-                                            </button>
+                                            />
                                         )}
                                     </div>
                                     <div className={`${mediaBaseClass} border ${shot.finalizedImage && activeImage?.includes(shot.finalizedImage) ? 'border-amber-400' : highlightGenerated || (activeImage && newImages.includes(activeImage)) ? 'border-red-400' : 'border-slate-200'} shadow-sm flex items-center justify-center text-lg text-blue-300`}>
@@ -1089,21 +1138,14 @@ export const ShotCard = ({
                                     <div className="flex items-center justify-between">
                                         <div className={mediaTitleClass}>选中视频</div>
                                         {videoSrc && (
-                                            <button
+                                            <FinalizeStarButton
+                                                isFinalized={!!(shot.finalizedVideo && videoSrc.includes(shot.finalizedVideo))}
                                                 onClick={() => {
                                                     const filename = videoSrc.split('/').pop() || '';
                                                     const isFinalized = shot.finalizedVideo === filename;
                                                     onFinalizeVideo?.(shot, index, isFinalized ? null : filename);
                                                 }}
-                                                className={`p-1 rounded-full transition-all duration-200 hover:scale-110 ${
-                                                    shot.finalizedVideo && videoSrc.includes(shot.finalizedVideo)
-                                                        ? 'text-amber-500 drop-shadow-[0_0_4px_rgba(245,158,11,0.5)]'
-                                                        : 'text-slate-300 hover:text-amber-400 hover:bg-amber-100/50'
-                                                }`}
-                                                title={shot.finalizedVideo ? '取消定稿' : '设为定稿'}
-                                            >
-                                                <Star size={16} fill={shot.finalizedVideo && videoSrc.includes(shot.finalizedVideo) ? 'currentColor' : 'none'} />
-                                            </button>
+                                            />
                                         )}
                                     </div>
                                     {videoSrc ? (
