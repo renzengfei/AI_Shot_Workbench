@@ -332,12 +332,15 @@ export default function Step3_DeconstructionReview({
             })
             .filter(Boolean);
         if (!normalized.length) return;
-        let mergedLen = 0;
+        
+        // 关键修复：先计算合并后的图片列表，然后传递给索引匹配逻辑
+        // 不能依赖 generatedImagesRef，因为 ref 是通过 useEffect 异步更新的
+        let mergedImages: string[] = [];
         setGeneratedImages((prev) => {
-            const merged = Array.from(new Set([...(prev[shotId] || []), ...normalized]));
-            mergedLen = merged.length;
-            return { ...prev, [shotId]: merged };
+            mergedImages = Array.from(new Set([...(prev[shotId] || []), ...normalized]));
+            return { ...prev, [shotId]: mergedImages };
         });
+        
         // 设置默认浏览索引（如果还没有的话）
         // 注意：选中图片的匹配由专门的 useEffect 处理（依赖 savedIndexes + generatedImages）
         setGeneratedIndexes((prev) => {
@@ -354,7 +357,8 @@ export default function Step3_DeconstructionReview({
                 }
             }
             if (filename) {
-                const imgs = generatedImagesRef.current[shotId] || [];
+                // 关键修复：使用刚才计算的 mergedImages，而不是可能陈旧的 ref
+                const imgs = mergedImages.length ? mergedImages : (generatedImagesRef.current[shotId] || []);
                 const foundIdx = imgs.findIndex(url => url.endsWith(filename!) || url.includes(`/${filename}`));
                 if (foundIdx >= 0) {
                     return { ...prev, [shotId]: foundIdx };
