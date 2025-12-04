@@ -2585,14 +2585,17 @@ export default function Step3_DeconstructionReview({
     }, [savedVideoIndexesLoaded, savedVideoFilenames, generatedVideos]);
 
     // 当远端已保存的索引到达后，应用到对应镜头（支持文件名匹配）
-    // 【关键改进】使用 React 状态 savedImageFilenames 而非 window 全局变量，确保数据可靠
+    // 【修复】和视频保持一致，使用 window 变量（同步），避免 React 状态批处理导致的时序问题
     useEffect(() => {
         // 必须等 savedIndexes 加载完成且有图片列表才设置索引，避免闪烁
         if (!savedIndexesLoaded || !Object.keys(generatedImages).length) return;
         
+        // 【关键】从 window 读取原始的文件名映射（和视频一致，保留字符串 key 格式如 "1.0"）
+        const rawSavedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string | number> || {};
+        
         // [调试] 记录每次尝试匹配的结果
         const debugLog: string[] = [];
-        debugLog.push(`[开始匹配] savedImageFilenames keys: ${Object.keys(savedImageFilenames).join(', ')}`);
+        debugLog.push(`[开始匹配] rawSavedFilenames keys: ${Object.keys(rawSavedFilenames).join(', ')}`);
         
         setGeneratedIndexes((prev) => {
             let changed = false;
@@ -2603,11 +2606,11 @@ export default function Step3_DeconstructionReview({
                 const id = Number(k);
                 if (!imgs || !imgs.length) return;
                 
-                // 【关键】从 React 状态读取文件名（尝试多种 key 格式）
+                // 【关键】从 window 读取文件名（尝试多种 key 格式）
                 const possibleKeys = [String(id), id.toFixed(1), String(Math.floor(id))];
                 let filename: string | undefined;
                 for (const key of possibleKeys) {
-                    const val = savedImageFilenames[key];
+                    const val = rawSavedFilenames[key];
                     if (typeof val === 'string') {
                         filename = val;
                         break;
