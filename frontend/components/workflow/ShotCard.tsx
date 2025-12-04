@@ -468,7 +468,7 @@ export const ShotCard = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                     {/* Foreground */}
                     <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-orange-500">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
                             <Users size={14} />
                             <span>前景 / FOREGROUND</span>
                         </div>
@@ -477,7 +477,7 @@ export const ShotCard = ({
                                 <div className="text-slate-500 text-[10px] mb-1">角色:</div>
                                 <div className="space-y-1">
                                     {(frame.foreground?.characters || []).map((c: unknown, i: number) => (
-                                        <div key={i} className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-slate-700">{renderFrameItem(c) || '添加角色...'}</div>
+                                        <div key={i} className="p-2 rounded-lg bg-white/60 border border-slate-200/50 text-slate-700">{renderFrameItem(c) || '添加角色...'}</div>
                                     ))}
                                     {(!frame.foreground?.characters?.length) && <div className="p-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 italic">无角色</div>}
                                 </div>
@@ -486,7 +486,7 @@ export const ShotCard = ({
                                 <div className="text-slate-500 text-[10px] mb-1">道具:</div>
                                 <div className="space-y-1">
                                     {(frame.foreground?.objects || []).map((o: unknown, i: number) => (
-                                        <div key={i} className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-slate-700">{renderFrameItem(o) || '添加道具...'}</div>
+                                        <div key={i} className="p-2 rounded-lg bg-white/60 border border-slate-200/50 text-slate-700">{renderFrameItem(o) || '添加道具...'}</div>
                                     ))}
                                     {(!frame.foreground?.objects?.length) && <div className="p-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 italic">无道具</div>}
                                 </div>
@@ -495,7 +495,7 @@ export const ShotCard = ({
                     </div>
                     {/* Midground */}
                     <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-orange-500">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
                             <Box size={14} />
                             <span>中景 / MIDGROUND</span>
                         </div>
@@ -504,7 +504,7 @@ export const ShotCard = ({
                                 <div className="text-slate-500 text-[10px] mb-1">角色:</div>
                                 <div className="space-y-1">
                                     {(frame.midground?.characters || []).map((c: unknown, i: number) => (
-                                        <div key={i} className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-slate-700">{renderFrameItem(c) || '添加角色...'}</div>
+                                        <div key={i} className="p-2 rounded-lg bg-white/60 border border-slate-200/50 text-slate-700">{renderFrameItem(c) || '添加角色...'}</div>
                                     ))}
                                     {(!frame.midground?.characters?.length) && <div className="p-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 italic">无角色</div>}
                                 </div>
@@ -513,7 +513,7 @@ export const ShotCard = ({
                                 <div className="text-slate-500 text-[10px] mb-1">道具:</div>
                                 <div className="space-y-1">
                                     {(frame.midground?.objects || []).map((o: unknown, i: number) => (
-                                        <div key={i} className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-slate-700">{renderFrameItem(o) || '添加道具...'}</div>
+                                        <div key={i} className="p-2 rounded-lg bg-white/60 border border-slate-200/50 text-slate-700">{renderFrameItem(o) || '添加道具...'}</div>
                                     ))}
                                     {(!frame.midground?.objects?.length) && <div className="p-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 italic">无道具</div>}
                                 </div>
@@ -522,20 +522,20 @@ export const ShotCard = ({
                     </div>
                     {/* Background */}
                     <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-orange-500">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
                             <Layout size={14} />
                             <span>背景 / BACKGROUND</span>
                         </div>
                         <div className="space-y-2 pl-1">
                             <div>
                                 <div className="text-slate-500 text-[10px] mb-1">环境:</div>
-                                <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-slate-700">
+                                <div className="p-2 rounded-lg bg-white/60 border border-slate-200/50 text-slate-700">
                                     {frame.background?.environment || <span className="italic text-slate-400">无</span>}
                                 </div>
                             </div>
                             <div>
                                 <div className="text-slate-500 text-[10px] mb-1">景深:</div>
-                                <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-slate-700">
+                                <div className="p-2 rounded-lg bg-white/60 border border-slate-200/50 text-slate-700">
                                     {frame.background?.depth || <span className="italic text-slate-400">无</span>}
                                 </div>
                             </div>
@@ -543,20 +543,20 @@ export const ShotCard = ({
                     </div>
                     {/* Lighting & Palette */}
                     <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-orange-500">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
                             <Zap size={14} />
                             <span>光影与色调 / LIGHTING & PALETTE</span>
                         </div>
                         <div className="space-y-2 pl-1">
                             <div>
                                 <div className="text-slate-500 text-[10px] mb-1">光照:</div>
-                                <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-slate-700">
+                                <div className="p-2 rounded-lg bg-white/60 border border-slate-200/50 text-slate-700">
                                     {frame.lighting || <span className="italic text-slate-400">无</span>}
                                 </div>
                             </div>
                             <div>
                                 <div className="text-slate-500 text-[10px] mb-1">色调:</div>
-                                <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-slate-700">
+                                <div className="p-2 rounded-lg bg-white/60 border border-slate-200/50 text-slate-700">
                                     {frame.color_palette || <span className="italic text-slate-400">无</span>}
                                 </div>
                             </div>
@@ -583,7 +583,7 @@ export const ShotCard = ({
             return (
                 <div className="space-y-1">
                     {arr.map((item, i) => (
-                        <div key={i} className="p-2 rounded-lg bg-emerald-100/50 border border-emerald-200 text-slate-700 text-sm">
+                        <div key={i} className="p-2 rounded-lg bg-white/50 border border-slate-200/50 text-slate-700 text-sm">
                             {renderFrameItem(item)}
                         </div>
                     ))}
@@ -601,10 +601,10 @@ export const ShotCard = ({
         if (!diff) return null;
 
         return (
-            <div className="mt-2 border border-emerald-400/50 rounded-xl p-3 bg-emerald-50/50 shadow-sm">
+            <div className="mt-2 border border-[#34C759]/30 rounded-xl p-3 bg-[#34C759]/5 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 text-xs text-emerald-600 font-semibold mb-2">
+                        <div className="flex items-center gap-2 text-xs text-[#34C759] font-semibold mb-2">
                             <RefreshCw size={12} />
                             <span>新值</span>
                         </div>
@@ -620,7 +620,7 @@ export const ShotCard = ({
                     </div>
                     <button
                         onClick={() => onAcceptDiff(fieldKey)}
-                        className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition text-xs font-medium shadow-sm"
+                        className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#34C759] text-white hover:bg-[#2DB84D] transition text-xs font-medium shadow-sm"
                     >
                         <CheckCircle2 size={14} />
                         应用
@@ -686,11 +686,11 @@ export const ShotCard = ({
         const isMissing = !origVal;
         const panelClass = isMissing
             ? 'border-blue-500/30 bg-blue-500/5 text-slate-700'
-            : 'border-amber-500/30 bg-amber-500/5 text-slate-700';
-        const labelClass = isMissing ? 'text-blue-600' : 'text-amber-600';
+            : 'border-slate-400/30 bg-slate-500/5 text-slate-700';
+        const labelClass = isMissing ? 'text-blue-600' : 'text-slate-600';
         const badgeClass = isMissing
             ? 'bg-blue-500 text-white border-transparent'
-            : 'bg-amber-500 text-white border-transparent';
+            : 'bg-slate-500 text-white border-transparent';
 
         return (
             <div className="space-y-3 group/revision">
@@ -717,9 +717,9 @@ export const ShotCard = ({
 
     const modTypeClass = (modType?: string) => {
         const upper = (modType || '').toUpperCase();
-        if (upper === 'DELETE') return 'text-red-300';
-        if (upper === 'REPLACE') return 'text-amber-300';
-        if (upper === 'ADD' || upper === 'INSERT') return 'text-emerald-300';
+        if (upper === 'DELETE') return 'text-[#FF3B30]';
+        if (upper === 'REPLACE') return 'text-slate-300';
+        if (upper === 'ADD' || upper === 'INSERT') return 'text-[#34C759]';
         return 'text-blue-300';
     };
 
@@ -730,11 +730,11 @@ export const ShotCard = ({
     const hasOriginalMod = !!originalModificationInfo;
     const hasOptimizedMod = !!optimizedModificationInfo;
     const modIsDiff = hasOriginalMod && hasOptimizedMod && JSON.stringify(originalModificationInfo) !== JSON.stringify(optimizedModificationInfo);
-    let modBadgeClass = 'border-amber-400/50 bg-amber-500/10';
+    let modBadgeClass = 'border-slate-400/50 bg-slate-500/10';
     if (!hasOriginalMod && hasOptimizedMod) {
         modBadgeClass = 'border-blue-400/50 bg-blue-500/10';
     } else if (modIsDiff) {
-        modBadgeClass = 'border-red-400/50 bg-red-500/10';
+        modBadgeClass = 'border-[#FF3B30]/50 bg-[#FF3B30]/10';
     }
 
     // Determine border color based on modification
@@ -743,14 +743,14 @@ export const ShotCard = ({
 
     if (mode === 'revision') {
         if (modType === 'delete') {
-            borderColor = "border-red-500/30";
-            glowColor = "shadow-red-500/5";
+            borderColor = "border-[#FF3B30]/30";
+            glowColor = "shadow-[#FF3B30]/5";
         } else if (modType === 'add') {
-            borderColor = "border-green-500/30";
-            glowColor = "shadow-green-500/5";
+            borderColor = "border-[#34C759]/30";
+            glowColor = "shadow-[#34C759]/5";
         } else if (modType === 'modify') {
-            borderColor = "border-amber-500/30";
-            glowColor = "shadow-amber-500/5";
+            borderColor = "border-slate-400/30";
+            glowColor = "shadow-slate-500/5";
         }
     }
 
@@ -923,8 +923,8 @@ export const ShotCard = ({
                         <button
                             onClick={() => updateField('discarded', !isDiscarded)}
                             className={`relative z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${isDiscarded
-                                    ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/30'
-                                    : 'bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30'
+                                    ? 'bg-[#34C759] text-white hover:bg-[#2DB84D] shadow-lg shadow-[#34C759]/30'
+                                    : 'bg-[#FF3B30]/20 text-[#FF3B30] hover:bg-[#FF3B30]/30 border border-[#FF3B30]/30'
                                 }`}
                         >
                             {isDiscarded ? (
@@ -1044,7 +1044,7 @@ export const ShotCard = ({
                                     </div>
                                     <div className={`${mediaBaseClass} border ${highlightGenerated || (activeImage && newImages.includes(activeImage)) ? 'border-red-400' : 'border-slate-200'} shadow-sm flex items-center justify-center text-lg text-blue-300`}>
                                         {(activeImage && newImages.includes(activeImage)) && (
-                                            <span className="absolute top-2 right-2 px-3 py-1.5 rounded-full text-sm font-semibold bg-red-500 text-white">NEW</span>
+                                            <span className="absolute top-2 right-2 px-3 py-1.5 rounded-full text-sm font-semibold bg-[#FF3B30] text-white">NEW</span>
                                         )}
                                         {activeImage ? (
                                             // eslint-disable-next-line @next/next/no-img-element
@@ -1273,7 +1273,7 @@ export const ShotCard = ({
                                                 disabled={!isGeneratingVideo && !hasGeneratedImages}
                                                 title={isGeneratingVideo ? '停止生成视频' : !hasGeneratedImages ? '请先生成图片' : '使用当前图片生成视频'}
                                                 className={`flex items-center justify-center gap-2 w-[100px] py-1.5 rounded-xl text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${isGeneratingVideo
-                                                        ? 'bg-red-500 text-white hover:bg-red-600'
+                                                        ? 'bg-[#FF3B30] text-white hover:bg-[#E8342B]'
                                                         : !hasGeneratedImages
                                                             ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
                                                             : 'bg-[#007AFF] text-white hover:bg-[#0066DD]'
@@ -1399,7 +1399,7 @@ export const ShotCard = ({
                                                     <div className={`${mediaBaseClass} border border-white/10 shadow-inner cursor-pointer relative`}>
                                                         {/* 左上角：NEW 标识 */}
                                                         {isNew && (
-                                                            <span className="absolute top-2 left-2 px-2 py-1 rounded-md text-xs font-semibold bg-red-500 text-white z-10">
+                                                            <span className="absolute top-2 left-2 px-2 py-1 rounded-md text-xs font-semibold bg-[#FF3B30] text-white z-10">
                                                                 NEW
                                                             </span>
                                                         )}
@@ -1455,7 +1455,7 @@ export const ShotCard = ({
                                                     )}
                                                     <button
                                                         onClick={() => onStopVideoGeneration?.(shot, index)}
-                                                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-red-500 text-white hover:bg-red-600 transition"
+                                                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-[#FF3B30] text-white hover:bg-[#E8342B] transition"
                                                     >
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
                                                         停止生成
@@ -1549,7 +1549,7 @@ export const ShotCard = ({
                                                         </span>
                                                     )}
                                                     {isNew && (
-                                                        <span className="absolute top-2 left-2 px-2 py-1 rounded-md text-xs font-semibold bg-red-500 text-white z-10">
+                                                        <span className="absolute top-2 left-2 px-2 py-1 rounded-md text-xs font-semibold bg-[#FF3B30] text-white z-10">
                                                             NEW
                                                         </span>
                                                     )}
@@ -1561,7 +1561,7 @@ export const ShotCard = ({
                                                     <button
                                                         onClick={() => onSelectGeneratedIndex?.(shot, index, originalIdx)}
                                                         className={`flex-1 flex items-center justify-center gap-2 text-sm font-medium ${BTN_RADIUS} px-4 py-2.5 transition-all duration-200 active:scale-[0.98] ${isActive
-                                                            ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md'
+                                                            ? 'bg-[#007AFF] text-white shadow-md shadow-[#007AFF]/20'
                                                             : 'bg-white/70 border border-slate-200/50 text-slate-600 hover:bg-white hover:border-blue-300 hover:text-blue-600'}`}
                                                     >
                                                         {isActive ? <><Check size={14} /> 已选择</> : '选择此图'}
@@ -1599,7 +1599,7 @@ export const ShotCard = ({
                         {modificationInfo && (
                             <div className={`p-4 rounded-2xl text-sm border ${modBadgeClass} space-y-2 bg-gradient-to-br from-blue-50/50 to-indigo-50/30`}>
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <Sparkles size={16} className="text-blue-500" />
+                                    <Sparkles size={16} className="text-[#007AFF]" />
                                     <span className="text-blue-700 font-semibold text-xs uppercase">优化概述</span>
                                     {modificationInfo.type && (
                                         <span className={`px-2 py-0.5 rounded-full border ${modTypeClass(modificationInfo.type)}`}>
@@ -1626,7 +1626,7 @@ export const ShotCard = ({
                                         {/* Foreground */}
                                         <div className="space-y-3">
                                             <div className="flex items-center gap-2 text-base font-semibold text-slate-700 uppercase">
-                                                <Users size={16} className="text-blue-500" />
+                                                <Users size={16} className="text-[#007AFF]" />
                                                 前景 / Foreground
                                             </div>
                                             <div className="space-y-3 pl-3 border-l-2 border-blue-500/30">
@@ -1718,7 +1718,7 @@ export const ShotCard = ({
                                                                     {canEdit && (
                                                                         <button
                                                                             onClick={() => setDeleteConfirm({ type: 'fg_char', index: idx, label: `前景角色 #${idx + 1}` })}
-                                                                            className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                                                            className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-[#FF3B30] hover:bg-[#FF3B30]/10 transition-colors"
                                                                             title="删除角色"
                                                                         >
                                                                             <Trash2 size={14} />
@@ -1773,7 +1773,7 @@ export const ShotCard = ({
                                                                 {canEdit && (
                                                                     <button
                                                                         onClick={() => setDeleteConfirm({ type: 'fg_obj', index: idx, label: `前景道具 #${idx + 1}` })}
-                                                                        className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                                                        className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-[#FF3B30] hover:bg-[#FF3B30]/10 transition-colors"
                                                                         title="删除道具"
                                                                     >
                                                                         <Trash2 size={14} />
@@ -1900,7 +1900,7 @@ export const ShotCard = ({
                                                                     {canEdit && (
                                                                         <button
                                                                             onClick={() => setDeleteConfirm({ type: 'mg_char', index: idx, label: `中景角色 #${idx + 1}` })}
-                                                                            className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                                                            className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-[#FF3B30] hover:bg-[#FF3B30]/10 transition-colors"
                                                                             title="删除角色"
                                                                         >
                                                                             <Trash2 size={14} />
@@ -1955,7 +1955,7 @@ export const ShotCard = ({
                                                                 {canEdit && (
                                                                     <button
                                                                         onClick={() => setDeleteConfirm({ type: 'mg_obj', index: idx, label: `中景道具 #${idx + 1}` })}
-                                                                        className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                                                        className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-[#FF3B30] hover:bg-[#FF3B30]/10 transition-colors"
                                                                         title="删除道具"
                                                                     >
                                                                         <Trash2 size={14} />
@@ -2041,7 +2041,7 @@ export const ShotCard = ({
                                                 <Sun size={16} className="text-amber-500" />
                                                 光影与色调 / Lighting & Palette
                                             </div>
-                                            <div className="space-y-2 pl-3 border-l-2 border-amber-500/30">
+                                            <div className="space-y-2 pl-3 border-l-2 border-slate-400/30">
                                                 <div className="space-y-1">
                                                     <span className="text-xs text-slate-500">光照:</span>
                                                     <AutoTextArea
@@ -2053,7 +2053,7 @@ export const ShotCard = ({
                                                         readOnly={!canEdit}
                                                         minRows={1}
                                                         maxRows={4}
-                                                        className="w-full p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-amber-500/30 placeholder:text-slate-400"
+                                                        className="w-full p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-slate-400/30 placeholder:text-slate-400"
                                                         placeholder="光照..."
                                                     />
                                                     {renderDiffPanel(`shot-${shot.id ?? index}-initial_lighting`)}
@@ -2072,7 +2072,7 @@ export const ShotCard = ({
                                                         readOnly={!canEdit}
                                                         minRows={1}
                                                         maxRows={4}
-                                                        className="w-full p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-amber-500/30 placeholder:text-slate-400"
+                                                        className="w-full p-2 rounded-lg bg-black/5 border border-black/10 text-slate-700 text-sm leading-relaxed hover:bg-black/10 transition-colors resize-none focus:outline-none focus:border-slate-400/30 placeholder:text-slate-400"
                                                         placeholder="色调..."
                                                     />
                                                     {renderDiffPanel(`shot-${shot.id ?? index}-initial_palette`)}
@@ -2083,13 +2083,13 @@ export const ShotCard = ({
                                 )}
                                 {structuredFrameOptimized && (!structuredFrameOriginal || JSON.stringify(structuredFrameOriginal) !== JSON.stringify(structuredFrameOptimized)) && (
                                     <div className="space-y-3 group/revision mt-4">
-                                        <div className="relative z-10 border rounded-2xl p-7 text-base shadow-sm backdrop-blur-sm transition-all duration-300 hover:shadow-md border-amber-500/30 bg-amber-500/5 text-slate-800 leading-relaxed">
+                                        <div className="relative z-10 border rounded-2xl p-7 text-base shadow-sm backdrop-blur-sm transition-all duration-300 hover:shadow-md border-slate-400/30 bg-amber-500/5 text-slate-800 leading-relaxed">
                                             <div className="flex items-center justify-between mb-4">
-                                                <div className="flex items-center gap-2 text-base uppercase font-bold tracking-wider text-amber-600">
+                                                <div className="flex items-center gap-2 text-base uppercase font-bold tracking-wider text-slate-600">
                                                     <Sparkles size={16} />
                                                     <span>初始帧设定 (优化后)</span>
                                                 </div>
-                                                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full shadow-sm bg-amber-500 text-white border-transparent">
+                                                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full shadow-sm bg-slate-500 text-white border-transparent">
                                                     NEW
                                                 </span>
                                             </div>
@@ -2243,7 +2243,7 @@ export const ShotCard = ({
                             </button>
                             <button
                                 onClick={() => handleDeleteItem(deleteConfirm.type, deleteConfirm.index)}
-                                className="flex-1 px-4 py-2 rounded-xl bg-red-500 text-white hover:bg-red-600 transition font-medium shadow-lg shadow-red-500/20"
+                                className="flex-1 px-4 py-2 rounded-xl bg-[#FF3B30] text-white hover:bg-[#E8342B] transition font-medium shadow-lg shadow-[#FF3B30]/20"
                             >
                                 确认删除
                             </button>
