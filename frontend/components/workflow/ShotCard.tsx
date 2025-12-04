@@ -983,7 +983,7 @@ export const ShotCard = ({
 
                             {/* 1.5 选中线稿图 - 仅在线稿模式下显示 */}
                             {showGeneration && effectiveOutlineMode && (
-                                <div className={`${mediaCardBase} ${shot.finalizedOutline ? 'ring-2 ring-[#007AFF]/30' : ''}`}>
+                                <div className={`${mediaCardBase} ${shot.finalizedOutline ? 'ring-2 ring-[#007AFF]/30 !duration-100' : ''}`}>
                                     <div className="flex items-center justify-between">
                                         <div className={mediaTitleClass}>选中线稿图</div>
                                         {activeOutlineUrl && (
@@ -1030,7 +1030,7 @@ export const ShotCard = ({
 
                             {/* 2. 选中的生成图片 - 放大 */}
                             {showGeneration && (
-                                <div className={`${mediaCardBase} ${shot.finalizedImage ? 'ring-2 ring-[#007AFF]/30' : ''}`}>
+                                <div className={`${mediaCardBase} ${shot.finalizedImage ? 'ring-2 ring-[#007AFF]/30 !duration-100' : ''}`}>
                                     <div className="flex items-center justify-between">
                                         <div className={mediaTitleClass}>
                                             {getGenerationInfo(activeImage || '') || '选中生成图'}
@@ -1105,7 +1105,7 @@ export const ShotCard = ({
 
                             {/* 3. 选中视频 - 展示选中的视频，没有则显示占位（无切换按钮，在素材流中选择） */}
                             {showGeneration && (
-                                <div className={`${mediaCardBase} ${shot.finalizedVideo ? 'ring-2 ring-[#007AFF]/30' : ''}`}>
+                                <div className={`${mediaCardBase} ${shot.finalizedVideo ? 'ring-2 ring-[#007AFF]/30 !duration-100' : ''}`}>
                                     <div className="flex items-center justify-between">
                                         <div className={mediaTitleClass}>选中视频</div>
                                         {videoSrc && (
