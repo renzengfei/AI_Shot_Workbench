@@ -983,7 +983,7 @@ export const ShotCard = ({
 
                             {/* 1.5 选中线稿图 - 仅在线稿模式下显示 */}
                             {showGeneration && effectiveOutlineMode && (
-                                <div className={`${mediaCardBase} ${shot.finalizedOutline ? 'ring-2 ring-amber-400/50' : ''}`}>
+                                <div className={`${mediaCardBase} ${shot.finalizedOutline ? 'ring-2 ring-[#007AFF]/40' : ''}`}>
                                     <div className="flex items-center justify-between">
                                         <div className={mediaTitleClass}>选中线稿图</div>
                                         {activeOutlineUrl && (
@@ -997,7 +997,7 @@ export const ShotCard = ({
                                             />
                                         )}
                                     </div>
-                                    <div className={`${mediaBaseClass} border ${shot.finalizedOutline && activeOutlineUrl?.includes(shot.finalizedOutline) ? 'border-amber-400' : 'border-[#6B7280]/30'} shadow-sm flex items-center justify-center`}>
+                                    <div className={`${mediaBaseClass} border ${shot.finalizedOutline && activeOutlineUrl?.includes(shot.finalizedOutline) ? 'border-[#007AFF]' : 'border-[#6B7280]/30'} shadow-sm flex items-center justify-center`}>
                                         {activeOutlineUrl ? (
                                             // eslint-disable-next-line @next/next/no-img-element
                                             <img src={activeOutlineUrl.startsWith('/') ? `${API_BASE}${activeOutlineUrl}` : activeOutlineUrl} alt="线稿图" className="w-full h-full object-cover" />
@@ -1030,7 +1030,7 @@ export const ShotCard = ({
 
                             {/* 2. 选中的生成图片 - 放大 */}
                             {showGeneration && (
-                                <div className={`${mediaCardBase} ${shot.finalizedImage ? 'ring-2 ring-amber-400/50' : ''}`}>
+                                <div className={`${mediaCardBase} ${shot.finalizedImage ? 'ring-2 ring-[#007AFF]/40' : ''}`}>
                                     <div className="flex items-center justify-between">
                                         <div className={mediaTitleClass}>
                                             {getGenerationInfo(activeImage || '') || '选中生成图'}
@@ -1046,7 +1046,7 @@ export const ShotCard = ({
                                             />
                                         )}
                                     </div>
-                                    <div className={`${mediaBaseClass} border ${shot.finalizedImage && activeImage?.includes(shot.finalizedImage) ? 'border-amber-400' : highlightGenerated || (activeImage && newImages.includes(activeImage)) ? 'border-red-400' : 'border-slate-200'} shadow-sm flex items-center justify-center text-lg text-blue-300`}>
+                                    <div className={`${mediaBaseClass} border ${shot.finalizedImage && activeImage?.includes(shot.finalizedImage) ? 'border-[#007AFF]' : highlightGenerated || (activeImage && newImages.includes(activeImage)) ? 'border-red-400' : 'border-slate-200'} shadow-sm flex items-center justify-center text-lg text-blue-300`}>
                                         {(activeImage && newImages.includes(activeImage)) && (
                                             <span className="absolute top-2 right-2 px-3 py-1.5 rounded-full text-sm font-semibold bg-red-500 text-white">NEW</span>
                                         )}
@@ -1105,7 +1105,7 @@ export const ShotCard = ({
 
                             {/* 3. 选中视频 - 展示选中的视频，没有则显示占位（无切换按钮，在素材流中选择） */}
                             {showGeneration && (
-                                <div className={`${mediaCardBase} ${shot.finalizedVideo ? 'ring-2 ring-amber-400/50' : ''}`}>
+                                <div className={`${mediaCardBase} ${shot.finalizedVideo ? 'ring-2 ring-[#007AFF]/40' : ''}`}>
                                     <div className="flex items-center justify-between">
                                         <div className={mediaTitleClass}>选中视频</div>
                                         {videoSrc && (
