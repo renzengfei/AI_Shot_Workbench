@@ -2629,13 +2629,14 @@ export default function Step3_DeconstructionReview({
                         targetIdx = foundIdx;
                         debugLog.push(`[Shot ${id}] 匹配成功: ${filename} → index ${foundIdx}`);
                     } else {
-                        // 有保存记录但匹配失败，记录调试信息
-                        debugLog.push(`[Shot ${id}] 匹配失败: 找不到 ${filename}，图片列表: ${imgs.map(u => u.split('/').pop()).join(', ')}`);
-                        return;
+                        // 有保存记录但匹配失败，默认显示第一张
+                        targetIdx = 0;
+                        debugLog.push(`[Shot ${id}] 匹配失败: 找不到 ${filename}，默认显示第一张`);
                     }
                 } else {
-                    // 没有保存记录时不设置默认值，避免 API 还没返回时显示错误的选择
-                    return;
+                    // 没有保存记录，默认显示第一张（最新生成的）
+                    targetIdx = 0;
+                    debugLog.push(`[Shot ${id}] 无保存记录，默认显示第一张`);
                 }
                 
                 if (prev[id] !== targetIdx) {
