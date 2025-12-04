@@ -1279,18 +1279,18 @@ export const ShotCard = ({
                                         {isGeneratingVideo && videoTaskProgresses.length > 0 && videoTaskProgresses.map((task, idx) => (
                                             <div
                                                 key={`task-${task.taskId}-${idx}`}
-                                                className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} border border-purple-300/50 bg-white/50 backdrop-blur-xl ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
+                                                className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} border border-[#EC4899]/30 bg-white/50 backdrop-blur-xl ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
                                             >
                                                 <div className={mediaTitleClass}>生成中 <WaitTimer startTime={task.startTime} /></div>
                                                 <div className={`${mediaBaseClass} border border-white/10 shadow-inner flex flex-col items-center justify-center gap-3`}>
-                                                    <Loader2 size={36} className="animate-spin text-purple-400" />
-                                                    <span className="text-purple-400 text-sm font-medium">
+                                                    <Loader2 size={36} className="animate-spin text-[#EC4899]" />
+                                                    <span className="text-[#EC4899] text-sm font-medium">
                                                         {task.status === 'downloading' ? '下载中...' : task.status === 'processing' ? (task.progress > 0 ? `${task.progress}%` : '生成中...') : '排队中...'}
                                                     </span>
                                                     {(task.status === 'processing' || task.status === 'downloading') && (
-                                                        <div className="w-32 h-2 bg-purple-100 rounded-full overflow-hidden">
+                                                        <div className="w-32 h-2 bg-pink-100 rounded-full overflow-hidden">
                                                             <div 
-                                                                className="h-full bg-gradient-to-r from-purple-400 to-pink-400 rounded-full transition-all duration-300"
+                                                                className="h-full bg-[#EC4899] rounded-full transition-all duration-300"
                                                                 style={{ width: `${task.progress}%` }}
                                                             />
                                                         </div>
@@ -1348,24 +1348,24 @@ export const ShotCard = ({
                                         })}
                                         {/* 空状态：没有视频且不在生成中 */}
                                         {generatedVideoUrls.length === 0 && !isGeneratingVideo && (
-                                            <div className={`w-full min-w-[360px] flex flex-col items-center justify-center gap-4 text-slate-400 bg-white/30 ${CARD_RADIUS} border border-dashed border-purple-300/50 p-10 backdrop-blur-sm`}>
-                                                <Video size={36} className="text-purple-300/60" />
+                                            <div className={`w-full min-w-[360px] flex flex-col items-center justify-center gap-4 text-slate-400 bg-white/30 ${CARD_RADIUS} border border-dashed border-pink-300/50 p-10 backdrop-blur-sm`}>
+                                                <Video size={36} className="text-pink-300/60" />
                                                 <span>暂无生成视频</span>
                                                 <span className="text-xs text-slate-300">点击「生视频」按钮开始生成</span>
                                             </div>
                                         )}
                                         {/* 空状态：没有视频但正在生成（没有占位卡片时的备用显示） */}
                                         {generatedVideoUrls.length === 0 && isGeneratingVideo && videoTaskProgresses.length === 0 && (
-                                            <div className={`w-full min-w-[360px] flex flex-col items-center justify-center gap-4 text-slate-400 bg-white/30 ${CARD_RADIUS} border border-dashed border-purple-300/50 p-10 backdrop-blur-sm`}>
+                                            <div className={`w-full min-w-[360px] flex flex-col items-center justify-center gap-4 text-slate-400 bg-white/30 ${CARD_RADIUS} border border-dashed border-pink-300/50 p-10 backdrop-blur-sm`}>
                                                 <div className="flex flex-col items-center gap-3 w-full">
-                                                    <Loader2 size={36} className="animate-spin text-purple-400" />
-                                                    <span className="text-purple-400">
+                                                    <Loader2 size={36} className="animate-spin text-pink-300" />
+                                                    <span className="text-pink-300">
                                                         {videoTaskStatus === 'processing' ? `视频生成中 ${videoProgress}%` : '排队等待中...'}
                                                     </span>
                                                     {videoTaskStatus === 'processing' && (
-                                                        <div className="w-48 h-2 bg-purple-100 rounded-full overflow-hidden">
+                                                        <div className="w-48 h-2 bg-pink-100 rounded-full overflow-hidden">
                                                             <div 
-                                                                className="h-full bg-gradient-to-r from-purple-400 to-pink-400 rounded-full transition-all duration-300"
+                                                                className="h-full bg-[#EC4899] rounded-full transition-all duration-300"
                                                                 style={{ width: `${videoProgress}%` }}
                                                             />
                                                         </div>
