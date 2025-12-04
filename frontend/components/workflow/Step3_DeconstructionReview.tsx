@@ -1478,26 +1478,26 @@ export default function Step3_DeconstructionReview({
         setActiveOutlineUrls((prev) => ({ ...prev, [shotId]: url }));
     };
 
-    // 生成线稿回调
+    // 生成线稿回调（使用原片首帧）
     const handleGenerateOutline = async (shot: Round2Shot, index: number) => {
-        if (!currentWorkspace?.path) {
+        if (!currentWorkspace?.path || !workspaceSlug) {
             showToast('请先选择工作空间', 'error');
             return;
         }
         const shotId = shot.id ?? index + 1;
-        const imageUrls = generatedImages[shotId] || [];
-        if (imageUrls.length === 0) {
-            showToast('请先生成图片', 'error');
+        
+        // 获取原片首帧 URL
+        const preferredKeyframe = shot.keyframe && frameNameSet.has(shot.keyframe) ? shot.keyframe : null;
+        const frameName = preferredKeyframe || 
+            (shot.original_id ? frameMap.get(shot.original_id) : undefined) ||
+            frameMap.get(shotId) || null;
+        
+        if (!frameName) {
+            showToast('未找到原片首帧', 'error');
             return;
         }
         
-        // 获取当前选中的图片
-        const currentIndex = generatedIndexes[shotId] ?? imageUrls.length - 1;
-        const imagePath = imageUrls[Math.min(currentIndex, imageUrls.length - 1)];
-        if (!imagePath) {
-            showToast('未找到图片', 'error');
-            return;
-        }
+        const frameUrl = `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/assets/frames/${frameName}`;
         
         setGeneratingOutlines((prev) => ({ ...prev, [shotId]: true }));
         
@@ -1508,7 +1508,7 @@ export default function Step3_DeconstructionReview({
                 body: JSON.stringify({
                     workspace_path: currentWorkspace.path,
                     shot_id: String(shotId),
-                    frame_url: imagePath,
+                    frame_url: frameUrl,
                     outline_prompt: outlinePrompts[shotId] || globalOutlinePrompt,
                 }),
             });
@@ -1561,26 +1561,33 @@ export default function Step3_DeconstructionReview({
         }
     };
 
-    // 批量生成线稿
+    // 批量生成线稿（使用原片首帧）
     const handleBatchGenerateOutlines = async () => {
-        if (!currentWorkspace?.path) {
+        if (!currentWorkspace?.path || !workspaceSlug) {
             showToast('请先选择工作空间', 'error');
             return;
         }
         if (typeof round2Data === 'string' || !round2Data?.shots) return;
         
-        const shotsWithImages = round2Data.shots.filter((shot, idx) => {
+        // 筛选有原片首帧的镜头
+        const shotsWithFrames = round2Data.shots.filter((shot, idx) => {
             const shotId = shot.id ?? idx + 1;
-            return !shot.discarded && (generatedImages[shotId]?.length > 0);
+            if (shot.discarded) return false;
+            // 检查是否有原片首帧
+            const preferredKeyframe = shot.keyframe && frameNameSet.has(shot.keyframe) ? shot.keyframe : null;
+            const frameName = preferredKeyframe || 
+                (shot.original_id ? frameMap.get(shot.original_id) : undefined) ||
+                frameMap.get(shotId) || null;
+            return !!frameName;
         });
         
-        if (shotsWithImages.length === 0) {
-            showToast('没有可生成线稿的镜头（需先生成图片）', 'error');
+        if (shotsWithFrames.length === 0) {
+            showToast('没有可生成线稿的镜头（无原片首帧）', 'error');
             return;
         }
         
         setBatchGeneratingOutlines(true);
-        setOutlineProgress({ completed: 0, total: shotsWithImages.length });
+        setOutlineProgress({ completed: 0, total: shotsWithFrames.length });
         
         // 并发控制：最多 20 个并发
         const CONCURRENCY = 20;
@@ -1590,12 +1597,19 @@ export default function Step3_DeconstructionReview({
         
         const generateOne = async (shot: Round2Shot, idx: number) => {
             const shotId = shot.id ?? idx + 1;
-            const imageUrls = generatedImages[shotId] || [];
-            if (imageUrls.length === 0) return;
             
-            const currentIndex = generatedIndexes[shotId] ?? imageUrls.length - 1;
-            const imagePath = imageUrls[Math.min(currentIndex, imageUrls.length - 1)];
-            if (!imagePath) return;
+            // 获取原片首帧 URL
+            const preferredKeyframe = shot.keyframe && frameNameSet.has(shot.keyframe) ? shot.keyframe : null;
+            const frameName = preferredKeyframe || 
+                (shot.original_id ? frameMap.get(shot.original_id) : undefined) ||
+                frameMap.get(shotId) || null;
+            
+            if (!frameName) {
+                failedCount++;
+                return;
+            }
+            
+            const frameUrl = `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug!)}/assets/frames/${frameName}`;
             
             setGeneratingOutlines((prev) => ({ ...prev, [shotId]: true }));
             
@@ -1606,7 +1620,7 @@ export default function Step3_DeconstructionReview({
                     body: JSON.stringify({
                         workspace_path: currentWorkspace.path,
                         shot_id: String(shotId),
-                        frame_url: imagePath,
+                        frame_url: frameUrl,
                         outline_prompt: outlinePrompts[shotId] || globalOutlinePrompt,
                     }),
                 });
@@ -1636,9 +1650,9 @@ export default function Step3_DeconstructionReview({
         };
         
         // 分批执行
-        for (let i = 0; i < shotsWithImages.length; i += CONCURRENCY) {
-            const batch = shotsWithImages.slice(i, i + CONCURRENCY);
-            await Promise.all(batch.map((shot) => {
+        for (let i = 0; i < shotsWithFrames.length; i += CONCURRENCY) {
+            const batch = shotsWithFrames.slice(i, i + CONCURRENCY);
+            await Promise.all(batch.map((shot: Round2Shot) => {
                 const idx = round2Data.shots?.indexOf(shot) ?? 0;
                 return generateOne(shot, idx);
             }));
@@ -1646,9 +1660,9 @@ export default function Step3_DeconstructionReview({
         
         setBatchGeneratingOutlines(false);
         if (failedCount > 0) {
-            showToast(`线稿生成完成：成功 ${successCount} 个，失败 ${failedCount} 个`, failedCount === shotsWithImages.length ? 'error' : 'success');
+            showToast(`线稿生成完成：成功 ${successCount} 个，失败 ${failedCount} 个`, failedCount === shotsWithFrames.length ? 'error' : 'success');
         } else {
-            showToast(`线稿生成完成 ${successCount}/${shotsWithImages.length}`, 'success');
+            showToast(`线稿生成完成 ${successCount}/${shotsWithFrames.length}`, 'success');
         }
     };
 
