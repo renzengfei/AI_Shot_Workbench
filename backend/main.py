@@ -1848,7 +1848,7 @@ class GenerateOutlineRequest(BaseModel):
 
 class OutlineConfigModel(BaseModel):
     globalOutlineMode: bool = False
-    globalOutlinePrompt: str = "extract clean line art, black outlines on white background, no shading, anime style"
+    globalOutlinePrompt: str = ""  # 不使用默认值，用户自行配置
 
 
 @app.post("/api/generate-outline")

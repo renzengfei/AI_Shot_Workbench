@@ -203,9 +203,7 @@ export default function Step3_DeconstructionReview({
     const [outlineProgress, setOutlineProgress] = useState({ completed: 0, total: 0 });  // 线稿生成进度
     // 全局线稿模式配置（从 workspace 加载）
     const [globalOutlineMode, setGlobalOutlineMode] = useState<boolean>(false);
-    const [globalOutlinePrompt, setGlobalOutlinePrompt] = useState<string>(
-        'extract clean line art, black outlines on white background, no shading, anime style'
-    );
+    const [globalOutlinePrompt, setGlobalOutlinePrompt] = useState<string>('');
     // Provider selection per shot
     const [providers, setProviders] = useState<Array<{ id: string; name: string; is_default?: boolean }>>([]);
     const [shotProviders, setShotProviders] = useState<Record<number, string>>({});
@@ -241,7 +239,7 @@ export default function Step3_DeconstructionReview({
             .then(config => {
                 if (config) {
                     setGlobalOutlineMode(config.globalOutlineMode ?? false);
-                    setGlobalOutlinePrompt(config.globalOutlinePrompt ?? 'extract clean line art, black outlines on white background, no shading, anime style');
+                    setGlobalOutlinePrompt(config.globalOutlinePrompt ?? '');
                 }
             })
             .catch(err => console.error('Failed to load outline config:', err));
@@ -379,7 +377,7 @@ export default function Step3_DeconstructionReview({
                         const data = await resp.json() as { outlines: string[] };
                         if (data.outlines && data.outlines.length > 0) {
                             outlinesMap[shotId] = data.outlines;
-                            activeMap[shotId] = data.outlines[data.outlines.length - 1];
+                            activeMap[shotId] = data.outlines[0]; // 最新的在前
                         }
                     }
                 }
@@ -447,7 +445,7 @@ export default function Step3_DeconstructionReview({
                                             ...prev,
                                             [shotId]: data.outlines,
                                         }));
-                                        setActiveOutlineUrls(prev => ({ ...prev, [shotId]: data.outlines[data.outlines.length - 1] }));
+                                        setActiveOutlineUrls(prev => ({ ...prev, [shotId]: data.outlines[0] })); // 最新的在前
                                         clearPendingOutline(shotId);
                                         setGeneratingOutlines(prev => ({ ...prev, [shotId]: false }));
                                     } else {
