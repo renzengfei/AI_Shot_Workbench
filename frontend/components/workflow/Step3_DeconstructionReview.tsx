@@ -369,7 +369,6 @@ export default function Step3_DeconstructionReview({
                 if (typeof round2Data === 'string' || !round2Data?.shots) return;
                 const shots = round2Data.shots;
                 const outlinesMap: Record<number, string[]> = {};
-                const activeMap: Record<number, string> = {};
                 
                 for (const shot of shots) {
                     const shotId = shot.id ?? (shots.indexOf(shot) + 1);
@@ -378,36 +377,32 @@ export default function Step3_DeconstructionReview({
                         const data = await resp.json() as { outlines: string[] };
                         if (data.outlines && data.outlines.length > 0) {
                             outlinesMap[shotId] = data.outlines;
-                            activeMap[shotId] = data.outlines[0]; // 最新的在前
+                            // 不自动选中，保持未选中状态
                         }
                     }
                 }
                 setGeneratedOutlines(outlinesMap);
                 
-                // 从后端加载保存的线稿选择
+                // 从后端加载保存的线稿选择（只有保存过的才会选中）
                 try {
                     const savedResp = await fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-outlines?generated_dir=${generatedDir}`);
                     if (savedResp.ok) {
                         const savedData = await savedResp.json() as { urls: Record<string, string> };
                         if (savedData.urls && Object.keys(savedData.urls).length > 0) {
-                            // 用保存的选择覆盖默认选择
-                            const mergedMap = { ...activeMap };
+                            const savedMap: Record<number, string> = {};
                             for (const [shotIdStr, url] of Object.entries(savedData.urls)) {
                                 const shotId = Number(shotIdStr);
                                 // 只有当 URL 仍然存在于线稿列表中时才使用
                                 if (outlinesMap[shotId]?.includes(url)) {
-                                    mergedMap[shotId] = url;
+                                    savedMap[shotId] = url;
                                 }
                             }
-                            setActiveOutlineUrls(mergedMap);
-                        } else {
-                            setActiveOutlineUrls(activeMap);
+                            setActiveOutlineUrls(savedMap);
                         }
-                    } else {
-                        setActiveOutlineUrls(activeMap);
+                        // 没有保存数据时不设置，保持未选中状态
                     }
                 } catch {
-                    setActiveOutlineUrls(activeMap);
+                    // 请求失败时不设置，保持未选中状态
                 }
                 
                 // 恢复 pending outline 状态
