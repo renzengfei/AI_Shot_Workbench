@@ -55,7 +55,7 @@ const ErrorTooltip = ({ error }: { error: string }) => {
     );
 };
 
-// 定稿星星按钮组件 - 带奖励动效
+// 定稿星星按钮组件 - 仪式感收藏风格
 const FinalizeStarButton = ({
     isFinalized,
     onClick,
@@ -66,80 +66,76 @@ const FinalizeStarButton = ({
     size?: number;
 }) => {
     const [isAnimating, setIsAnimating] = useState(false);
-    const [showSparkle, setShowSparkle] = useState(false);
     const [showRipple, setShowRipple] = useState(false);
-    const [showToast, setShowToast] = useState(false);
+    const [showLabel, setShowLabel] = useState(false);
 
     const handleClick = () => {
         if (!isFinalized) {
-            // 点亮时播放全套动画
+            // 点亮时播放收藏动画
             setIsAnimating(true);
-            setShowSparkle(true);
             setShowRipple(true);
-            setShowToast(true);
-            setTimeout(() => setIsAnimating(false), 700);
-            setTimeout(() => setShowSparkle(false), 900);
-            setTimeout(() => setShowRipple(false), 600);
-            setTimeout(() => setShowToast(false), 1500);
+            setShowLabel(true);
+            setTimeout(() => setIsAnimating(false), 500);
+            setTimeout(() => setShowRipple(false), 800);
+            setTimeout(() => setShowLabel(false), 2000);
         }
         onClick();
     };
 
     return (
-        <div className="relative">
+        <div className="relative flex flex-col items-center">
+            {/* 方形容器按钮 */}
             <button
                 onClick={handleClick}
-                className={`relative p-2 rounded-full transition-all duration-300 
+                className={`relative w-8 h-8 rounded-lg transition-all duration-400 overflow-hidden
                     ${isFinalized
-                        ? 'text-amber-500 bg-gradient-to-br from-amber-100/80 to-amber-200/60 shadow-[0_0_16px_rgba(245,158,11,0.5),0_0_32px_rgba(245,158,11,0.2)]'
-                        : 'text-slate-300 hover:text-amber-400 hover:bg-amber-50/80'
+                        ? 'bg-amber-500 shadow-[0_2px_8px_rgba(245,158,11,0.4),inset_0_1px_0_rgba(255,255,255,0.2)]'
+                        : 'bg-slate-100/80 border border-slate-200/60 hover:border-amber-300 hover:bg-amber-50/50'
                     }
-                    ${isAnimating ? 'animate-bounce-star scale-110' : 'hover:scale-110 active:scale-90'}
+                    ${isAnimating ? 'animate-stamp-press' : 'hover:scale-105 active:scale-95'}
                 `}
                 title={isFinalized ? '取消定稿' : '设为定稿'}
             >
-                {/* 涟漪扩散效果 */}
+                {/* 墨水填充效果 */}
+                {isAnimating && (
+                    <span className="absolute inset-0 bg-amber-500 animate-ink-fill rounded-lg" />
+                )}
+
+                {/* 涟漪扩散 - 扩散到更大范围 */}
                 {showRipple && (
-                    <>
-                        <span className="absolute inset-0 rounded-full bg-amber-400/40 animate-ripple-1" />
-                        <span className="absolute inset-0 rounded-full bg-amber-300/30 animate-ripple-2" />
-                    </>
-                )}
-
-                {/* 脉冲光晕 - 仅在已定稿时显示 */}
-                {isFinalized && (
-                    <span className="absolute inset-0 rounded-full bg-amber-400/25 animate-ping-slow" />
-                )}
-
-                {/* 点亮时的闪光粒子（6颗，四散飞出） */}
-                {showSparkle && (
-                    <>
-                        <span className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-yellow-300 rounded-full animate-sparkle-up" />
-                        <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-amber-400 rounded-full animate-sparkle-down" />
-                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-orange-300 rounded-full animate-sparkle-left" />
-                        <span className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-yellow-400 rounded-full animate-sparkle-right" />
-                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-300 rounded-full animate-sparkle-1" />
-                        <span className="absolute -bottom-1 -left-1 w-2 h-2 bg-orange-400 rounded-full animate-sparkle-3" />
-                    </>
+                    <span className="absolute inset-0 rounded-lg animate-collection-ripple" 
+                          style={{ boxShadow: '0 0 0 0 rgba(245, 158, 11, 0.4)' }} />
                 )}
 
                 {/* 星星图标 */}
                 <Star
                     size={size}
                     fill={isFinalized ? 'currentColor' : 'none'}
-                    strokeWidth={isFinalized ? 0 : 2}
-                    className={`relative z-10 transition-all duration-300 
-                        ${isAnimating ? 'animate-star-celebrate' : ''}
-                        ${isFinalized ? 'drop-shadow-[0_0_6px_rgba(245,158,11,0.9)] filter saturate-150' : ''}
+                    strokeWidth={isFinalized ? 0 : 1.5}
+                    className={`absolute inset-0 m-auto transition-all duration-300
+                        ${isFinalized ? 'text-white' : 'text-slate-400'}
+                        ${isAnimating ? 'animate-star-sink' : ''}
                     `}
                 />
+
+                {/* 定稿态：印章光泽 */}
+                {isFinalized && (
+                    <span className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-lg pointer-events-none" />
+                )}
             </button>
 
-            {/* 成功提示 Toast */}
-            {showToast && (
-                <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap px-2.5 py-1 rounded-full bg-amber-500 text-white text-xs font-semibold shadow-lg animate-toast-pop z-50">
-                    已定稿 ✓
-                </div>
+            {/* 滑出的确认文字 */}
+            {showLabel && (
+                <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-medium text-amber-600 animate-label-slide">
+                    已收录
+                </span>
+            )}
+
+            {/* 定稿态常驻标签 */}
+            {isFinalized && !showLabel && (
+                <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-medium text-amber-500/70">
+                    已定稿
+                </span>
             )}
         </div>
     );
