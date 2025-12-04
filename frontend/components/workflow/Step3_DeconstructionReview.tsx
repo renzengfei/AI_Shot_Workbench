@@ -330,8 +330,10 @@ export default function Step3_DeconstructionReview({
     }, [newlyGeneratedVideos, newVideosStorageKey]);
 
     // 加载已有线稿
+    // 【关键修复】必须等待 savedIndexesLoaded 完成后再加载，避免占用请求队列导致 selected-images API 被延迟
     useEffect(() => {
         if (!currentWorkspace?.path) return;
+        if (!savedIndexesLoaded) return; // 等待选中图片数据加载完成
         const loadOutlines = async () => {
             try {
                 // 获取 round2 数据中的 shots
@@ -358,7 +360,7 @@ export default function Step3_DeconstructionReview({
             }
         };
         loadOutlines();
-    }, [currentWorkspace?.path, round2Data]);
+    }, [currentWorkspace?.path, round2Data, savedIndexesLoaded]);
 
     const activeImagePreset = useMemo(() => {
         return imagePresets.find((p) => p.id === selectedImagePresetId) || workspacePresetSnapshot;
