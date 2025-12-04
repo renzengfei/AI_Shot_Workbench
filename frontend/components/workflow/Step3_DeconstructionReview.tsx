@@ -588,8 +588,8 @@ export default function Step3_DeconstructionReview({
                 // 有保存记录但匹配失败，不自动选择其他图片
                 return prev;
             }
-            // 没有保存记录，默认第一张（最新的）
-            return { ...prev, [shotId]: 0 };
+            // 没有保存记录，不自动选择，保持未选中状态
+            return prev;
         });
         setNewlyGenerated((prev) => {
             const existing = prev[shotId] || [];
