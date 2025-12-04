@@ -1487,15 +1487,6 @@ export default function Step3_DeconstructionReview({
             ? shot.initial_frame 
             : JSON.stringify(shot.initial_frame || {});
         
-        // 线稿模式下剔除景别/视角标签
-        if (isOutlineMode) {
-            // 剔除 [景别]xxx 和 [视角]xxx
-            initialFrameDesc = initialFrameDesc
-                .replace(/\[景别\][^\n\[]*\s*/g, '')
-                .replace(/\[视角\][^\n\[]*\s*/g, '')
-                .trim();
-        }
-        
         // 构建提示词
         let basePrompt = `首帧描述: ${initialFrameDesc}`;
         
@@ -4988,7 +4979,7 @@ export default function Step3_DeconstructionReview({
                             </div>
                             <div className="text-xs text-slate-500 space-y-1">
                                 <div><strong>标准模式：</strong>首帧描述 + 角色参考图 + 生图设定</div>
-                                <div><strong>线稿模式：</strong>线稿图 + 首帧描述* + 角色参考图 + 生图设定 <span className="text-slate-400">(*自动剔除景别/视角)</span></div>
+                                <div><strong>线稿模式：</strong>线稿图 + 首帧描述 + 角色参考图 + 生图设定</div>
                             </div>
                         </div>
 
