@@ -440,8 +440,9 @@ class GeminiProvider(ImageProvider):
         parts.append({"text": prompt})
         
         # 添加参考图片（如果有）
+        image_count = 0
         if reference_data_urls:
-            for data_url in reference_data_urls:
+            for i, data_url in enumerate(reference_data_urls):
                 # 解析 data URL: data:image/jpeg;base64,xxxxx
                 if data_url.startswith("data:"):
                     try:
@@ -454,8 +455,10 @@ class GeminiProvider(ImageProvider):
                                 "data": b64_data
                             }
                         })
+                        image_count += 1
                     except (ValueError, IndexError):
-                        print(f"[GeminiProvider] 无法解析 data URL: {data_url[:50]}...")
+                        print(f"[GeminiProvider] 无法解析 data URL #{i+1}: {data_url[:50]}...")
+        print(f"[GeminiProvider] 发送请求: prompt长度={len(prompt)}, 参考图数量={image_count}")
         
         # 构建请求体
         payload = {
