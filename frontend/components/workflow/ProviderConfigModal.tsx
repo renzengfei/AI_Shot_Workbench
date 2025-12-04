@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { X, Plus, Pencil, Trash2, Check, Loader2, Eye, EyeOff, Rabbit, Candy, Sparkles } from 'lucide-react';
+import { X, Plus, Pencil, Trash2, Check, Loader2, Eye, EyeOff, Rabbit, Candy, Cloud } from 'lucide-react';
 import { ImageProvider, ProviderType, ProviderCreateRequest, PROVIDER_TYPE_CONFIG } from '@/types/provider';
 
 interface ProviderConfigModalProps {
@@ -239,16 +239,16 @@ export function ProviderConfigModal({ isOpen, onClose, onProviderChange }: Provi
                       <div className="flex items-start justify-between">
                         <div className="flex items-start gap-3">
                           <div className={`p-2 rounded-lg ${
-                            provider.type === 'rabbit' ? 'bg-orange-100 dark:bg-orange-900/30' : 
-                            provider.type === 'candy' ? 'bg-pink-100 dark:bg-pink-900/30' :
-                            'bg-blue-100 dark:bg-blue-900/30'
+                            provider.type === 'rabbit' ? 'bg-pink-100 dark:bg-pink-900/30' : 
+                            provider.type === 'candy' ? 'bg-orange-100 dark:bg-orange-900/30' :
+                            'bg-slate-100 dark:bg-slate-800/50'
                           }`}>
                             {provider.type === 'rabbit' ? (
-                              <Rabbit size={20} className="text-orange-600 dark:text-orange-400" />
-                            ) : provider.type === 'candy' ? (
                               <Candy size={20} className="text-pink-600 dark:text-pink-400" />
+                            ) : provider.type === 'candy' ? (
+                              <Rabbit size={20} className="text-orange-600 dark:text-orange-400" />
                             ) : (
-                              <Sparkles size={20} className="text-blue-600 dark:text-blue-400" />
+                              <Cloud size={20} className="text-slate-600 dark:text-slate-400" />
                             )}
                           </div>
                           <div>
@@ -343,11 +343,11 @@ export function ProviderConfigModal({ isOpen, onClose, onProviderChange }: Provi
                     >
                       <div className="flex items-center gap-2 mb-1">
                         {type === 'rabbit' ? (
-                          <Rabbit size={18} className="text-orange-500" />
-                        ) : type === 'candy' ? (
                           <Candy size={18} className="text-pink-500" />
+                        ) : type === 'candy' ? (
+                          <Rabbit size={18} className="text-orange-500" />
                         ) : (
-                          <Sparkles size={18} className="text-blue-500" />
+                          <Cloud size={18} className="text-slate-500" />
                         )}
                         <span className="font-medium">{PROVIDER_TYPE_CONFIG[type].label}</span>
                       </div>
