@@ -184,13 +184,21 @@ export default function Step3_DeconstructionReview({
     const [selectedVideoIndexes, setSelectedVideoIndexes] = useState<Record<number, number>>({});  // 选中的视频索引
     const [savedVideoIndexes, setSavedVideoIndexes] = useState<Record<number, number>>({});  // 已保存的视频索引
     const [savedVideoIndexesLoaded, setSavedVideoIndexesLoaded] = useState(false);  // 是否已加载保存的视频索引
-    const [defaultStream, setDefaultStream] = useState<'image' | 'video'>(() => {
+    const [defaultStream, setDefaultStream] = useState<'image' | 'video' | 'outline'>(() => {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem('defaultStream');
-            return saved === 'video' ? 'video' : 'image';
+            if (saved === 'video') return 'video';
+            if (saved === 'outline') return 'outline';
+            return 'image';
         }
         return 'image';
     });  // 所有镜头卡片的默认素材流
+    // Outline generation state
+    const [outlineModes, setOutlineModes] = useState<Record<number, boolean>>({});  // 每个镜头的线稿模式状态
+    const [outlinePrompts, setOutlinePrompts] = useState<Record<number, string>>({});  // 每个镜头的线稿提示词
+    const [generatedOutlines, setGeneratedOutlines] = useState<Record<number, string[]>>({});  // 每个镜头的线稿图列表
+    const [activeOutlineUrls, setActiveOutlineUrls] = useState<Record<number, string>>({});  // 每个镜头选中的线稿图
+    const [generatingOutlines, setGeneratingOutlines] = useState<Record<number, boolean>>({});  // 正在生成线稿的镜头
     // Provider selection per shot
     const [providers, setProviders] = useState<Array<{ id: string; name: string; is_default?: boolean }>>([]);
     const [shotProviders, setShotProviders] = useState<Record<number, string>>({});
@@ -1320,6 +1328,107 @@ export default function Step3_DeconstructionReview({
                 delete pending[shotId];
                 writePendingGenerations(pending);
             }
+        }
+    };
+
+    // 线稿模式切换回调
+    const handleToggleOutlineMode = (shot: Round2Shot, index: number) => {
+        const shotId = shot.id ?? index + 1;
+        setOutlineModes((prev) => ({ ...prev, [shotId]: !prev[shotId] }));
+    };
+
+    // 线稿提示词更新回调
+    const handleOutlinePromptChange = (shot: Round2Shot, index: number, prompt: string) => {
+        const shotId = shot.id ?? index + 1;
+        setOutlinePrompts((prev) => ({ ...prev, [shotId]: prompt }));
+    };
+
+    // 选择线稿回调
+    const handleSelectOutline = (shot: Round2Shot, index: number, url: string) => {
+        const shotId = shot.id ?? index + 1;
+        setActiveOutlineUrls((prev) => ({ ...prev, [shotId]: url }));
+    };
+
+    // 生成线稿回调
+    const handleGenerateOutline = async (shot: Round2Shot, index: number) => {
+        if (!currentWorkspace?.path) {
+            showToast('请先选择工作空间', 'error');
+            return;
+        }
+        const shotId = shot.id ?? index + 1;
+        const imageUrls = generatedImages[shotId] || [];
+        if (imageUrls.length === 0) {
+            showToast('请先生成图片', 'error');
+            return;
+        }
+        
+        // 获取当前选中的图片
+        const currentIndex = generatedIndexes[shotId] ?? imageUrls.length - 1;
+        const imagePath = imageUrls[Math.min(currentIndex, imageUrls.length - 1)];
+        if (!imagePath) {
+            showToast('未找到图片', 'error');
+            return;
+        }
+        
+        setGeneratingOutlines((prev) => ({ ...prev, [shotId]: true }));
+        
+        try {
+            const resp = await fetch(`${API_BASE}/api/generate-outline`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    workspace_path: currentWorkspace.path,
+                    shot_id: shotId,
+                    source_image_path: imagePath,
+                    prompt: outlinePrompts[shotId] || 'extract clean line art, black outlines on white background, no shading, anime style',
+                }),
+            });
+            if (!resp.ok) {
+                const detail = await resp.text();
+                throw new Error(detail || '线稿生成失败');
+            }
+            const data = await resp.json() as { outline_url?: string };
+            if (data.outline_url) {
+                setGeneratedOutlines((prev) => ({
+                    ...prev,
+                    [shotId]: [...(prev[shotId] || []), data.outline_url!],
+                }));
+                setActiveOutlineUrls((prev) => ({ ...prev, [shotId]: data.outline_url! }));
+                showToast('线稿生成成功', 'success');
+            }
+        } catch (err) {
+            console.error(err);
+            showToast(err instanceof Error ? err.message : '线稿生成失败', 'error');
+        } finally {
+            setGeneratingOutlines((prev) => ({ ...prev, [shotId]: false }));
+        }
+    };
+
+    // 删除线稿回调
+    const handleDeleteOutline = async (shot: Round2Shot, index: number, url: string) => {
+        if (!currentWorkspace?.path) return;
+        const shotId = shot.id ?? index + 1;
+        const filename = url.split('/').pop();
+        if (!filename) return;
+        
+        try {
+            const resp = await fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/outlines/${shotId}/${filename}`, {
+                method: 'DELETE',
+            });
+            if (resp.ok) {
+                setGeneratedOutlines((prev) => ({
+                    ...prev,
+                    [shotId]: (prev[shotId] || []).filter((u) => u !== url),
+                }));
+                if (activeOutlineUrls[shotId] === url) {
+                    const remaining = (generatedOutlines[shotId] || []).filter((u) => u !== url);
+                    setActiveOutlineUrls((prev) => ({ ...prev, [shotId]: remaining[0] || '' }));
+                }
+                showToast('线稿已删除', 'success');
+            }
+        } catch (err) {
+            console.error(err);
+            showToast('删除失败', 'error');
         }
     };
 
@@ -3908,6 +4017,17 @@ export default function Step3_DeconstructionReview({
                                     onVideoSeen={(url: string) => handleVideoSeen(shot.id ?? index + 1, url)}
                                     onStopVideoGeneration={handleStopSingleVideoGeneration}
                                     defaultStream={defaultStream}
+                                    // 线稿模式相关
+                                    outlineMode={outlineModes[shot.id ?? index + 1] || false}
+                                    onToggleOutlineMode={handleToggleOutlineMode}
+                                    outlinePrompt={outlinePrompts[shot.id ?? index + 1] || ''}
+                                    onOutlinePromptChange={handleOutlinePromptChange}
+                                    outlineUrls={generatedOutlines[shot.id ?? index + 1] || []}
+                                    activeOutlineUrl={activeOutlineUrls[shot.id ?? index + 1] || ''}
+                                    onSelectOutline={handleSelectOutline}
+                                    onGenerateOutline={handleGenerateOutline}
+                                    isGeneratingOutline={generatingOutlines[shot.id ?? index + 1] || false}
+                                    onDeleteOutline={handleDeleteOutline}
                                 />
                             );
                         });
