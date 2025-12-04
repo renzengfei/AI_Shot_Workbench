@@ -55,23 +55,20 @@ const ErrorTooltip = ({ error }: { error: string }) => {
     );
 };
 
-// 定稿按钮组件 - 光环揭示风格 (Halo Reveal)
+// 定稿按钮组件 - 冰晶加冕风格 (Frost Crown)
 const FinalizeButton = ({
     isFinalized,
     onClick,
-    onHaloExpand,
 }: {
     isFinalized: boolean;
     onClick: () => void;
-    onHaloExpand?: () => void;
 }) => {
     const [isAnimating, setIsAnimating] = useState(false);
 
     const handleClick = () => {
         if (!isFinalized) {
             setIsAnimating(true);
-            onHaloExpand?.(); // 触发父组件的光环扩散
-            setTimeout(() => setIsAnimating(false), 800);
+            setTimeout(() => setIsAnimating(false), 1000);
         }
         onClick();
     };
@@ -79,44 +76,56 @@ const FinalizeButton = ({
     return (
         <button
             onClick={handleClick}
-            className={`group relative w-10 h-10 rounded-full transition-all duration-500 
+            className={`group relative w-9 h-9 rounded-full transition-all duration-700 ease-out
                 ${isFinalized
-                    ? 'bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 shadow-[0_0_20px_rgba(245,158,11,0.6)]'
-                    : 'bg-white/80 border-2 border-slate-200/60 hover:border-amber-300 hover:shadow-[0_0_15px_rgba(245,158,11,0.3)]'
+                    ? 'bg-gradient-to-br from-violet-500 via-blue-500 to-cyan-400 shadow-[0_0_24px_rgba(139,92,246,0.5),0_0_48px_rgba(59,130,246,0.2)]'
+                    : 'bg-white/90 border border-slate-200 hover:border-violet-300 hover:shadow-[0_0_20px_rgba(139,92,246,0.15)]'
                 }
-                ${isAnimating ? 'scale-90' : 'hover:scale-110 active:scale-95'}
+                ${isAnimating ? 'scale-95' : 'hover:scale-105 active:scale-95'}
             `}
             title={isFinalized ? '取消定稿' : '设为定稿'}
         >
-            {/* 内部光芒 */}
+            {/* 钻石光泽层 */}
             {isFinalized && (
-                <span className="absolute inset-1 rounded-full bg-gradient-to-br from-white/40 to-transparent" />
+                <span className="absolute inset-0 rounded-full overflow-hidden">
+                    <span className="absolute inset-0 bg-gradient-to-tr from-white/50 via-transparent to-transparent" />
+                    <span className="absolute top-0 left-1/4 w-1/2 h-1/3 bg-gradient-to-b from-white/60 to-transparent blur-[2px]" />
+                </span>
             )}
-            
-            {/* 图标：优雅的对勾 */}
+
+            {/* 图标：精致的钻石/皇冠 */}
             <svg
                 viewBox="0 0 24 24"
-                className={`absolute inset-0 m-auto w-5 h-5 transition-all duration-500
-                    ${isFinalized ? 'text-white drop-shadow-lg' : 'text-slate-300 group-hover:text-amber-400'}
-                    ${isAnimating ? 'scale-150 opacity-0' : 'scale-100 opacity-100'}
+                className={`absolute inset-0 m-auto w-4 h-4 transition-all duration-500
+                    ${isFinalized ? 'text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]' : 'text-slate-400 group-hover:text-violet-500'}
+                    ${isAnimating ? 'scale-0 rotate-180' : 'scale-100 rotate-0'}
                 `}
-                fill="none"
+                fill={isFinalized ? 'currentColor' : 'none'}
                 stroke="currentColor"
-                strokeWidth={isFinalized ? 3 : 2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
+                strokeWidth={1.5}
             >
-                <polyline points="20 6 9 17 4 12" />
+                {/* 钻石形状 */}
+                <path d="M12 2L2 9l10 13 10-13-10-7z" />
+                {isFinalized && <path d="M2 9h20M7 9l5 13 5-13" strokeWidth={1} className="text-white/60" />}
             </svg>
 
-            {/* 点击时的爆发光环 */}
+            {/* 冰蓝涟漪 */}
             {isAnimating && (
-                <span className="absolute inset-0 rounded-full animate-halo-burst bg-gradient-to-r from-amber-400/60 via-orange-400/40 to-amber-400/60" />
+                <>
+                    <span className="absolute inset-0 rounded-full animate-frost-ripple-1 border-2 border-violet-400/60" />
+                    <span className="absolute inset-0 rounded-full animate-frost-ripple-2 border border-blue-400/40" />
+                    <span className="absolute inset-0 rounded-full animate-frost-ripple-3 border border-cyan-300/30" />
+                </>
             )}
 
-            {/* 定稿态：持续的微光呼吸 */}
+            {/* 定稿态：优雅的光晕 */}
             {isFinalized && !isAnimating && (
-                <span className="absolute -inset-1 rounded-full bg-amber-400/20 animate-glow-breathe" />
+                <span className="absolute -inset-0.5 rounded-full bg-gradient-to-br from-violet-400/20 to-cyan-400/20 animate-shimmer" />
+            )}
+
+            {/* 底部金色细线 - 皇冠底座 */}
+            {isFinalized && (
+                <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-4 h-[2px] bg-gradient-to-r from-transparent via-amber-300/80 to-transparent rounded-full" />
             )}
         </button>
     );
