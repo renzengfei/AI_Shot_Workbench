@@ -1056,16 +1056,16 @@ export const ShotCard = ({
                                 <div className={`flex-shrink-0 ${DESC_WIDTH} ${CARD_HEIGHT} ${CARD_RADIUS} border border-white/30 bg-white/50 backdrop-blur-xl shadow-md ${CARD_PADDING} flex flex-col ${CARD_GAP} transition-all duration-300 hover:bg-white/60 hover:shadow-lg overflow-y-auto`}>
                                 {/* 线稿提示词输入框 - 仅在线稿模式下显示 */}
                                 {effectiveOutlineMode && (
-                                    <div className="flex-shrink-0 mb-2 p-3 rounded-xl border border-[#34C759]/30 bg-[#34C759]/5">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-sm font-semibold text-[#34C759] flex items-center gap-1.5">
+                                    <div className="flex flex-col gap-2 flex-shrink-0 mb-2">
+                                        <div className="flex items-center justify-between text-sm font-semibold text-[#34C759] flex-shrink-0">
+                                            <div className="flex items-center gap-1.5">
                                                 <Pencil size={14} />
-                                                线稿提示词
-                                            </span>
+                                                <span>线稿提示词</span>
+                                            </div>
                                             <div className="flex items-center gap-2">
                                                 {effectiveOutlinePrompt && effectiveOutlinePrompt !== globalOutlinePrompt && (
                                                     <button
-                                                        onClick={() => onOutlinePromptChange?.(shot, index, globalOutlinePrompt)}  // 恢复为全局配置
+                                                        onClick={() => onOutlinePromptChange?.(shot, index, globalOutlinePrompt)}
                                                         className="text-xs text-slate-500 hover:text-[#34C759] transition-colors flex items-center gap-1"
                                                         title="恢复默认提示词"
                                                     >
@@ -1076,7 +1076,7 @@ export const ShotCard = ({
                                                 <button
                                                     onClick={() => onGenerateOutline?.(shot, index)}
                                                     disabled={isGeneratingOutline}
-                                                    className={`text-xs px-2.5 py-1 rounded-lg font-medium transition-all ${
+                                                    className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${
                                                         isGeneratingOutline
                                                             ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
                                                             : 'bg-[#34C759] text-white hover:bg-[#2db350]'
@@ -1086,12 +1086,13 @@ export const ShotCard = ({
                                                 </button>
                                             </div>
                                         </div>
-                                        <textarea
-                                            value={outlinePrompt ?? globalOutlinePrompt}  // 使用全局配置或空
+                                        <AutoTextArea
+                                            value={outlinePrompt ?? globalOutlinePrompt}
                                             onChange={(e) => onOutlinePromptChange?.(shot, index, e.target.value)}
                                             placeholder="描述线稿风格..."
-                                            className="w-full px-3 py-2 text-sm rounded-lg border border-[#34C759]/20 bg-white/80 focus:outline-none focus:ring-2 focus:ring-[#34C759]/30 resize-none"
-                                            rows={2}
+                                            minRows={2}
+                                            maxRows={8}
+                                            className={`w-full p-4 ${BTN_RADIUS} bg-white/40 border border-white/30 text-slate-700 text-base leading-loose hover:bg-white/60 transition-all focus:outline-none focus:ring-2 focus:ring-[#34C759]/20 resize-none placeholder:text-slate-400`}
                                         />
                                     </div>
                                 )}
