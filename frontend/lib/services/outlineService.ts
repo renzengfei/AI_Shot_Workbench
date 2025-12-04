@@ -24,8 +24,8 @@ export interface OutlineConfig {
     globalOutlinePrompt: string;          // 全局线稿提示词
 }
 
-// 默认线稿提示词
-export const DEFAULT_OUTLINE_PROMPT = 'extract clean line art, black outlines on white background, no shading, anime style';
+// 默认线稿提示词（不使用硬编码默认值，由生图设定配置）
+export const DEFAULT_OUTLINE_PROMPT = '';
 
 /**
  * 生成单个镜头的线稿图

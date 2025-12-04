@@ -343,7 +343,7 @@ export const ShotCard = ({
     defaultStream = 'image',
     // 线稿模式相关
     globalOutlineMode = false,
-    globalOutlinePrompt = 'extract clean line art, black outlines on white background, no shading, anime style',
+    globalOutlinePrompt = '',  // 不使用默认值，由生图设定配置
     outlineMode,               // undefined 表示使用全局
     onToggleOutlineMode,
     outlinePrompt,             // undefined 表示使用全局
@@ -1065,7 +1065,7 @@ export const ShotCard = ({
                                             <div className="flex items-center gap-2">
                                                 {effectiveOutlinePrompt && effectiveOutlinePrompt !== globalOutlinePrompt && (
                                                     <button
-                                                        onClick={() => onOutlinePromptChange?.(shot, index, 'extract clean line art, black outlines on white background, no shading, anime style')}
+                                                        onClick={() => onOutlinePromptChange?.(shot, index, globalOutlinePrompt)}  // 恢复为全局配置
                                                         className="text-xs text-slate-500 hover:text-[#34C759] transition-colors flex items-center gap-1"
                                                         title="恢复默认提示词"
                                                     >
@@ -1087,7 +1087,7 @@ export const ShotCard = ({
                                             </div>
                                         </div>
                                         <textarea
-                                            value={outlinePrompt || 'extract clean line art, black outlines on white background, no shading, anime style'}
+                                            value={outlinePrompt ?? globalOutlinePrompt}  // 使用全局配置或空
                                             onChange={(e) => onOutlinePromptChange?.(shot, index, e.target.value)}
                                             placeholder="描述线稿风格..."
                                             className="w-full px-3 py-2 text-sm rounded-lg border border-[#34C759]/20 bg-white/80 focus:outline-none focus:ring-2 focus:ring-[#34C759]/30 resize-none"
