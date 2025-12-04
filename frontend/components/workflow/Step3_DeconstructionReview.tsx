@@ -10,7 +10,7 @@ import { AutoTextArea } from '@/components/ui/AutoTextArea';
 import { ShotCard } from '@/components/workflow/ShotCard';
 import { ProviderConfigModal } from '@/components/workflow/ProviderConfigModal';
 import { VideoConfigModal, VideoGenConfig } from '@/components/workflow/VideoConfigModal';
-import { Video, FolderOutput, Loader2 } from 'lucide-react';
+import { Video, FolderOutput, Loader2, Image as ImageIcon } from 'lucide-react';
 import { Settings } from 'lucide-react';
 import {
     fetchCharacterReferences,
@@ -189,10 +189,10 @@ export default function Step3_DeconstructionReview({
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem('defaultStream');
             if (saved === 'video') return 'video';
-            if (saved === 'outline') return 'outline';
-            return 'image';
+            if (saved === 'image') return 'image';
+            return 'outline';  // 默认线稿
         }
-        return 'image';
+        return 'outline';  // 默认线稿
     });  // 所有镜头卡片的默认素材流
     // Outline generation state
     const [outlineModes, setOutlineModes] = useState<Record<number, boolean>>({});  // 每个镜头的线稿模式状态
@@ -4282,17 +4282,42 @@ export default function Step3_DeconstructionReview({
                     {/* 全局素材流切换按钮 + 导出按钮 */}
                     {typeof round2Data !== 'string' && round2Data?.shots && round2Data.shots.length > 0 && (
                         <div className="flex items-center justify-end gap-3 mb-4">
-                            <button
-                                onClick={() => setDefaultStream(prev => prev === 'image' ? 'video' : 'image')}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 active:scale-95 ${
-                                    defaultStream === 'video'
-                                        ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md'
-                                        : 'bg-white/70 border border-slate-200/50 text-slate-600 hover:bg-white hover:border-purple-300 hover:text-purple-600'
-                                }`}
-                            >
-                                <Video size={16} />
-                                {defaultStream === 'video' ? '已选视频流' : '默认选择视频流'}
-                            </button>
+                            {/* 三选一切换按钮组：线稿/图片/视频 */}
+                            <div className="flex items-center gap-1 p-1 rounded-xl bg-white/70 border border-slate-200/50">
+                                <button
+                                    onClick={() => setDefaultStream('outline')}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                        defaultStream === 'outline'
+                                            ? 'bg-[#34C759] text-white shadow-sm'
+                                            : 'text-slate-500 hover:text-[#34C759] hover:bg-[#34C759]/10'
+                                    }`}
+                                >
+                                    <Pencil size={14} />
+                                    线稿
+                                </button>
+                                <button
+                                    onClick={() => setDefaultStream('image')}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                        defaultStream === 'image'
+                                            ? 'bg-blue-500 text-white shadow-sm'
+                                            : 'text-slate-500 hover:text-blue-500 hover:bg-blue-500/10'
+                                    }`}
+                                >
+                                    <ImageIcon size={14} />
+                                    图片
+                                </button>
+                                <button
+                                    onClick={() => setDefaultStream('video')}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                        defaultStream === 'video'
+                                            ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm'
+                                            : 'text-slate-500 hover:text-purple-500 hover:bg-purple-500/10'
+                                    }`}
+                                >
+                                    <Video size={14} />
+                                    视频
+                                </button>
+                            </div>
                             {/* 批量生成线稿按钮 */}
                             <div className="flex items-center gap-2">
                                 <button
