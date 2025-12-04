@@ -47,12 +47,20 @@ class ImagePresetManager:
         snippet = snippet[:32] if snippet else ""
         return snippet or "未命名设定"
 
-    def create_preset(self, name: Optional[str], content: str) -> Dict[str, Any]:
+    def create_preset(
+        self,
+        name: Optional[str],
+        content: str,
+        character_ref_template: Optional[str] = None,
+        scene_ref_template: Optional[str] = None,
+    ) -> Dict[str, Any]:
         now = datetime.now().isoformat()
         preset = {
             "id": str(uuid.uuid4()),
             "name": self._auto_name(name, content),
             "content": content.strip(),
+            "character_ref_template": (character_ref_template or "").strip() or None,
+            "scene_ref_template": (scene_ref_template or "").strip() or None,
             "created_at": now,
             "updated_at": now,
         }
@@ -61,7 +69,14 @@ class ImagePresetManager:
         self._save(presets)
         return preset
 
-    def update_preset(self, preset_id: str, name: Optional[str] = None, content: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def update_preset(
+        self,
+        preset_id: str,
+        name: Optional[str] = None,
+        content: Optional[str] = None,
+        character_ref_template: Optional[str] = None,
+        scene_ref_template: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
         presets = self._load()
         updated = None
         for p in presets:
@@ -73,6 +88,10 @@ class ImagePresetManager:
                 elif content is not None:
                     # auto rename when name not explicitly provided
                     p["name"] = self._auto_name(p.get("name"), p.get("content") or "")
+                if character_ref_template is not None:
+                    p["character_ref_template"] = character_ref_template.strip() or None
+                if scene_ref_template is not None:
+                    p["scene_ref_template"] = scene_ref_template.strip() or None
                 p["updated_at"] = datetime.now().isoformat()
                 updated = p
                 break

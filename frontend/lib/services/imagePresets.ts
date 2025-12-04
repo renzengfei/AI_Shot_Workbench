@@ -4,6 +4,10 @@ export interface ImagePreset {
     id: string;
     name: string;
     content: string;
+    /** 角色参考模板，如 "角色【{name}】的形象、服装、发型严格参考图{image}。" */
+    character_ref_template?: string | null;
+    /** 场景参考模板，如 "画面的景别、人物姿势和动作严格参考图{image}。" */
+    scene_ref_template?: string | null;
     created_at?: string;
     updated_at?: string;
 }

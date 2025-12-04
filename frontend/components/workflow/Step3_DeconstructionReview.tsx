@@ -1496,11 +1496,19 @@ export default function Step3_DeconstructionReview({
             const characterMatches = initialFrameDesc.match(/【([^】]+)】/g) || [];
             const characters = [...new Set(characterMatches.map((m: string) => m.replace(/[【】]/g, '')))];
             
+            // 使用生图设定中的模板，如果没有则使用默认值
+            const charTemplate = activeImagePreset?.character_ref_template 
+                || '角色【{name}】的形象、服装、发型严格参考图{image}。';
+            const sceneTemplate = activeImagePreset?.scene_ref_template 
+                || '画面的景别、人物姿势和动作严格参考图{image}。';
+            
             let referenceGuide = '\n\n';
             characters.forEach((char: string, idx: number) => {
-                referenceGuide += `角色【${char}】的形象、服装、发型严格参考图image${idx + 1}。\n`;
+                referenceGuide += charTemplate
+                    .replace('{name}', char)
+                    .replace('{image}', `image${idx + 1}`) + '\n';
             });
-            referenceGuide += `画面的景别、人物姿势和动作严格参考图image${characters.length + 1}。`;
+            referenceGuide += sceneTemplate.replace('{image}', `image${characters.length + 1}`);
             
             basePrompt += referenceGuide;
         }
