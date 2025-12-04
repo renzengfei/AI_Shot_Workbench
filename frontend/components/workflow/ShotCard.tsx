@@ -878,10 +878,10 @@ export const ShotCard = ({
         <>
             <div
                 id={`shot-${index}`}
-                className={`relative group p-8 rounded-[2.5rem] border ${borderColor} bg-white/5 backdrop-blur-2xl transition-all duration-500 hover:border-white/20 shadow-2xl ${glowColor}`}
+                className={`relative group p-8 rounded-[2.5rem] border ${borderColor} bg-white/[0.08] backdrop-blur-2xl transition-all duration-300 hover:bg-white/[0.12] hover:border-white/25 shadow-2xl shadow-black/10 ${glowColor}`}
             >
                 {/* Glass Reflection Effect */}
-                <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent opacity-50 rounded-[2.5rem] pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-white/[0.02] to-transparent rounded-[2.5rem] pointer-events-none" />
 
                 {/* Discarded Overlay */}
                 {isDiscarded && (
@@ -900,19 +900,19 @@ export const ShotCard = ({
 
                     <div className="flex items-center gap-4 flex-wrap justify-end">
                         {shot.timestamp && (
-                            <div className="flex items-center gap-2 text-slate-400 text-sm">
-                                <Clock size={14} />
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 text-slate-300 text-sm">
+                                <Clock size={14} className="text-slate-400" />
                                 <span className="font-mono">{shot.timestamp}</span>
-                                {shot.end_time && <span className="font-mono">— {shot.end_time}</span>}
-                                {shot.duration && <span className="ml-2 px-2 py-0.5 rounded-full bg-white/5 text-xs">({shot.duration}s)</span>}
+                                {shot.end_time && <span className="font-mono text-slate-400">— {shot.end_time}</span>}
+                                {shot.duration && <span className="ml-1 text-slate-400 text-xs">({shot.duration}s)</span>}
                             </div>
                         )}
                         {/* 线稿模式切换按钮 */}
                         <button
                             onClick={() => onToggleOutlineMode?.(shot, index)}
-                            className={`relative z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${effectiveOutlineMode
-                                    ? 'bg-[#6B7280] text-white hover:bg-[#5B6370] shadow-lg shadow-[#6B7280]/30'
-                                    : 'bg-slate-500/20 text-slate-300 hover:bg-slate-500/30 border border-slate-500/30'
+                            className={`relative z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 ${effectiveOutlineMode
+                                    ? 'bg-slate-600 text-white hover:bg-slate-500 shadow-md'
+                                    : 'bg-white/10 text-slate-300 hover:bg-white/20 border border-white/20'
                                 }`}
                             title={effectiveOutlineMode ? '线稿模式已开启' : '点击开启线稿模式'}
                         >
