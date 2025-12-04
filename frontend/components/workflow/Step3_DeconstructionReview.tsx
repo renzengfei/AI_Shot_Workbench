@@ -199,6 +199,8 @@ export default function Step3_DeconstructionReview({
     const [generatedOutlines, setGeneratedOutlines] = useState<Record<number, string[]>>({});  // 每个镜头的线稿图列表
     const [activeOutlineUrls, setActiveOutlineUrls] = useState<Record<number, string>>({});  // 每个镜头选中的线稿图
     const [generatingOutlines, setGeneratingOutlines] = useState<Record<number, boolean>>({});  // 正在生成线稿的镜头
+    const [batchGeneratingOutlines, setBatchGeneratingOutlines] = useState(false);  // 批量生成线稿中
+    const [outlineProgress, setOutlineProgress] = useState({ completed: 0, total: 0 });  // 线稿生成进度
     // Provider selection per shot
     const [providers, setProviders] = useState<Array<{ id: string; name: string; is_default?: boolean }>>([]);
     const [shotProviders, setShotProviders] = useState<Record<number, string>>({});
@@ -1461,6 +1463,85 @@ export default function Step3_DeconstructionReview({
             console.error(err);
             showToast('删除失败', 'error');
         }
+    };
+
+    // 批量生成线稿
+    const handleBatchGenerateOutlines = async () => {
+        if (!currentWorkspace?.path) {
+            showToast('请先选择工作空间', 'error');
+            return;
+        }
+        if (typeof round2Data === 'string' || !round2Data?.shots) return;
+        
+        const shotsWithImages = round2Data.shots.filter((shot, idx) => {
+            const shotId = shot.id ?? idx + 1;
+            return !shot.discarded && (generatedImages[shotId]?.length > 0);
+        });
+        
+        if (shotsWithImages.length === 0) {
+            showToast('没有可生成线稿的镜头（需先生成图片）', 'error');
+            return;
+        }
+        
+        setBatchGeneratingOutlines(true);
+        setOutlineProgress({ completed: 0, total: shotsWithImages.length });
+        
+        // 并发控制：最多 20 个并发
+        const CONCURRENCY = 20;
+        let completedCount = 0;
+        
+        const generateOne = async (shot: Round2Shot, idx: number) => {
+            const shotId = shot.id ?? idx + 1;
+            const imageUrls = generatedImages[shotId] || [];
+            if (imageUrls.length === 0) return;
+            
+            const currentIndex = generatedIndexes[shotId] ?? imageUrls.length - 1;
+            const imagePath = imageUrls[Math.min(currentIndex, imageUrls.length - 1)];
+            if (!imagePath) return;
+            
+            setGeneratingOutlines((prev) => ({ ...prev, [shotId]: true }));
+            
+            try {
+                const resp = await fetch(`${API_BASE}/api/generate-outline`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        workspace_path: currentWorkspace.path,
+                        shot_id: shotId,
+                        source_image_path: imagePath,
+                        prompt: outlinePrompts[shotId] || 'extract clean line art, black outlines on white background, no shading, anime style',
+                    }),
+                });
+                if (resp.ok) {
+                    const data = await resp.json() as { outline_url?: string };
+                    if (data.outline_url) {
+                        setGeneratedOutlines((prev) => ({
+                            ...prev,
+                            [shotId]: [...(prev[shotId] || []), data.outline_url!],
+                        }));
+                        setActiveOutlineUrls((prev) => ({ ...prev, [shotId]: data.outline_url! }));
+                    }
+                }
+            } catch (err) {
+                console.error(`Shot ${shotId} outline generation failed:`, err);
+            } finally {
+                setGeneratingOutlines((prev) => ({ ...prev, [shotId]: false }));
+                completedCount++;
+                setOutlineProgress((prev) => ({ ...prev, completed: completedCount }));
+            }
+        };
+        
+        // 分批执行
+        for (let i = 0; i < shotsWithImages.length; i += CONCURRENCY) {
+            const batch = shotsWithImages.slice(i, i + CONCURRENCY);
+            await Promise.all(batch.map((shot) => {
+                const idx = round2Data.shots?.indexOf(shot) ?? 0;
+                return generateOne(shot, idx);
+            }));
+        }
+        
+        setBatchGeneratingOutlines(false);
+        showToast(`线稿生成完成 ${completedCount}/${shotsWithImages.length}`, 'success');
     };
 
     // 生视频回调（支持同时生成多个视频变体）
@@ -3918,6 +3999,23 @@ export default function Step3_DeconstructionReview({
                                 <Video size={16} />
                                 {defaultStream === 'video' ? '已选视频流' : '默认选择视频流'}
                             </button>
+                            {/* 批量生成线稿按钮 */}
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleBatchGenerateOutlines}
+                                    disabled={batchGeneratingOutlines}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 active:scale-95 bg-gradient-to-r from-[#34C759] to-[#30D158] text-white shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {batchGeneratingOutlines ? <Loader2 size={16} className="animate-spin" /> : <Pencil size={16} />}
+                                    {batchGeneratingOutlines ? '生成中...' : '批量生成线稿'}
+                                </button>
+                                {(batchGeneratingOutlines || outlineProgress.total > 0) && (
+                                    <span className="text-sm text-slate-500">
+                                        {outlineProgress.completed}/{outlineProgress.total}
+                                        {outlineProgress.completed === outlineProgress.total && outlineProgress.total > 0 && ' ✓'}
+                                    </span>
+                                )}
+                            </div>
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={handleExportVideos}
