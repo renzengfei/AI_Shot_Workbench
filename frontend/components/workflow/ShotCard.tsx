@@ -1,4 +1,4 @@
-import { Clock, Zap, Image as ImageIcon, Layers, Sparkles, Users, Sun, Palette, CheckCircle2, RefreshCw, Box, Layout, Trash2, ChevronDown, Check, AlertCircle, Video, Wand2, Loader2, FileText, X, ChevronLeft, ChevronRight, Undo2, Square, Pencil, Film, Star } from 'lucide-react';
+import { Clock, Zap, Image as ImageIcon, Layers, Sparkles, Users, Sun, Palette, CheckCircle2, RefreshCw, Box, Layout, Trash2, ChevronDown, Check, AlertCircle, Video, Wand2, Loader2, FileText, X, ChevronLeft, ChevronRight, Undo2, Square, Pencil, Film } from 'lucide-react';
 import { type ReactNode, useState, useEffect, useMemo } from 'react';
 import { AutoTextArea } from '@/components/ui/AutoTextArea';
 import { PreviewVideoPlayer } from '@/components/ui/PreviewVideoPlayer';
@@ -55,89 +55,70 @@ const ErrorTooltip = ({ error }: { error: string }) => {
     );
 };
 
-// 定稿星星按钮组件 - 仪式感收藏风格
-const FinalizeStarButton = ({
+// 定稿按钮组件 - 光环揭示风格 (Halo Reveal)
+const FinalizeButton = ({
     isFinalized,
     onClick,
-    size = 16,
+    onHaloExpand,
 }: {
     isFinalized: boolean;
     onClick: () => void;
-    size?: number;
+    onHaloExpand?: () => void;
 }) => {
     const [isAnimating, setIsAnimating] = useState(false);
-    const [showRipple, setShowRipple] = useState(false);
-    const [showLabel, setShowLabel] = useState(false);
 
     const handleClick = () => {
         if (!isFinalized) {
-            // 点亮时播放收藏动画
             setIsAnimating(true);
-            setShowRipple(true);
-            setShowLabel(true);
-            setTimeout(() => setIsAnimating(false), 500);
-            setTimeout(() => setShowRipple(false), 800);
-            setTimeout(() => setShowLabel(false), 2000);
+            onHaloExpand?.(); // 触发父组件的光环扩散
+            setTimeout(() => setIsAnimating(false), 800);
         }
         onClick();
     };
 
     return (
-        <div className="relative flex flex-col items-center">
-            {/* 方形容器按钮 */}
-            <button
-                onClick={handleClick}
-                className={`relative w-8 h-8 rounded-lg transition-all duration-400 overflow-hidden
-                    ${isFinalized
-                        ? 'bg-amber-500 shadow-[0_2px_8px_rgba(245,158,11,0.4),inset_0_1px_0_rgba(255,255,255,0.2)]'
-                        : 'bg-slate-100/80 border border-slate-200/60 hover:border-amber-300 hover:bg-amber-50/50'
-                    }
-                    ${isAnimating ? 'animate-stamp-press' : 'hover:scale-105 active:scale-95'}
+        <button
+            onClick={handleClick}
+            className={`group relative w-10 h-10 rounded-full transition-all duration-500 
+                ${isFinalized
+                    ? 'bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 shadow-[0_0_20px_rgba(245,158,11,0.6)]'
+                    : 'bg-white/80 border-2 border-slate-200/60 hover:border-amber-300 hover:shadow-[0_0_15px_rgba(245,158,11,0.3)]'
+                }
+                ${isAnimating ? 'scale-90' : 'hover:scale-110 active:scale-95'}
+            `}
+            title={isFinalized ? '取消定稿' : '设为定稿'}
+        >
+            {/* 内部光芒 */}
+            {isFinalized && (
+                <span className="absolute inset-1 rounded-full bg-gradient-to-br from-white/40 to-transparent" />
+            )}
+            
+            {/* 图标：优雅的对勾 */}
+            <svg
+                viewBox="0 0 24 24"
+                className={`absolute inset-0 m-auto w-5 h-5 transition-all duration-500
+                    ${isFinalized ? 'text-white drop-shadow-lg' : 'text-slate-300 group-hover:text-amber-400'}
+                    ${isAnimating ? 'scale-150 opacity-0' : 'scale-100 opacity-100'}
                 `}
-                title={isFinalized ? '取消定稿' : '设为定稿'}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={isFinalized ? 3 : 2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
             >
-                {/* 墨水填充效果 */}
-                {isAnimating && (
-                    <span className="absolute inset-0 bg-amber-500 animate-ink-fill rounded-lg" />
-                )}
+                <polyline points="20 6 9 17 4 12" />
+            </svg>
 
-                {/* 涟漪扩散 - 扩散到更大范围 */}
-                {showRipple && (
-                    <span className="absolute inset-0 rounded-lg animate-collection-ripple" 
-                          style={{ boxShadow: '0 0 0 0 rgba(245, 158, 11, 0.4)' }} />
-                )}
-
-                {/* 星星图标 */}
-                <Star
-                    size={size}
-                    fill={isFinalized ? 'currentColor' : 'none'}
-                    strokeWidth={isFinalized ? 0 : 1.5}
-                    className={`absolute inset-0 m-auto transition-all duration-300
-                        ${isFinalized ? 'text-white' : 'text-slate-400'}
-                        ${isAnimating ? 'animate-star-sink' : ''}
-                    `}
-                />
-
-                {/* 定稿态：印章光泽 */}
-                {isFinalized && (
-                    <span className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-lg pointer-events-none" />
-                )}
-            </button>
-
-            {/* 滑出的确认文字 */}
-            {showLabel && (
-                <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-medium text-amber-600 animate-label-slide">
-                    已收录
-                </span>
+            {/* 点击时的爆发光环 */}
+            {isAnimating && (
+                <span className="absolute inset-0 rounded-full animate-halo-burst bg-gradient-to-r from-amber-400/60 via-orange-400/40 to-amber-400/60" />
             )}
 
-            {/* 定稿态常驻标签 */}
-            {isFinalized && !showLabel && (
-                <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-medium text-amber-500/70">
-                    已定稿
-                </span>
+            {/* 定稿态：持续的微光呼吸 */}
+            {isFinalized && !isAnimating && (
+                <span className="absolute -inset-1 rounded-full bg-amber-400/20 animate-glow-breathe" />
             )}
-        </div>
+        </button>
     );
 };
 
@@ -1035,7 +1016,7 @@ export const ShotCard = ({
                                     <div className="flex items-center justify-between">
                                         <div className={mediaTitleClass}>选中线稿图</div>
                                         {activeOutlineUrl && (
-                                            <FinalizeStarButton
+                                            <FinalizeButton
                                                 isFinalized={!!(shot.finalizedOutline && activeOutlineUrl.includes(shot.finalizedOutline))}
                                                 onClick={() => {
                                                     const filename = activeOutlineUrl.split('/').pop() || '';
@@ -1084,7 +1065,7 @@ export const ShotCard = ({
                                             {getGenerationInfo(activeImage || '') || '选中生成图'}
                                         </div>
                                         {activeImage && (
-                                            <FinalizeStarButton
+                                            <FinalizeButton
                                                 isFinalized={!!(shot.finalizedImage && activeImage.includes(shot.finalizedImage))}
                                                 onClick={() => {
                                                     const filename = activeImage.split('/').pop() || '';
@@ -1157,7 +1138,7 @@ export const ShotCard = ({
                                     <div className="flex items-center justify-between">
                                         <div className={mediaTitleClass}>选中视频</div>
                                         {videoSrc && (
-                                            <FinalizeStarButton
+                                            <FinalizeButton
                                                 isFinalized={!!(shot.finalizedVideo && videoSrc.includes(shot.finalizedVideo))}
                                                 onClick={() => {
                                                     const filename = videoSrc.split('/').pop() || '';
