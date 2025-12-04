@@ -878,20 +878,20 @@ export const ShotCard = ({
         <>
             <div
                 id={`shot-${index}`}
-                className={`relative group p-8 rounded-[2.5rem] border ${borderColor} bg-white/[0.08] backdrop-blur-2xl transition-all duration-300 hover:bg-white/[0.12] hover:border-white/25 shadow-2xl shadow-black/10 ${glowColor}`}
+                className={`relative group p-6 md:p-8 rounded-3xl border ${borderColor} bg-white/[0.06] backdrop-blur-xl transition-all duration-200 hover:bg-white/[0.10] shadow-lg shadow-black/5 ${glowColor}`}
             >
-                {/* Glass Reflection Effect */}
-                <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-white/[0.02] to-transparent rounded-[2.5rem] pointer-events-none" />
+                {/* Subtle top highlight */}
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-t-3xl pointer-events-none" />
 
                 {/* Discarded Overlay */}
                 {isDiscarded && (
-                    <div className="absolute inset-0 bg-black/60 rounded-[2.5rem] z-20 pointer-events-none" />
+                    <div className="absolute inset-0 bg-black/50 rounded-3xl z-20 pointer-events-none" />
                 )}
 
                 {/* Header: Shot Number & Duration */}
-                <div className="relative z-10 flex items-center justify-between mb-8">
+                <div className="relative z-10 flex items-center justify-between mb-6">
                     <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-2xl bg-white/60 backdrop-blur-xl border border-white/40 shadow-lg shadow-black/5 flex items-center justify-center">
+                        <div className="w-12 h-12 rounded-xl bg-white/50 border border-white/30 flex items-center justify-center">
                             <span className="text-2xl font-semibold text-slate-700 tabular-nums">
                                 {String(index + 1).padStart(2, '0')}
                             </span>
@@ -900,19 +900,19 @@ export const ShotCard = ({
 
                     <div className="flex items-center gap-4 flex-wrap justify-end">
                         {shot.timestamp && (
-                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 text-slate-300 text-sm">
-                                <Clock size={14} className="text-slate-400" />
+                            <div className="flex items-center gap-2 text-slate-400 text-sm">
+                                <Clock size={14} />
                                 <span className="font-mono">{shot.timestamp}</span>
-                                {shot.end_time && <span className="font-mono text-slate-400">— {shot.end_time}</span>}
-                                {shot.duration && <span className="ml-1 text-slate-400 text-xs">({shot.duration}s)</span>}
+                                {shot.end_time && <span className="font-mono">— {shot.end_time}</span>}
+                                {shot.duration && <span className="text-xs opacity-60">({shot.duration}s)</span>}
                             </div>
                         )}
                         {/* 线稿模式切换按钮 */}
                         <button
                             onClick={() => onToggleOutlineMode?.(shot, index)}
-                            className={`relative z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 ${effectiveOutlineMode
-                                    ? 'bg-slate-600 text-white hover:bg-slate-500 shadow-md'
-                                    : 'bg-white/10 text-slate-300 hover:bg-white/20 border border-white/20'
+                            className={`relative z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${effectiveOutlineMode
+                                    ? 'bg-slate-700 text-white hover:bg-slate-600'
+                                    : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-300'
                                 }`}
                             title={effectiveOutlineMode ? '线稿模式已开启' : '点击开启线稿模式'}
                         >
@@ -922,9 +922,9 @@ export const ShotCard = ({
                         </button>
                         <button
                             onClick={() => updateField('discarded', !isDiscarded)}
-                            className={`relative z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${isDiscarded
-                                    ? 'bg-[#34C759] text-white hover:bg-[#2DB84D] shadow-lg shadow-[#34C759]/30'
-                                    : 'bg-[#FF3B30]/20 text-[#FF3B30] hover:bg-[#FF3B30]/30 border border-[#FF3B30]/30'
+                            className={`relative z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${isDiscarded
+                                    ? 'bg-slate-700 text-white hover:bg-slate-600'
+                                    : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-300'
                                 }`}
                         >
                             {isDiscarded ? (
@@ -943,10 +943,10 @@ export const ShotCard = ({
                 </div>
 
                 {/* 横向滚动布局：原片视频(sticky) + 选中图 + 生成视频 + 描述 + 流切换器 + 素材列表 */}
-                <div className="relative z-10 space-y-6">
+                <div className="relative z-10 space-y-5">
                     {/* 横向滚动容器 */}
                     <div className="relative overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
-                        <div className="flex flex-nowrap items-start gap-6 pb-4 pt-2" style={{ minWidth: 'max-content' }}>
+                        <div className="flex flex-nowrap items-start gap-5 pb-4 pt-2" style={{ minWidth: 'max-content' }}>
 
                             {/* 1. 原片分镜视频 (Sticky) - 放大宽度 w-[510px] */}
                             <div className={`sticky left-0 top-0 z-20 ${mediaCardBase}`}>

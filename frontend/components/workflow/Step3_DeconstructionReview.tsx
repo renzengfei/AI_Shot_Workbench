@@ -5062,7 +5062,7 @@ export default function Step3_DeconstructionReview({
                         )}
 
                         <div className="border-t border-slate-200 pt-4">
-                            <div className="text-sm font-semibold text-slate-700 mb-3">🖼️ 生图设定列表（标准模式 & 线稿模式通用）</div>
+                            <div className="text-sm font-semibold text-slate-700 mb-3">生图设定列表（标准模式 & 线稿模式通用）</div>
                         </div>
                         <div className="space-y-3 max-h-[35vh] overflow-y-auto pr-1">
                             <label className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-blue-300 cursor-pointer transition">

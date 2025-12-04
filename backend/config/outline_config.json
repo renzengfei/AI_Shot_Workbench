@@ -1,0 +1,6 @@
+{
+  "globalOutlineMode": true,
+  "globalOutlinePrompt": "转成草图，其中的所有人物角色无五官，无头发，头用椭圆表示，无毛发，无服装，无衣服，只要人体线条，只要轮廓，无内部线条。除了人物角色以外的内容，用线条简单勾勒就行",
+  "charRefTemplate": "角色【{name}】的形象严格参考{image}。",
+  "sceneRefTemplate": "画面的景别、视角、构图、人物大小、人物显示范围、人物姿势和人物动作严格参考{image}。"
+}
