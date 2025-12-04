@@ -1679,7 +1679,7 @@ export default function Step3_DeconstructionReview({
             if (data.outline_url) {
                 setGeneratedOutlines((prev) => ({
                     ...prev,
-                    [shotId]: [...(prev[shotId] || []), data.outline_url!],
+                    [shotId]: [data.outline_url!, ...(prev[shotId] || [])],  // 新生成的在前
                 }));
                 setActiveOutlineUrls((prev) => ({ ...prev, [shotId]: data.outline_url! }));
                 showToast('线稿生成成功', 'success');
@@ -1794,7 +1794,7 @@ export default function Step3_DeconstructionReview({
                     if (data.outline_url) {
                         setGeneratedOutlines((prev) => ({
                             ...prev,
-                            [shotId]: [...(prev[shotId] || []), data.outline_url!],
+                            [shotId]: [data.outline_url!, ...(prev[shotId] || [])],  // 新生成的在前
                         }));
                         setActiveOutlineUrls((prev) => ({ ...prev, [shotId]: data.outline_url! }));
                         successCount++;
