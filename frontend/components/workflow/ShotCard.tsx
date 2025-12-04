@@ -377,6 +377,9 @@ export const ShotCard = ({
     
     // 图片放大查看状态
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+    
+    // 线稿提示词折叠状态
+    const [outlinePromptExpanded, setOutlinePromptExpanded] = useState(false);
 
     // Helper to render character or object item (handles both string and object types)
     const renderFrameItem = (item: unknown): string => {
@@ -1054,16 +1057,20 @@ export const ShotCard = ({
 
                             {/* 4. 首帧/视频描述 */}
                                 <div className={`flex-shrink-0 ${DESC_WIDTH} ${CARD_HEIGHT} ${CARD_RADIUS} border border-white/30 bg-white/50 backdrop-blur-xl shadow-md ${CARD_PADDING} flex flex-col ${CARD_GAP} transition-all duration-300 hover:bg-white/60 hover:shadow-lg overflow-y-auto`}>
-                                {/* 线稿提示词输入框 - 仅在线稿模式下显示 */}
+                                {/* 线稿提示词输入框 - 仅在线稿模式下显示，默认折叠 */}
                                 {effectiveOutlineMode && (
                                     <div className="flex flex-col gap-2 flex-shrink-0 mb-2">
                                         <div className="flex items-center justify-between text-sm font-semibold text-[#34C759] flex-shrink-0">
-                                            <div className="flex items-center gap-1.5">
+                                            <button
+                                                onClick={() => setOutlinePromptExpanded(!outlinePromptExpanded)}
+                                                className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+                                            >
+                                                <ChevronDown size={14} className={`transition-transform duration-200 ${outlinePromptExpanded ? '' : '-rotate-90'}`} />
                                                 <Pencil size={14} />
                                                 <span>线稿提示词</span>
-                                            </div>
+                                            </button>
                                             <div className="flex items-center gap-2">
-                                                {effectiveOutlinePrompt && effectiveOutlinePrompt !== globalOutlinePrompt && (
+                                                {outlinePromptExpanded && effectiveOutlinePrompt && effectiveOutlinePrompt !== globalOutlinePrompt && (
                                                     <button
                                                         onClick={() => onOutlinePromptChange?.(shot, index, globalOutlinePrompt)}
                                                         className="text-xs text-slate-500 hover:text-[#34C759] transition-colors flex items-center gap-1"
@@ -1086,14 +1093,16 @@ export const ShotCard = ({
                                                 </button>
                                             </div>
                                         </div>
-                                        <AutoTextArea
-                                            value={outlinePrompt ?? globalOutlinePrompt}
-                                            onChange={(e) => onOutlinePromptChange?.(shot, index, e.target.value)}
-                                            placeholder="描述线稿风格..."
-                                            minRows={2}
-                                            maxRows={8}
-                                            className={`w-full p-4 ${BTN_RADIUS} bg-white/40 border border-white/30 text-slate-700 text-base leading-loose hover:bg-white/60 transition-all focus:outline-none focus:ring-2 focus:ring-[#34C759]/20 resize-none placeholder:text-slate-400`}
-                                        />
+                                        {outlinePromptExpanded && (
+                                            <AutoTextArea
+                                                value={outlinePrompt ?? globalOutlinePrompt}
+                                                onChange={(e) => onOutlinePromptChange?.(shot, index, e.target.value)}
+                                                placeholder="描述线稿风格..."
+                                                minRows={2}
+                                                maxRows={8}
+                                                className={`w-full p-4 ${BTN_RADIUS} bg-white/40 border border-white/30 text-slate-700 text-base leading-loose hover:bg-white/60 transition-all focus:outline-none focus:ring-2 focus:ring-[#34C759]/20 resize-none placeholder:text-slate-400`}
+                                            />
+                                        )}
                                     </div>
                                 )}
                                 <div className="flex flex-col gap-2 basis-[58%] min-h-0 overflow-hidden">
