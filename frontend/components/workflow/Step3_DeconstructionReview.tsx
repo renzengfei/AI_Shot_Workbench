@@ -1310,10 +1310,59 @@ export default function Step3_DeconstructionReview({
             return;
         }
         const shotId = shot.id ?? index + 1;
-        const basePrompt = `首帧描述: ${typeof shot.initial_frame === 'string' ? shot.initial_frame : JSON.stringify(shot.initial_frame || {})}`;
+        
+        // 判断是否开启线稿模式（优先使用单镜头覆盖，否则使用全局配置）
+        const isOutlineMode = outlineModes[shotId] !== undefined ? outlineModes[shotId] : globalOutlineMode;
+        const activeOutline = activeOutlineUrls[shotId];
+        
+        // 线稿模式检查
+        if (isOutlineMode && !activeOutline) {
+            showToast('线稿模式下请先生成线稿图', 'error');
+            return;
+        }
+        
+        // 获取首帧描述
+        let initialFrameDesc = typeof shot.initial_frame === 'string' 
+            ? shot.initial_frame 
+            : JSON.stringify(shot.initial_frame || {});
+        
+        // 线稿模式下剔除景别/视角标签
+        if (isOutlineMode) {
+            // 剔除 [景别]xxx 和 [视角]xxx
+            initialFrameDesc = initialFrameDesc
+                .replace(/\[景别\][^\n\[]*\s*/g, '')
+                .replace(/\[视角\][^\n\[]*\s*/g, '')
+                .trim();
+        }
+        
+        // 构建提示词
+        let basePrompt = `首帧描述: ${initialFrameDesc}`;
+        
+        // 线稿模式下添加参考图指引
+        if (isOutlineMode && activeOutline) {
+            // 从首帧描述中提取角色名（【xxx】格式）
+            const characterMatches = initialFrameDesc.match(/【([^】]+)】/g) || [];
+            const characters = characterMatches.map((m: string) => m.replace(/[【】]/g, ''));
+            
+            let referenceGuide = '\n\n';
+            characters.forEach((char: string, idx: number) => {
+                referenceGuide += `角色【${char}】的形象、服装、发型严格参考图image${idx + 1}。\n`;
+            });
+            referenceGuide += `画面的景别、人物姿势和动作严格参考图image${characters.length + 1}。`;
+            
+            basePrompt += referenceGuide;
+        }
+        
         const presetText = activeImagePreset?.content?.trim();
         const prompt = presetText ? `${basePrompt}\n\n生图设定：${presetText}` : basePrompt;
-        const refs = extractReferenceIds(shot);
+        
+        // 构建参考图列表
+        let refs = extractReferenceIds(shot);
+        
+        // 线稿模式下添加线稿图作为参考
+        if (isOutlineMode && activeOutline) {
+            refs = [...refs, activeOutline];
+        }
         setGeneratingShots((prev) => ({ ...prev, [shotId]: true }));
         let taskStarted = false;
         const pendingBefore = readPendingGenerations();
