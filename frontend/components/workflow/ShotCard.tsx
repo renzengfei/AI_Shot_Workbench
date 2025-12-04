@@ -1011,7 +1011,7 @@ export const ShotCard = ({
                                             disabled={isGeneratingOutline}
                                             className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shadow-md transition-all duration-200 active:scale-95 ${isGeneratingOutline
                                                     ? 'bg-slate-400 text-white cursor-not-allowed'
-                                                    : 'bg-gradient-to-r from-[#6B7280] to-[#5B6370] text-white hover:from-[#5B6370] hover:to-[#4B5260]'
+                                                    : 'bg-slate-500 text-white hover:bg-slate-600'
                                                 }`}
                                         >
                                             {isGeneratingOutline ? (
@@ -1166,7 +1166,7 @@ export const ShotCard = ({
                                                     disabled={isGeneratingOutline}
                                                     className={`flex items-center justify-center gap-2 w-[100px] py-1.5 rounded-xl text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${isGeneratingOutline
                                                             ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                                                            : 'bg-[#6B7280] text-white hover:bg-[#5B6370]'
+                                                            : 'bg-slate-500 text-white hover:bg-slate-600'
                                                         }`}
                                                 >
                                                     {isGeneratingOutline ? (
@@ -1512,7 +1512,7 @@ export const ShotCard = ({
                                                 <span>暂无线稿图</span>
                                                 <button
                                                     onClick={() => onGenerateOutline?.(shot, index)}
-                                                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-[#6B7280] text-white hover:bg-[#5B6370] transition shadow-md"
+                                                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-slate-500 text-white hover:bg-slate-600 transition shadow-md"
                                                 >
                                                     <Wand2 size={14} />
                                                     生成线稿
