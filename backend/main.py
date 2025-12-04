@@ -1910,6 +1910,8 @@ class GenerateOutlineRequest(BaseModel):
 class OutlineConfigModel(BaseModel):
     globalOutlineMode: bool = False
     globalOutlinePrompt: str = ""  # 不使用默认值，用户自行配置
+    charRefTemplate: str = ""  # 角色参考模板
+    sceneRefTemplate: str = ""  # 场景参考模板
 
 
 @app.post("/api/generate-outline")
