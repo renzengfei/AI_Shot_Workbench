@@ -15,14 +15,14 @@ interface DiffInfo {
 // 等待时间计时器组件
 const WaitTimer = ({ startTime }: { startTime: number }) => {
     const [elapsed, setElapsed] = useState(0);
-    
+
     useEffect(() => {
         const interval = setInterval(() => {
             setElapsed(Math.floor((Date.now() - startTime) / 1000));
         }, 1000);
         return () => clearInterval(interval);
     }, [startTime]);
-    
+
     const minutes = Math.floor(elapsed / 60);
     const seconds = elapsed % 60;
     return (
@@ -35,7 +35,7 @@ const WaitTimer = ({ startTime }: { startTime: number }) => {
 // 生成失败提示组件
 const ErrorTooltip = ({ error }: { error: string }) => {
     const [expanded, setExpanded] = useState(false);
-    
+
     return (
         <div className="mt-2 w-full">
             <button
@@ -67,54 +67,81 @@ const FinalizeStarButton = ({
 }) => {
     const [isAnimating, setIsAnimating] = useState(false);
     const [showSparkle, setShowSparkle] = useState(false);
-    
+    const [showRipple, setShowRipple] = useState(false);
+    const [showToast, setShowToast] = useState(false);
+
     const handleClick = () => {
         if (!isFinalized) {
-            // 点亮时播放动画
+            // 点亮时播放全套动画
             setIsAnimating(true);
             setShowSparkle(true);
-            setTimeout(() => setIsAnimating(false), 600);
-            setTimeout(() => setShowSparkle(false), 800);
+            setShowRipple(true);
+            setShowToast(true);
+            setTimeout(() => setIsAnimating(false), 700);
+            setTimeout(() => setShowSparkle(false), 900);
+            setTimeout(() => setShowRipple(false), 600);
+            setTimeout(() => setShowToast(false), 1500);
         }
         onClick();
     };
-    
+
     return (
-        <button
-            onClick={handleClick}
-            className={`relative p-1.5 rounded-full transition-all duration-300 
-                ${isFinalized 
-                    ? 'text-amber-500 bg-amber-100/60 shadow-[0_0_12px_rgba(245,158,11,0.4)]' 
-                    : 'text-slate-300 hover:text-amber-400 hover:bg-amber-50'
-                }
-                ${isAnimating ? 'animate-bounce-star' : 'hover:scale-110 active:scale-95'}
-            `}
-            title={isFinalized ? '取消定稿' : '设为定稿'}
-        >
-            {/* 脉冲光晕 - 仅在已定稿时显示 */}
-            {isFinalized && (
-                <span className="absolute inset-0 rounded-full bg-amber-400/30 animate-ping-slow" />
-            )}
-            
-            {/* 点亮时的闪光效果 */}
-            {showSparkle && (
-                <>
-                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-300 rounded-full animate-sparkle-1" />
-                    <span className="absolute -top-0.5 -left-1 w-1.5 h-1.5 bg-amber-200 rounded-full animate-sparkle-2" />
-                    <span className="absolute -bottom-1 right-0 w-1.5 h-1.5 bg-amber-400 rounded-full animate-sparkle-3" />
-                </>
-            )}
-            
-            {/* 星星图标 */}
-            <Star 
-                size={size} 
-                fill={isFinalized ? 'currentColor' : 'none'}
-                className={`relative z-10 transition-transform duration-300 
-                    ${isAnimating ? 'animate-star-spin scale-125' : ''}
-                    ${isFinalized ? 'drop-shadow-[0_0_3px_rgba(245,158,11,0.8)]' : ''}
+        <div className="relative">
+            <button
+                onClick={handleClick}
+                className={`relative p-2 rounded-full transition-all duration-300 
+                    ${isFinalized
+                        ? 'text-amber-500 bg-gradient-to-br from-amber-100/80 to-amber-200/60 shadow-[0_0_16px_rgba(245,158,11,0.5),0_0_32px_rgba(245,158,11,0.2)]'
+                        : 'text-slate-300 hover:text-amber-400 hover:bg-amber-50/80'
+                    }
+                    ${isAnimating ? 'animate-bounce-star scale-110' : 'hover:scale-110 active:scale-90'}
                 `}
-            />
-        </button>
+                title={isFinalized ? '取消定稿' : '设为定稿'}
+            >
+                {/* 涟漪扩散效果 */}
+                {showRipple && (
+                    <>
+                        <span className="absolute inset-0 rounded-full bg-amber-400/40 animate-ripple-1" />
+                        <span className="absolute inset-0 rounded-full bg-amber-300/30 animate-ripple-2" />
+                    </>
+                )}
+
+                {/* 脉冲光晕 - 仅在已定稿时显示 */}
+                {isFinalized && (
+                    <span className="absolute inset-0 rounded-full bg-amber-400/25 animate-ping-slow" />
+                )}
+
+                {/* 点亮时的闪光粒子（6颗，四散飞出） */}
+                {showSparkle && (
+                    <>
+                        <span className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-yellow-300 rounded-full animate-sparkle-up" />
+                        <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-amber-400 rounded-full animate-sparkle-down" />
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-orange-300 rounded-full animate-sparkle-left" />
+                        <span className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-yellow-400 rounded-full animate-sparkle-right" />
+                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-300 rounded-full animate-sparkle-1" />
+                        <span className="absolute -bottom-1 -left-1 w-2 h-2 bg-orange-400 rounded-full animate-sparkle-3" />
+                    </>
+                )}
+
+                {/* 星星图标 */}
+                <Star
+                    size={size}
+                    fill={isFinalized ? 'currentColor' : 'none'}
+                    strokeWidth={isFinalized ? 0 : 2}
+                    className={`relative z-10 transition-all duration-300 
+                        ${isAnimating ? 'animate-star-celebrate' : ''}
+                        ${isFinalized ? 'drop-shadow-[0_0_6px_rgba(245,158,11,0.9)] filter saturate-150' : ''}
+                    `}
+                />
+            </button>
+
+            {/* 成功提示 Toast */}
+            {showToast && (
+                <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap px-2.5 py-1 rounded-full bg-amber-500 text-white text-xs font-semibold shadow-lg animate-toast-pop z-50">
+                    已定稿 ✓
+                </div>
+            )}
+        </div>
     );
 };
 
@@ -136,7 +163,7 @@ const ImageLightbox = ({
 }) => {
     const currentUrl = images[currentIndex];
     const imageNum = getImageIndex(currentUrl);
-    
+
     // 键盘导航
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -149,7 +176,7 @@ const ImageLightbox = ({
     }, [onClose, onPrev, onNext]);
 
     return (
-        <div 
+        <div
             className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md"
             onClick={onClose}
         >
@@ -160,12 +187,12 @@ const ImageLightbox = ({
             >
                 <X size={24} />
             </button>
-            
+
             {/* 图片序号 */}
             <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-white/10 text-white text-sm font-medium">
                 #{imageNum} · {currentIndex + 1} / {images.length}
             </div>
-            
+
             {/* 上一张 */}
             {currentIndex > 0 && (
                 <button
@@ -175,20 +202,20 @@ const ImageLightbox = ({
                     <ChevronLeft size={28} />
                 </button>
             )}
-            
+
             {/* 图片 */}
-            <div 
+            <div
                 className="max-w-[90vw] max-h-[90vh] flex items-center justify-center"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img 
-                    src={currentUrl} 
+                <img
+                    src={currentUrl}
                     alt={`图片 #${imageNum}`}
                     className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
                 />
             </div>
-            
+
             {/* 下一张 */}
             {currentIndex < images.length - 1 && (
                 <button
@@ -203,16 +230,16 @@ const ImageLightbox = ({
 };
 
 // Prompt 查看器组件
-const PromptViewer = ({ 
-    workspacePath, 
-    shotId, 
+const PromptViewer = ({
+    workspacePath,
+    shotId,
     generatedDir,
     imageFilename,
     imageUrl,
     compact = false
-}: { 
-    workspacePath: string; 
-    shotId: string | number; 
+}: {
+    workspacePath: string;
+    shotId: string | number;
     generatedDir?: string;
     imageFilename?: string;
     imageUrl?: string;
@@ -257,7 +284,7 @@ const PromptViewer = ({
             <button
                 onClick={fetchPrompt}
                 disabled={loading}
-                className={compact 
+                className={compact
                     ? "flex items-center justify-center p-2 rounded-lg bg-slate-100/80 border border-slate-200/30 text-slate-400 hover:bg-slate-200/80 hover:text-slate-600 transition-all duration-200 active:scale-95"
                     : "flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100/80 border border-slate-200/50 text-slate-500 text-xs font-medium hover:bg-slate-200/80 hover:text-slate-700 transition-all duration-200 active:scale-95"
                 }
@@ -267,11 +294,11 @@ const PromptViewer = ({
                 {!compact && (loading ? '...' : 'Prompt')}
             </button>
             {isOpen && (
-                <div 
+                <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
                     onClick={() => setIsOpen(false)}
                 >
-                    <div 
+                    <div
                         className="relative w-[90%] max-w-2xl max-h-[80vh] bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/50 overflow-hidden"
                         onClick={(e) => e.stopPropagation()}
                     >
@@ -336,7 +363,7 @@ interface ShotCardProps {
     isGeneratingVideo?: boolean;
     videoTaskStatus?: 'pending' | 'processing' | 'completed' | 'failed' | null;
     videoProgress?: number; // 视频生成进度 0-100
-    videoTaskProgresses?: Array<{taskId: string; progress: number; status: string; startTime: number}>; // 每个任务的进度
+    videoTaskProgresses?: Array<{ taskId: string; progress: number; status: string; startTime: number }>; // 每个任务的进度
     generatedVideoUrls?: string[];
     selectedVideoIndex?: number;
     onSelectVideoIndex?: (index: number) => void;
@@ -428,7 +455,7 @@ export const ShotCard = ({
 }: ShotCardProps) => {
     const shotId = shot.id ?? index + 1;
     const canEdit = mode === 'review';
-    
+
     // 计算实际使用的线稿模式和提示词（考虑全局和局部覆盖）
     const effectiveOutlineMode = outlineMode !== undefined ? outlineMode : globalOutlineMode;
     const effectiveOutlinePrompt = outlinePrompt !== undefined ? outlinePrompt : globalOutlinePrompt;
@@ -445,10 +472,10 @@ export const ShotCard = ({
     const [deleteConfirm, setDeleteConfirm] = useState<{ type: string; index: number; label: string } | null>(null);
     const [activeStream, setActiveStream] = useState<'image' | 'video' | 'outline'>(defaultStream || 'image');
     const [selectedVideo] = useState<string | null>(clipUrl || null);
-    
+
     // 图片放大查看状态
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-    
+
     // 线稿提示词折叠状态
     const [outlinePromptExpanded, setOutlinePromptExpanded] = useState(false);
 
@@ -792,7 +819,7 @@ export const ShotCard = ({
     const activeIndex = generatedImageIndex;
     const activeImage = hasGeneratedImages && activeIndex !== undefined ? generatedImageUrls[Math.min(activeIndex, generatedImageUrls.length - 1)] : null;
     const isNewShot = !Number.isInteger(shotId) || shot.timestamp === 'N/A' || shot.end_time === 'N/A';
-    
+
     // 从图片URL提取文件名序号（如 image_url_27.png → 27）
     const getImageIndex = (url: string): number => {
         try {
@@ -805,10 +832,10 @@ export const ShotCard = ({
     };
 
     // 排序后的图片列表（按文件名序号倒序，最新在前）
-    const sortedImages = useMemo(() => 
+    const sortedImages = useMemo(() =>
         [...generatedImageUrls]
             .filter(Boolean)
-            .sort((a, b) => getImageIndex(b) - getImageIndex(a)), 
+            .sort((a, b) => getImageIndex(b) - getImageIndex(a)),
         [generatedImageUrls]
     );
 
@@ -820,7 +847,7 @@ export const ShotCard = ({
     const CARD_GAP = 'gap-5';                  // 统一内部间距
     const CARD_RADIUS = 'rounded-3xl';         // 统一大圆角
     const BTN_RADIUS = 'rounded-xl';           // 按钮圆角
-    
+
     // 媒体容器：通过 aspect-[9/16] 自动计算高度，确保所有媒体对齐
     const mediaBaseClass = `relative aspect-[9/16] ${CARD_RADIUS} overflow-hidden bg-slate-900`;
     const mediaCardBase = `flex-shrink-0 ${MEDIA_WIDTH} ${CARD_RADIUS} border border-white/30 bg-white/50 backdrop-blur-xl shadow-md ${CARD_PADDING} flex flex-col ${CARD_GAP} transition-all duration-300 hover:bg-white/60 hover:shadow-lg`;
@@ -858,7 +885,7 @@ export const ShotCard = ({
 
     // 当前选中的视频
     const activeVideo = useMemo(() => selectedVideo || clipUrl || null, [selectedVideo, clipUrl]);
-    
+
     // 视频流列表
     const videoFlow = useMemo(() => {
         const list: string[] = [];
@@ -907,7 +934,7 @@ export const ShotCard = ({
             >
                 {/* Glass Reflection Effect */}
                 <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent opacity-50 rounded-[2.5rem] pointer-events-none" />
-                
+
                 {/* Discarded Overlay */}
                 {isDiscarded && (
                     <div className="absolute inset-0 bg-black/60 rounded-[2.5rem] z-20 pointer-events-none" />
@@ -915,17 +942,17 @@ export const ShotCard = ({
 
                 {/* Header: Shot Number & Duration */}
                 <div className="relative z-10 flex items-center justify-between mb-8">
-                        <div className="flex items-center gap-3 flex-wrap">
-                            <div className="px-4 py-1.5 rounded-full text-sm font-semibold bg-gradient-to-r from-blue-500/25 via-cyan-500/20 to-purple-500/25 text-white/90 border border-white/20 shadow-sm">
-                                SHOT {shotId}
-                            </div>
-                            <div className="relative">
-                                <span className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-white/10 tracking-tighter">
-                                    {String(index + 1).padStart(2, '0')}
-                                </span>
-                                <div className="absolute -bottom-2 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full opacity-50 blur-sm" />
-                            </div>
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <div className="px-4 py-1.5 rounded-full text-sm font-semibold bg-gradient-to-r from-blue-500/25 via-cyan-500/20 to-purple-500/25 text-white/90 border border-white/20 shadow-sm">
+                            SHOT {shotId}
                         </div>
+                        <div className="relative">
+                            <span className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-white/10 tracking-tighter">
+                                {String(index + 1).padStart(2, '0')}
+                            </span>
+                            <div className="absolute -bottom-2 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full opacity-50 blur-sm" />
+                        </div>
+                    </div>
 
                     <div className="flex items-center gap-4 flex-wrap justify-end">
                         {shot.timestamp && (
@@ -939,11 +966,10 @@ export const ShotCard = ({
                         {/* 线稿模式切换按钮 */}
                         <button
                             onClick={() => onToggleOutlineMode?.(shot, index)}
-                            className={`relative z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
-                                effectiveOutlineMode
+                            className={`relative z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${effectiveOutlineMode
                                     ? 'bg-[#6B7280] text-white hover:bg-[#5B6370] shadow-lg shadow-[#6B7280]/30'
                                     : 'bg-slate-500/20 text-slate-300 hover:bg-slate-500/30 border border-slate-500/30'
-                            }`}
+                                }`}
                             title={effectiveOutlineMode ? '线稿模式已开启' : '点击开启线稿模式'}
                         >
                             <Pencil size={14} />
@@ -952,11 +978,10 @@ export const ShotCard = ({
                         </button>
                         <button
                             onClick={() => updateField('discarded', !isDiscarded)}
-                            className={`relative z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
-                                isDiscarded
+                            className={`relative z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${isDiscarded
                                     ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/30'
                                     : 'bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30'
-                            }`}
+                                }`}
                         >
                             {isDiscarded ? (
                                 <>
@@ -978,7 +1003,7 @@ export const ShotCard = ({
                     {/* 横向滚动容器 */}
                     <div className="relative overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
                         <div className="flex flex-nowrap items-start gap-6 pb-4 pt-2" style={{ minWidth: 'max-content' }}>
-                            
+
                             {/* 1. 原片分镜视频 (Sticky) - 放大宽度 w-[510px] */}
                             <div className={`sticky left-0 top-0 z-20 ${mediaCardBase}`}>
                                 <div className={mediaTitleClass}>原片分镜</div>
@@ -1040,11 +1065,10 @@ export const ShotCard = ({
                                         <button
                                             onClick={() => onGenerateOutline?.(shot, index)}
                                             disabled={isGeneratingOutline}
-                                            className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shadow-md transition-all duration-200 active:scale-95 ${
-                                                isGeneratingOutline
+                                            className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shadow-md transition-all duration-200 active:scale-95 ${isGeneratingOutline
                                                     ? 'bg-slate-400 text-white cursor-not-allowed'
                                                     : 'bg-gradient-to-r from-[#6B7280] to-[#5B6370] text-white hover:from-[#5B6370] hover:to-[#4B5260]'
-                                            }`}
+                                                }`}
                                         >
                                             {isGeneratingOutline ? (
                                                 <><Loader2 size={16} className="animate-spin" />生成中...</>
@@ -1112,11 +1136,10 @@ export const ShotCard = ({
                                                 }, 50);
                                             }}
                                             disabled={isGenerating}
-                                            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shadow-md transition-all duration-200 active:scale-95 ${
-                                                isGenerating
+                                            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shadow-md transition-all duration-200 active:scale-95 ${isGenerating
                                                     ? 'bg-slate-400 text-white cursor-not-allowed'
                                                     : 'bg-[#6366F1] text-white hover:bg-[#5457E5]'
-                                            }`}
+                                                }`}
                                         >
                                             {isGenerating ? (
                                                 <><Loader2 size={16} className="animate-spin" />生成中...</>
@@ -1170,7 +1193,7 @@ export const ShotCard = ({
                             )}
 
                             {/* 4. 首帧/视频描述 */}
-                                <div className={`flex-shrink-0 ${DESC_WIDTH} ${CARD_HEIGHT} ${CARD_RADIUS} border border-white/30 bg-white/50 backdrop-blur-xl shadow-md ${CARD_PADDING} flex flex-col ${CARD_GAP} transition-all duration-300 hover:bg-white/60 hover:shadow-lg overflow-y-auto`}>
+                            <div className={`flex-shrink-0 ${DESC_WIDTH} ${CARD_HEIGHT} ${CARD_RADIUS} border border-white/30 bg-white/50 backdrop-blur-xl shadow-md ${CARD_PADDING} flex flex-col ${CARD_GAP} transition-all duration-300 hover:bg-white/60 hover:shadow-lg overflow-y-auto`}>
                                 {/* 线稿提示词输入框 - 仅在线稿模式下显示，默认折叠 */}
                                 {effectiveOutlineMode && (
                                     <div className="flex flex-col gap-2 flex-shrink-0 mb-2">
@@ -1197,11 +1220,10 @@ export const ShotCard = ({
                                                 <button
                                                     onClick={() => onGenerateOutline?.(shot, index)}
                                                     disabled={isGeneratingOutline}
-                                                    className={`flex items-center justify-center gap-2 w-[100px] py-1.5 rounded-xl text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${
-                                                        isGeneratingOutline
+                                                    className={`flex items-center justify-center gap-2 w-[100px] py-1.5 rounded-xl text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${isGeneratingOutline
                                                             ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
                                                             : 'bg-[#6B7280] text-white hover:bg-[#5B6370]'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     {isGeneratingOutline ? (
                                                         <><Loader2 size={14} className="animate-spin" />生成中</>
@@ -1256,11 +1278,10 @@ export const ShotCard = ({
                                                         }, 50);
                                                     }}
                                                     disabled={isGenerating}
-                                                    className={`flex items-center justify-center gap-2 w-[100px] py-1.5 rounded-xl text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${
-                                                        isGenerating
+                                                    className={`flex items-center justify-center gap-2 w-[100px] py-1.5 rounded-xl text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${isGenerating
                                                             ? 'bg-slate-400 text-white cursor-not-allowed'
                                                             : 'bg-[#6366F1] text-white hover:bg-[#5457E5]'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     {isGenerating ? (
                                                         <><Loader2 size={14} className="animate-spin" />生成中</>
@@ -1272,26 +1293,26 @@ export const ShotCard = ({
                                         )}
                                     </div>
                                     <div className="flex-1 min-h-0 overflow-y-auto">
-                                    {renderFieldWithRevision(
-                                        structuredFrameOriginal || structuredFrameOptimized ? (
-                                            <div className="p-3 rounded-lg border border-dashed border-slate-200 bg-white/60 text-sm text-slate-500">
-                                                结构化首帧，见下方
-                                            </div>
-                                        ) : (
-                                            <AutoTextArea
-                                                value={initialFrameText}
-                                                onChange={(e) => updateField('initial_frame', e.target.value)}
-                                                readOnly={!canEdit}
-                                                minRows={2}
-                                                maxRows={20}
-                                                className={`w-full h-full p-4 ${BTN_RADIUS} bg-white/40 border border-white/30 text-slate-700 text-base leading-loose hover:bg-white/60 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none placeholder:text-slate-400`}
-                                                placeholder="输入首帧描述..."
-                                            />
-                                        ),
-                                        '首帧描述',
-                                        initialFrameText,
-                                        initialFrameTextOptimized,
-                                    )}
+                                        {renderFieldWithRevision(
+                                            structuredFrameOriginal || structuredFrameOptimized ? (
+                                                <div className="p-3 rounded-lg border border-dashed border-slate-200 bg-white/60 text-sm text-slate-500">
+                                                    结构化首帧，见下方
+                                                </div>
+                                            ) : (
+                                                <AutoTextArea
+                                                    value={initialFrameText}
+                                                    onChange={(e) => updateField('initial_frame', e.target.value)}
+                                                    readOnly={!canEdit}
+                                                    minRows={2}
+                                                    maxRows={20}
+                                                    className={`w-full h-full p-4 ${BTN_RADIUS} bg-white/40 border border-white/30 text-slate-700 text-base leading-loose hover:bg-white/60 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none placeholder:text-slate-400`}
+                                                    placeholder="输入首帧描述..."
+                                                />
+                                            ),
+                                            '首帧描述',
+                                            initialFrameText,
+                                            initialFrameTextOptimized,
+                                        )}
                                     </div>
                                 </div>
                                 <div className="flex flex-col gap-2 basis-[30%] min-h-0">
@@ -1307,13 +1328,12 @@ export const ShotCard = ({
                                                 onClick={() => isGeneratingVideo ? onStopVideoGeneration?.(shot, index) : onGenerateVideo(shot, index)}
                                                 disabled={!isGeneratingVideo && !hasGeneratedImages}
                                                 title={isGeneratingVideo ? '停止生成视频' : !hasGeneratedImages ? '请先生成图片' : '使用当前图片生成视频'}
-                                                className={`flex items-center justify-center gap-2 w-[100px] py-1.5 rounded-xl text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${
-                                                    isGeneratingVideo
+                                                className={`flex items-center justify-center gap-2 w-[100px] py-1.5 rounded-xl text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${isGeneratingVideo
                                                         ? 'bg-red-500 text-white hover:bg-red-600'
                                                         : !hasGeneratedImages
                                                             ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
                                                             : 'bg-[#EC4899] text-white hover:bg-[#DB2777]'
-                                                }`}
+                                                    }`}
                                             >
                                                 {isGeneratingVideo ? (
                                                     <><Square size={14} fill="currentColor" />停止生成</>
@@ -1402,7 +1422,7 @@ export const ShotCard = ({
                                                     </span>
                                                     {(task.status === 'processing' || task.status === 'downloading') && (
                                                         <div className="w-32 h-2 bg-pink-100 rounded-full overflow-hidden">
-                                                            <div 
+                                                            <div
                                                                 className="h-full bg-[#EC4899] rounded-full transition-all duration-300"
                                                                 style={{ width: `${task.progress}%` }}
                                                             />
@@ -1477,7 +1497,7 @@ export const ShotCard = ({
                                                     </span>
                                                     {videoTaskStatus === 'processing' && (
                                                         <div className="w-48 h-2 bg-pink-100 rounded-full overflow-hidden">
-                                                            <div 
+                                                            <div
                                                                 className="h-full bg-[#EC4899] rounded-full transition-all duration-300"
                                                                 style={{ width: `${videoProgress}%` }}
                                                             />
@@ -1524,8 +1544,8 @@ export const ShotCard = ({
                                                     <div className="flex items-center gap-2">
                                                         <button
                                                             onClick={() => onSelectOutline?.(shot, index, url)}
-                                                            className={`flex-1 flex items-center justify-center gap-2 text-sm font-medium ${BTN_RADIUS} px-4 py-2.5 transition-all duration-200 active:scale-[0.98] ${isActive 
-                                                                ? 'bg-gradient-to-r from-[#6B7280] to-[#5B6370] text-white shadow-md' 
+                                                            className={`flex-1 flex items-center justify-center gap-2 text-sm font-medium ${BTN_RADIUS} px-4 py-2.5 transition-all duration-200 active:scale-[0.98] ${isActive
+                                                                ? 'bg-gradient-to-r from-[#6B7280] to-[#5B6370] text-white shadow-md'
                                                                 : 'bg-white/70 border border-slate-200/50 text-slate-600 hover:bg-white hover:border-[#6B7280]/50 hover:text-[#6B7280]'}`}
                                                         >
                                                             {isActive ? <><Check size={14} /> 已选择</> : '选择此线稿'}
@@ -1557,24 +1577,24 @@ export const ShotCard = ({
                                         )}
                                     </>
                                 ) : sortedImages.length > 0 ? (
-                                        sortedImages.map((url, idx) => {
+                                    sortedImages.map((url, idx) => {
                                         const originalIdx = generatedImageUrls.indexOf(url);
                                         const isActive = activeImage === url;
                                         const isNew = newImages.includes(url);
                                         const genTime = getGenerationInfo(url);
                                         return (
+                                            <div
+                                                key={`${url}-${idx}`}
+                                                className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} border transition-all duration-300 ${isActive ? 'border-blue-400/50 shadow-lg ring-1 ring-blue-400/20' : 'border-white/30 hover:shadow-md'} bg-white/50 backdrop-blur-xl ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
+                                            >
+                                                <div className={mediaTitleClass}>{genTime || ' '}</div>
                                                 <div
-                                                    key={`${url}-${idx}`}
-                                                    className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} border transition-all duration-300 ${isActive ? 'border-blue-400/50 shadow-lg ring-1 ring-blue-400/20' : 'border-white/30 hover:shadow-md'} bg-white/50 backdrop-blur-xl ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
+                                                    className={`${mediaBaseClass} border border-white/10 shadow-inner cursor-pointer`}
+                                                    onClick={() => setLightboxIndex(idx)}
                                                 >
-                                                    <div className={mediaTitleClass}>{genTime || ' '}</div>
-                                                    <div 
-                                                        className={`${mediaBaseClass} border border-white/10 shadow-inner cursor-pointer`}
-                                                        onClick={() => setLightboxIndex(idx)}
-                                                    >
-                                                        {/* 右上角：生成时间 */}
-                                                        {genTime && (
-                                                            <span className="absolute top-2 right-2 px-2 py-1 rounded-md text-xs font-medium bg-black/50 text-white/90 backdrop-blur-sm z-10">
+                                                    {/* 右上角：生成时间 */}
+                                                    {genTime && (
+                                                        <span className="absolute top-2 right-2 px-2 py-1 rounded-md text-xs font-medium bg-black/50 text-white/90 backdrop-blur-sm z-10">
                                                             {genTime}
                                                         </span>
                                                     )}
@@ -1590,8 +1610,8 @@ export const ShotCard = ({
                                                 <div className="flex items-center gap-2">
                                                     <button
                                                         onClick={() => onSelectGeneratedIndex?.(shot, index, originalIdx)}
-                                                        className={`flex-1 flex items-center justify-center gap-2 text-sm font-medium ${BTN_RADIUS} px-4 py-2.5 transition-all duration-200 active:scale-[0.98] ${isActive 
-                                                            ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md' 
+                                                        className={`flex-1 flex items-center justify-center gap-2 text-sm font-medium ${BTN_RADIUS} px-4 py-2.5 transition-all duration-200 active:scale-[0.98] ${isActive
+                                                            ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md'
                                                             : 'bg-white/70 border border-slate-200/50 text-slate-600 hover:bg-white hover:border-blue-300 hover:text-blue-600'}`}
                                                     >
                                                         {isActive ? <><Check size={14} /> 已选择</> : '选择此图'}
@@ -1601,9 +1621,9 @@ export const ShotCard = ({
                                                     </span>
                                                     {/* 查看 Prompt 按钮 */}
                                                     {workspacePath && (
-                                                        <PromptViewer 
-                                                            workspacePath={workspacePath} 
-                                                            shotId={shotId} 
+                                                        <PromptViewer
+                                                            workspacePath={workspacePath}
+                                                            shotId={shotId}
                                                             generatedDir={generatedDir}
                                                             imageFilename={url.split('/').pop()}
                                                             imageUrl={url}
@@ -2281,7 +2301,7 @@ export const ShotCard = ({
                     </div>
                 </div>
             )}
-            
+
             {/* 图片放大查看 Lightbox */}
             {lightboxIndex !== null && sortedImages.length > 0 && (
                 <ImageLightbox

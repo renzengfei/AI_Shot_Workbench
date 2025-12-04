@@ -223,3 +223,74 @@
 .animate-sparkle-3 {
   animation: sparkle-3 0.55s 0.05s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
+
+/* 四方向闪光粒子 */
+@keyframes sparkle-up {
+  0% { transform: translate(-50%, 0) scale(0); opacity: 1; }
+  50% { transform: translate(-50%, -16px) scale(1.2); opacity: 1; }
+  100% { transform: translate(-50%, -24px) scale(0); opacity: 0; }
+}
+
+@keyframes sparkle-down {
+  0% { transform: translate(-50%, 0) scale(0); opacity: 1; }
+  50% { transform: translate(-50%, 16px) scale(1.2); opacity: 1; }
+  100% { transform: translate(-50%, 24px) scale(0); opacity: 0; }
+}
+
+@keyframes sparkle-left {
+  0% { transform: translate(0, -50%) scale(0); opacity: 1; }
+  50% { transform: translate(-16px, -50%) scale(1.2); opacity: 1; }
+  100% { transform: translate(-24px, -50%) scale(0); opacity: 0; }
+}
+
+@keyframes sparkle-right {
+  0% { transform: translate(0, -50%) scale(0); opacity: 1; }
+  50% { transform: translate(16px, -50%) scale(1.2); opacity: 1; }
+  100% { transform: translate(24px, -50%) scale(0); opacity: 0; }
+}
+
+.animate-sparkle-up { animation: sparkle-up 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.animate-sparkle-down { animation: sparkle-down 0.6s 0.05s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.animate-sparkle-left { animation: sparkle-left 0.55s 0.08s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.animate-sparkle-right { animation: sparkle-right 0.55s 0.03s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+
+/* 涟漪扩散效果 */
+@keyframes ripple-1 {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+@keyframes ripple-2 {
+  0% { transform: scale(1); opacity: 0.4; }
+  100% { transform: scale(3); opacity: 0; }
+}
+
+.animate-ripple-1 { animation: ripple-1 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.animate-ripple-2 { animation: ripple-2 0.6s 0.1s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+
+/* 星星庆祝动画（旋转+缩放+弹跳） */
+@keyframes star-celebrate {
+  0% { transform: scale(1) rotate(0deg); }
+  20% { transform: scale(1.4) rotate(-15deg); }
+  40% { transform: scale(1.2) rotate(10deg); }
+  60% { transform: scale(1.35) rotate(-5deg); }
+  80% { transform: scale(1.15) rotate(3deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.animate-star-celebrate {
+  animation: star-celebrate 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Toast 弹出动画 */
+@keyframes toast-pop {
+  0% { transform: translate(-50%, 10px) scale(0.8); opacity: 0; }
+  20% { transform: translate(-50%, -2px) scale(1.05); opacity: 1; }
+  40% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+  80% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -5px) scale(0.95); opacity: 0; }
+}
+
+.animate-toast-pop {
+  animation: toast-pop 1.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
