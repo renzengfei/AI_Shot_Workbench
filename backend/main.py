@@ -1884,6 +1884,17 @@ async def generate_outline(request: GenerateOutlineRequest):
             ws_path = '/'.join(parts[:-3])  # workspace path
             frame_filename = parts[-1]
             frame_path = os.path.join(request.workspace_path, 'assets', 'frames', frame_filename)
+    elif request.frame_url.startswith('http://127.0.0.1:8000/workspaces/') or request.frame_url.startswith('http://localhost:8000/workspaces/'):
+        # 本服务静态文件 URL，解析为本地路径
+        # 例如 http://127.0.0.1:8000/workspaces/7/generated_xxx/shots/1.0/image.png
+        import urllib.parse
+        parsed = urllib.parse.urlparse(request.frame_url)
+        # 移除开头的 /workspaces/
+        relative_path = parsed.path.replace('/workspaces/', '', 1)
+        # 拼接到 workspaces 目录
+        frame_path = os.path.join(BASE_DIR, '..', 'workspaces', relative_path)
+        frame_path = os.path.normpath(frame_path)
+        logger.info(f"解析本地静态文件路径: {frame_path}")
     elif request.frame_url.startswith('http'):
         # 外部 URL，需要下载
         try:
@@ -1935,32 +1946,32 @@ async def generate_outline(request: GenerateOutlineRequest):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         saved_outline = None
         
-        # 处理 base64 结果
-        for img_data in (result.images_base64 or []):
-            if not img_data:
+        # 处理返回的 image_urls（可能是 data URL 或 http URL）
+        for img_url in (result.image_urls or []):
+            if not img_url:
                 continue
-            try:
-                header, b64data = img_data.split(",", 1)
-            except ValueError:
-                continue
-            ext = "png"
-            if "jpeg" in header or "jpg" in header:
-                ext = "jpg"
-            filename = f"outline_{timestamp}.{ext}"
-            path = os.path.join(outlines_dir, filename)
-            with open(path, "wb") as f:
-                f.write(base64.b64decode(b64data))
-            saved_outline = f"/api/workspaces/{request.workspace_path}/assets/outlines/{shot_label}/{filename}"
-            break
-        
-        # 处理 URL 结果
-        if not saved_outline:
-            for url in (result.images_url or []):
-                if not url:
+            
+            if img_url.startswith("data:"):
+                # Base64 data URL
+                try:
+                    header, b64data = img_url.split(",", 1)
+                except ValueError:
                     continue
+                ext = "png"
+                if "jpeg" in header or "jpg" in header:
+                    ext = "jpg"
+                filename = f"outline_{timestamp}.{ext}"
+                path = os.path.join(outlines_dir, filename)
+                with open(path, "wb") as f:
+                    f.write(base64.b64decode(b64data))
+                ws_path_for_url = request.workspace_path.lstrip('/')
+                saved_outline = f"/api/workspaces/{ws_path_for_url}/assets/outlines/{shot_label}/{filename}"
+                break
+            elif img_url.startswith("http"):
+                # HTTP URL，需要下载
                 try:
                     async with httpx.AsyncClient(timeout=60.0) as client:
-                        resp = await client.get(url)
+                        resp = await client.get(img_url)
                         if resp.status_code == 200:
                             ext = "png"
                             ct = resp.headers.get("content-type", "")
@@ -1970,7 +1981,8 @@ async def generate_outline(request: GenerateOutlineRequest):
                             path = os.path.join(outlines_dir, filename)
                             with open(path, "wb") as f:
                                 f.write(resp.content)
-                            saved_outline = f"/api/workspaces/{request.workspace_path}/assets/outlines/{shot_label}/{filename}"
+                            ws_path_for_url = request.workspace_path.lstrip('/')
+                            saved_outline = f"/api/workspaces/{ws_path_for_url}/assets/outlines/{shot_label}/{filename}"
                             break
                 except Exception as e:
                     logger.error(f"下载线稿图失败: {e}")
