@@ -201,6 +201,21 @@ export default function Step3_DeconstructionReview({
     const [generatingOutlines, setGeneratingOutlines] = useState<Record<number, boolean>>({});  // 正在生成线稿的镜头
     const [batchGeneratingOutlines, setBatchGeneratingOutlines] = useState(false);  // 批量生成线稿中
     const [outlineProgress, setOutlineProgress] = useState({ completed: 0, total: 0 });  // 线稿生成进度
+    // 全局线稿模式配置
+    const [globalOutlineMode, setGlobalOutlineMode] = useState<boolean>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('globalOutlineMode');
+            return saved === 'true';
+        }
+        return false;
+    });
+    const [globalOutlinePrompt, setGlobalOutlinePrompt] = useState<string>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('globalOutlinePrompt');
+            return saved || 'extract clean line art, black outlines on white background, no shading, anime style';
+        }
+        return 'extract clean line art, black outlines on white background, no shading, anime style';
+    });
     // Provider selection per shot
     const [providers, setProviders] = useState<Array<{ id: string; name: string; is_default?: boolean }>>([]);
     const [shotProviders, setShotProviders] = useState<Record<number, string>>({});
@@ -227,6 +242,15 @@ export default function Step3_DeconstructionReview({
     useEffect(() => {
         localStorage.setItem('defaultStream', defaultStream);
     }, [defaultStream]);
+
+    // 持久化全局线稿模式配置
+    useEffect(() => {
+        localStorage.setItem('globalOutlineMode', String(globalOutlineMode));
+    }, [globalOutlineMode]);
+
+    useEffect(() => {
+        localStorage.setItem('globalOutlinePrompt', globalOutlinePrompt);
+    }, [globalOutlinePrompt]);
 
     const toggleGlobalMute = () => setIsGlobalMuted(!isGlobalMuted);
     const handleGlobalVolumeChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -4615,7 +4639,67 @@ export default function Step3_DeconstructionReview({
                                 {imagePresetError}
                             </div>
                         )}
-                        <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+                        
+                        {/* 生图模式切换 */}
+                        <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50">
+                            <div className="flex items-center gap-2 mb-3">
+                                <span className="text-sm font-semibold text-slate-700">🔀 生图模式</span>
+                            </div>
+                            <div className="flex gap-3 mb-3">
+                                <button
+                                    onClick={() => setGlobalOutlineMode(false)}
+                                    className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all ${
+                                        !globalOutlineMode
+                                            ? 'bg-blue-500 text-white shadow-md'
+                                            : 'bg-white border border-slate-200 text-slate-600 hover:border-blue-300'
+                                    }`}
+                                >
+                                    标准模式
+                                </button>
+                                <button
+                                    onClick={() => setGlobalOutlineMode(true)}
+                                    className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all ${
+                                        globalOutlineMode
+                                            ? 'bg-[#34C759] text-white shadow-md'
+                                            : 'bg-white border border-slate-200 text-slate-600 hover:border-[#34C759]'
+                                    }`}
+                                >
+                                    线稿模式 ✓
+                                </button>
+                            </div>
+                            <div className="text-xs text-slate-500 space-y-1">
+                                <div><strong>标准模式：</strong>首帧描述 + 角色参考图 + 生图设定</div>
+                                <div><strong>线稿模式：</strong>线稿图 + 首帧描述* + 角色参考图 + 生图设定 <span className="text-slate-400">(*自动剔除景别/视角)</span></div>
+                            </div>
+                        </div>
+
+                        {/* 线稿提取设定（线稿模式专用） */}
+                        {globalOutlineMode && (
+                            <div className="p-4 rounded-xl border border-[#34C759]/30 bg-[#34C759]/5">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Pencil size={16} className="text-[#34C759]" />
+                                    <span className="text-sm font-semibold text-[#34C759]">线稿提取设定（线稿模式专用）</span>
+                                </div>
+                                <div className="mb-2">
+                                    <label className="text-xs text-slate-600">线稿提示词：</label>
+                                </div>
+                                <textarea
+                                    value={globalOutlinePrompt}
+                                    onChange={(e) => setGlobalOutlinePrompt(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm rounded-lg border border-[#34C759]/20 bg-white/80 focus:outline-none focus:ring-2 focus:ring-[#34C759]/30 resize-none"
+                                    rows={3}
+                                    placeholder="描述线稿提取风格..."
+                                />
+                                <div className="mt-2 text-xs text-slate-500">
+                                    ⚠️ 线稿模式下，若镜头未生成线稿，点击生图时将自动生成
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="border-t border-slate-200 pt-4">
+                            <div className="text-sm font-semibold text-slate-700 mb-3">🖼️ 生图设定列表（标准模式 & 线稿模式通用）</div>
+                        </div>
+                        <div className="space-y-3 max-h-[35vh] overflow-y-auto pr-1">
                             <label className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-blue-300 cursor-pointer transition">
                                 <input
                                     type="radio"
