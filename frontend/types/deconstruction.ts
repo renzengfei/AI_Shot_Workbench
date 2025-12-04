@@ -99,6 +99,10 @@ export interface Round2Shot {
     outlinePrompt?: string;          // 线稿提示词（单镜头自定义）
     activeOutlineUrl?: string;       // 当前激活的线稿图 URL
     outlineUrls?: string[];          // 所有线稿图 URL 列表
+    // 定稿字段
+    finalizedOutline?: string;       // 定稿的线稿图文件名
+    finalizedImage?: string;         // 定稿的生成图文件名
+    finalizedVideo?: string;         // 定稿的视频文件名
 }
 
 export interface Round2Data {

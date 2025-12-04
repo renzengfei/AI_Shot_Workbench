@@ -4491,6 +4491,28 @@ export default function Step3_DeconstructionReview({
                                     onGenerateOutline={handleGenerateOutline}
                                     isGeneratingOutline={generatingOutlines[shot.id ?? index + 1] || false}
                                     onDeleteOutline={handleDeleteOutline}
+                                    // 定稿相关
+                                    onFinalizeOutline={(s, idx, filename) => {
+                                        mutateRound2((draft) => {
+                                            if (draft.shots?.[idx]) {
+                                                draft.shots[idx].finalizedOutline = filename || undefined;
+                                            }
+                                        });
+                                    }}
+                                    onFinalizeImage={(s, idx, filename) => {
+                                        mutateRound2((draft) => {
+                                            if (draft.shots?.[idx]) {
+                                                draft.shots[idx].finalizedImage = filename || undefined;
+                                            }
+                                        });
+                                    }}
+                                    onFinalizeVideo={(s, idx, filename) => {
+                                        mutateRound2((draft) => {
+                                            if (draft.shots?.[idx]) {
+                                                draft.shots[idx].finalizedVideo = filename || undefined;
+                                            }
+                                        });
+                                    }}
                                 />
                             );
                         });

@@ -1,4 +1,4 @@
-import { Clock, Zap, Image as ImageIcon, Layers, Sparkles, Users, Sun, Palette, CheckCircle2, RefreshCw, Box, Layout, Trash2, ChevronDown, Check, AlertCircle, Video, Wand2, Loader2, FileText, X, ChevronLeft, ChevronRight, Undo2, Square, Pencil, Film } from 'lucide-react';
+import { Clock, Zap, Image as ImageIcon, Layers, Sparkles, Users, Sun, Palette, CheckCircle2, RefreshCw, Box, Layout, Trash2, ChevronDown, Check, AlertCircle, Video, Wand2, Loader2, FileText, X, ChevronLeft, ChevronRight, Undo2, Square, Pencil, Film, Star } from 'lucide-react';
 import { type ReactNode, useState, useEffect, useMemo } from 'react';
 import { AutoTextArea } from '@/components/ui/AutoTextArea';
 import { PreviewVideoPlayer } from '@/components/ui/PreviewVideoPlayer';
@@ -294,6 +294,10 @@ interface ShotCardProps {
     onGenerateOutline?: (shot: Round2Shot, index: number) => void;  // 生成线稿
     isGeneratingOutline?: boolean;        // 是否正在生成线稿
     onDeleteOutline?: (shot: Round2Shot, index: number, url: string) => void;  // 删除线稿
+    // 定稿相关
+    onFinalizeOutline?: (shot: Round2Shot, index: number, url: string | null) => void;  // 定稿线稿
+    onFinalizeImage?: (shot: Round2Shot, index: number, url: string | null) => void;    // 定稿生成图
+    onFinalizeVideo?: (shot: Round2Shot, index: number, url: string | null) => void;    // 定稿视频
 }
 
 export const ShotCard = ({
@@ -354,6 +358,10 @@ export const ShotCard = ({
     onGenerateOutline,
     isGeneratingOutline = false,
     onDeleteOutline,
+    // 定稿相关
+    onFinalizeOutline,
+    onFinalizeImage,
+    onFinalizeVideo,
 }: ShotCardProps) => {
     const shotId = shot.id ?? index + 1;
     const canEdit = mode === 'review';
@@ -939,9 +947,28 @@ export const ShotCard = ({
 
                             {/* 1.5 选中线稿图 - 仅在线稿模式下显示 */}
                             {showGeneration && effectiveOutlineMode && (
-                                <div className={`${mediaCardBase}`}>
-                                    <div className={mediaTitleClass}>选中线稿图</div>
-                                    <div className={`${mediaBaseClass} border border-[#6B7280]/30 shadow-sm flex items-center justify-center`}>
+                                <div className={`${mediaCardBase} ${shot.finalizedOutline ? 'ring-2 ring-amber-400/50' : ''}`}>
+                                    <div className="flex items-center justify-between">
+                                        <div className={mediaTitleClass}>选中线稿图</div>
+                                        {activeOutlineUrl && (
+                                            <button
+                                                onClick={() => {
+                                                    const filename = activeOutlineUrl.split('/').pop() || '';
+                                                    const isFinalized = shot.finalizedOutline === filename;
+                                                    onFinalizeOutline?.(shot, index, isFinalized ? null : filename);
+                                                }}
+                                                className={`p-1 rounded-full transition-all duration-200 hover:scale-110 ${
+                                                    shot.finalizedOutline && activeOutlineUrl.includes(shot.finalizedOutline)
+                                                        ? 'text-amber-500 drop-shadow-[0_0_4px_rgba(245,158,11,0.5)]'
+                                                        : 'text-slate-300 hover:text-amber-400 hover:bg-amber-100/50'
+                                                }`}
+                                                title={shot.finalizedOutline ? '取消定稿' : '设为定稿'}
+                                            >
+                                                <Star size={16} fill={shot.finalizedOutline && activeOutlineUrl.includes(shot.finalizedOutline) ? 'currentColor' : 'none'} />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className={`${mediaBaseClass} border ${shot.finalizedOutline && activeOutlineUrl?.includes(shot.finalizedOutline) ? 'border-amber-400' : 'border-[#6B7280]/30'} shadow-sm flex items-center justify-center`}>
                                         {activeOutlineUrl ? (
                                             // eslint-disable-next-line @next/next/no-img-element
                                             <img src={activeOutlineUrl.startsWith('/') ? `${API_BASE}${activeOutlineUrl}` : activeOutlineUrl} alt="线稿图" className="w-full h-full object-cover" />
@@ -975,11 +1002,30 @@ export const ShotCard = ({
 
                             {/* 2. 选中的生成图片 - 放大 */}
                             {showGeneration && (
-                                <div className={`${mediaCardBase}`}>
-                                    <div className={mediaTitleClass}>
-                                        {getGenerationInfo(activeImage || '') || '选中生成图'}
+                                <div className={`${mediaCardBase} ${shot.finalizedImage ? 'ring-2 ring-amber-400/50' : ''}`}>
+                                    <div className="flex items-center justify-between">
+                                        <div className={mediaTitleClass}>
+                                            {getGenerationInfo(activeImage || '') || '选中生成图'}
+                                        </div>
+                                        {activeImage && (
+                                            <button
+                                                onClick={() => {
+                                                    const filename = activeImage.split('/').pop() || '';
+                                                    const isFinalized = shot.finalizedImage === filename;
+                                                    onFinalizeImage?.(shot, index, isFinalized ? null : filename);
+                                                }}
+                                                className={`p-1 rounded-full transition-all duration-200 hover:scale-110 ${
+                                                    shot.finalizedImage && activeImage.includes(shot.finalizedImage)
+                                                        ? 'text-amber-500 drop-shadow-[0_0_4px_rgba(245,158,11,0.5)]'
+                                                        : 'text-slate-300 hover:text-amber-400 hover:bg-amber-100/50'
+                                                }`}
+                                                title={shot.finalizedImage ? '取消定稿' : '设为定稿'}
+                                            >
+                                                <Star size={16} fill={shot.finalizedImage && activeImage.includes(shot.finalizedImage) ? 'currentColor' : 'none'} />
+                                            </button>
+                                        )}
                                     </div>
-                                    <div className={`${mediaBaseClass} border ${highlightGenerated || (activeImage && newImages.includes(activeImage)) ? 'border-red-400' : 'border-slate-200'} shadow-sm flex items-center justify-center text-lg text-blue-300`}>
+                                    <div className={`${mediaBaseClass} border ${shot.finalizedImage && activeImage?.includes(shot.finalizedImage) ? 'border-amber-400' : highlightGenerated || (activeImage && newImages.includes(activeImage)) ? 'border-red-400' : 'border-slate-200'} shadow-sm flex items-center justify-center text-lg text-blue-300`}>
                                         {(activeImage && newImages.includes(activeImage)) && (
                                             <span className="absolute top-2 right-2 px-3 py-1.5 rounded-full text-sm font-semibold bg-red-500 text-white">NEW</span>
                                         )}
@@ -1037,10 +1083,29 @@ export const ShotCard = ({
                                 </div>
                             )}
 
-                            {/* 3. 生成视频预览 - 展示选中的视频，没有则显示占位（无切换按钮，在素材流中选择） */}
+                            {/* 3. 选中视频 - 展示选中的视频，没有则显示占位（无切换按钮，在素材流中选择） */}
                             {showGeneration && (
-                                <div className={`${mediaCardBase}`}>
-                                    <div className={mediaTitleClass}>生成视频</div>
+                                <div className={`${mediaCardBase} ${shot.finalizedVideo ? 'ring-2 ring-amber-400/50' : ''}`}>
+                                    <div className="flex items-center justify-between">
+                                        <div className={mediaTitleClass}>选中视频</div>
+                                        {videoSrc && (
+                                            <button
+                                                onClick={() => {
+                                                    const filename = videoSrc.split('/').pop() || '';
+                                                    const isFinalized = shot.finalizedVideo === filename;
+                                                    onFinalizeVideo?.(shot, index, isFinalized ? null : filename);
+                                                }}
+                                                className={`p-1 rounded-full transition-all duration-200 hover:scale-110 ${
+                                                    shot.finalizedVideo && videoSrc.includes(shot.finalizedVideo)
+                                                        ? 'text-amber-500 drop-shadow-[0_0_4px_rgba(245,158,11,0.5)]'
+                                                        : 'text-slate-300 hover:text-amber-400 hover:bg-amber-100/50'
+                                                }`}
+                                                title={shot.finalizedVideo ? '取消定稿' : '设为定稿'}
+                                            >
+                                                <Star size={16} fill={shot.finalizedVideo && videoSrc.includes(shot.finalizedVideo) ? 'currentColor' : 'none'} />
+                                            </button>
+                                        )}
+                                    </div>
                                     {videoSrc ? (
                                         <>
                                             <PreviewVideoPlayer
