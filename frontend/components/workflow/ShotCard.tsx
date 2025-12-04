@@ -787,20 +787,20 @@ export const ShotCard = ({
         [generatedImageUrls]
     );
 
-    // Apple Glass Design System - 样式常量 (Harmonized)
-    const MEDIA_WIDTH = 'w-[420px]';           // 统一卡片宽度
-    const DESC_WIDTH = 'w-[630px]';            // 描述区宽度 (MEDIA_WIDTH * 1.5)
-    const CARD_HEIGHT = 'h-[820px]';           // 统一卡片高度 (与 9:16 视频卡片对齐)
-    const CARD_PADDING = 'p-6';                // 统一内边距
-    const CARD_GAP = 'gap-5';                  // 统一内部间距
-    const CARD_RADIUS = 'rounded-3xl';         // 统一大圆角
-    const BTN_RADIUS = 'rounded-xl';           // 按钮圆角
+    // Premium Design System - Refined spacing & styling
+    const MEDIA_WIDTH = 'w-[400px]';           // Card width
+    const DESC_WIDTH = 'w-[600px]';            // Description width (1.5x media)
+    const CARD_HEIGHT = 'h-[780px]';           // Card height
+    const CARD_PADDING = 'p-5';                // Consistent padding
+    const CARD_GAP = 'gap-4';                  // Internal spacing
+    const CARD_RADIUS = 'rounded-2xl';         // Refined radius
+    const BTN_RADIUS = 'rounded-lg';           // Button radius
 
-    // 媒体容器：通过 aspect-[9/16] 自动计算高度，确保所有媒体对齐
-    const mediaBaseClass = `relative aspect-[9/16] ${CARD_RADIUS} overflow-hidden bg-slate-900`;
-    const mediaCardBase = `flex-shrink-0 ${MEDIA_WIDTH} ${CARD_RADIUS} border border-white/30 bg-white/50 backdrop-blur-xl shadow-md ${CARD_PADDING} flex flex-col ${CARD_GAP} transition-all duration-300 hover:bg-white/60 hover:shadow-lg`;
-    // 标题样式：固定高度确保对齐
-    const mediaTitleClass = 'h-6 text-sm font-medium text-slate-500 text-center tracking-wide';
+    // Media container: 9:16 aspect with premium styling
+    const mediaBaseClass = `relative aspect-[9/16] ${CARD_RADIUS} overflow-hidden bg-zinc-900`;
+    const mediaCardBase = `flex-shrink-0 ${MEDIA_WIDTH} ${CARD_RADIUS} border border-zinc-200/60 bg-white/90 backdrop-blur-xl shadow-sm ${CARD_PADDING} flex flex-col ${CARD_GAP} transition-all duration-200 hover:shadow-md hover:border-zinc-300/80`;
+    // Title styling: fixed height for alignment
+    const mediaTitleClass = 'h-5 text-xs font-medium text-zinc-500 text-center tracking-wide uppercase';
 
     // 从 URL 提取生成时间和版本号（格式：MM/DD HH:MM v1）
     // 支持两种格式：_YYYYMMDDHHMMSS_vN 或 _YYYYMMDD_HHMMSS
@@ -878,64 +878,65 @@ export const ShotCard = ({
         <>
             <div
                 id={`shot-${index}`}
-                className={`relative group p-6 md:p-8 rounded-3xl border ${borderColor} bg-white/[0.06] backdrop-blur-xl transition-all duration-200 hover:bg-white/[0.10] shadow-lg shadow-black/5 ${glowColor}`}
+                className={`relative group p-6 rounded-2xl border ${borderColor} bg-white backdrop-blur-xl transition-all duration-200 hover:shadow-lg shadow-sm ${glowColor}`}
+                style={{ borderColor: 'rgba(0, 0, 0, 0.06)' }}
             >
-                {/* Subtle top highlight */}
-                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-t-3xl pointer-events-none" />
+                {/* Subtle gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-zinc-50/50 via-transparent to-transparent rounded-2xl pointer-events-none" />
 
                 {/* Discarded Overlay */}
                 {isDiscarded && (
-                    <div className="absolute inset-0 bg-black/50 rounded-3xl z-20 pointer-events-none" />
+                    <div className="absolute inset-0 bg-zinc-900/70 rounded-2xl z-20 pointer-events-none" />
                 )}
 
                 {/* Header: Shot Number & Duration */}
                 <div className="relative z-10 flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-white/50 border border-white/30 flex items-center justify-center">
-                            <span className="text-2xl font-semibold text-slate-700 tabular-nums">
+                    <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-xl bg-zinc-100 border border-zinc-200/60 flex items-center justify-center">
+                            <span className="text-lg font-semibold text-zinc-700 tabular-nums">
                                 {String(index + 1).padStart(2, '0')}
                             </span>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-4 flex-wrap justify-end">
+                    <div className="flex items-center gap-3 flex-wrap justify-end">
                         {shot.timestamp && (
-                            <div className="flex items-center gap-2 text-slate-400 text-sm">
-                                <Clock size={14} />
-                                <span className="font-mono">{shot.timestamp}</span>
-                                {shot.end_time && <span className="font-mono">— {shot.end_time}</span>}
-                                {shot.duration && <span className="text-xs opacity-60">({shot.duration}s)</span>}
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-100 border border-zinc-200/60 text-zinc-600 text-sm">
+                                <Clock size={14} className="text-zinc-400" />
+                                <span className="font-mono text-xs">{shot.timestamp}</span>
+                                {shot.end_time && <span className="font-mono text-xs text-zinc-400">— {shot.end_time}</span>}
+                                {shot.duration && <span className="ml-1 text-zinc-400 text-xs">({shot.duration}s)</span>}
                             </div>
                         )}
-                        {/* 线稿模式切换按钮 */}
+                        {/* Outline Mode Toggle */}
                         <button
                             onClick={() => onToggleOutlineMode?.(shot, index)}
                             className={`relative z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${effectiveOutlineMode
-                                    ? 'bg-slate-700 text-white hover:bg-slate-600'
-                                    : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-300'
+                                    ? 'bg-zinc-700 text-white hover:bg-zinc-600'
+                                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border border-zinc-200/60'
                                 }`}
-                            title={effectiveOutlineMode ? '线稿模式已开启' : '点击开启线稿模式'}
+                            title={effectiveOutlineMode ? 'Outline mode enabled' : 'Enable outline mode'}
                         >
-                            <Pencil size={14} />
-                            <span>线稿模式</span>
-                            {effectiveOutlineMode && <Check size={12} />}
+                            <Pencil size={12} />
+                            <span>Outline</span>
+                            {effectiveOutlineMode && <Check size={10} />}
                         </button>
                         <button
                             onClick={() => updateField('discarded', !isDiscarded)}
                             className={`relative z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${isDiscarded
-                                    ? 'bg-slate-700 text-white hover:bg-slate-600'
-                                    : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-300'
+                                    ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+                                    : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200/60'
                                 }`}
                         >
                             {isDiscarded ? (
                                 <>
-                                    <Undo2 size={14} />
-                                    <span>恢复</span>
+                                    <Undo2 size={12} />
+                                    <span>Restore</span>
                                 </>
                             ) : (
                                 <>
-                                    <Trash2 size={14} />
-                                    <span>舍弃</span>
+                                    <Trash2 size={12} />
+                                    <span>Discard</span>
                                 </>
                             )}
                         </button>
@@ -943,10 +944,10 @@ export const ShotCard = ({
                 </div>
 
                 {/* 横向滚动布局：原片视频(sticky) + 选中图 + 生成视频 + 描述 + 流切换器 + 素材列表 */}
-                <div className="relative z-10 space-y-5">
+                <div className="relative z-10 space-y-6">
                     {/* 横向滚动容器 */}
                     <div className="relative overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
-                        <div className="flex flex-nowrap items-start gap-5 pb-4 pt-2" style={{ minWidth: 'max-content' }}>
+                        <div className="flex flex-nowrap items-start gap-6 pb-4 pt-2" style={{ minWidth: 'max-content' }}>
 
                             {/* 1. 原片分镜视频 (Sticky) - 放大宽度 w-[510px] */}
                             <div className={`sticky left-0 top-0 z-20 ${mediaCardBase}`}>

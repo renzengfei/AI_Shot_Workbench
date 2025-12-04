@@ -1,6 +1,6 @@
 'use client';
 
-import { RefreshCw, Volume2, VolumeX, AlertCircle, Trash2, X, Zap, Users, Box, Layout, Film, ArrowRight, Check, Copy, MessageSquare, ClipboardPaste, GitBranch, Anchor, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
+import { RefreshCw, Volume2, VolumeX, AlertCircle, Trash2, X, Zap, Users, Box, Layout, Film, ArrowRight, Check, Copy, MessageSquare, ClipboardPaste, GitBranch, Anchor, Pencil, ChevronLeft, ChevronRight, ArrowLeftRight, AlertTriangle, Ruler, Palette } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useWorkflowStore } from '@/lib/stores/workflowStore';
 import { useWorkspace } from '@/components/WorkspaceContext';
@@ -4975,7 +4975,8 @@ export default function Step3_DeconstructionReview({
                         {/* 生图模式切换 */}
                         <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50">
                             <div className="flex items-center gap-2 mb-3">
-                                <span className="text-sm font-semibold text-slate-700">🔀 生图模式</span>
+                                <ArrowLeftRight size={16} className="text-slate-500" />
+                                <span className="text-sm font-semibold text-slate-700">Generation Mode</span>
                             </div>
                             <div className="flex gap-3 mb-3">
                                 <button
@@ -4996,7 +4997,7 @@ export default function Step3_DeconstructionReview({
                                             : 'bg-white border border-slate-200 text-slate-600 hover:border-[#6B7280]'
                                     }`}
                                 >
-                                    线稿模式 ✓
+                                    Outline Mode
                                 </button>
                             </div>
                             <div className="text-xs text-slate-500 space-y-1">
@@ -5028,7 +5029,7 @@ export default function Step3_DeconstructionReview({
                                 
                                 {/* 📐 参考图指引模板 */}
                                 <div className="space-y-2 p-3 rounded-lg border border-[#6B7280]/20 bg-white/50">
-                                    <div className="text-xs font-medium text-[#6B7280]">📐 参考图指引模板（留空使用默认）</div>
+                                    <div className="flex items-center gap-1.5 text-xs font-medium text-[#6B7280]"><Ruler size={12} /> Reference Template (leave empty for default)</div>
                                     <div>
                                         <label className="text-xs text-slate-500">角色参考：</label>
                                         <input
@@ -5056,13 +5057,13 @@ export default function Step3_DeconstructionReview({
                                 </div>
                                 
                                 <div className="text-xs text-slate-500">
-                                    ⚠️ 线稿模式下，若镜头未生成线稿，点击生图时将自动生成
+                                    <AlertTriangle size={12} className="inline mr-1" />In outline mode, if no outline exists, one will be auto-generated when clicking generate
                                 </div>
                             </div>
                         )}
 
                         <div className="border-t border-slate-200 pt-4">
-                            <div className="text-sm font-semibold text-slate-700 mb-3">生图设定列表（标准模式 & 线稿模式通用）</div>
+                            <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3"><Palette size={16} className="text-slate-500" />Image Presets</div>
                         </div>
                         <div className="space-y-3 max-h-[35vh] overflow-y-auto pr-1">
                             <label className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-blue-300 cursor-pointer transition">

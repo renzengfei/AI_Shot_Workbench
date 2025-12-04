@@ -78,7 +78,7 @@ export default function Step1_Segmentation() {
 
     const handleYouTubeDownload = async () => {
         if (!youtubeUrl.trim()) {
-            alert('请输入 YouTube 链接');
+            alert('❌ 请输入 YouTube 链接');
             return;
         }
 
@@ -140,7 +140,7 @@ export default function Step1_Segmentation() {
         } catch (error: unknown) {
             console.error('YouTube download failed:', error);
             const message = error instanceof Error ? error.message : 'Download failed';
-            alert(`下载失败: ${message}`);
+            alert(`❌ 下载失败: ${message}`);
         } finally {
             setIsAnalyzing(false);
         }
