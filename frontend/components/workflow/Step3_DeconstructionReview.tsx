@@ -471,7 +471,7 @@ export default function Step3_DeconstructionReview({
                                             ...prev,
                                             [shotId]: data.outlines,
                                         }));
-                                        setActiveOutlineUrls(prev => ({ ...prev, [shotId]: data.outlines[0] })); // 最新的在前
+                                        // 不自动选中，保持未选中状态，用户需手动选择
                                         clearPendingOutline(shotId);
                                         setGeneratingOutlines(prev => ({ ...prev, [shotId]: false }));
                                     } else {
@@ -1682,7 +1682,7 @@ export default function Step3_DeconstructionReview({
                     ...prev,
                     [shotId]: [data.outline_url!, ...(prev[shotId] || [])],  // 新生成的在前
                 }));
-                setActiveOutlineUrls((prev) => ({ ...prev, [shotId]: data.outline_url! }));
+                // 不自动选中，用户需手动选择
                 showToast('线稿生成成功', 'success');
             }
         } catch (err) {
@@ -1797,7 +1797,7 @@ export default function Step3_DeconstructionReview({
                             ...prev,
                             [shotId]: [data.outline_url!, ...(prev[shotId] || [])],  // 新生成的在前
                         }));
-                        setActiveOutlineUrls((prev) => ({ ...prev, [shotId]: data.outline_url! }));
+                        // 不自动选中，用户需手动选择
                         successCount++;
                     } else {
                         failedCount++;
@@ -4459,7 +4459,7 @@ export default function Step3_DeconstructionReview({
                                     videoProgress={videoProgress[shot.id ?? index + 1] ?? 0}
                                     videoTaskProgresses={videoTaskProgresses[shot.id ?? index + 1] || []}
                                     generatedVideoUrls={generatedVideos[shot.id ?? index + 1] || []}
-                                    selectedVideoIndex={selectedVideoIndexes[shot.id ?? index + 1] ?? 0}
+                                    selectedVideoIndex={selectedVideoIndexes[shot.id ?? index + 1]}
                                     onSelectVideoIndex={(idx: number) => handleSelectVideoIndex(shot.id ?? index + 1, idx)}
                                     newVideos={newlyGeneratedVideos[shot.id ?? index + 1] || []}
                                     onVideoSeen={(url: string) => handleVideoSeen(shot.id ?? index + 1, url)}
