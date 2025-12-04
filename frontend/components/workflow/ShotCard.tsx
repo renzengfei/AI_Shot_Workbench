@@ -876,7 +876,7 @@ export const ShotCard = ({
                             title={effectiveOutlineMode ? '线稿模式已开启' : '点击开启线稿模式'}
                         >
                             <Pencil size={14} />
-                            <span>线稿</span>
+                            <span>线稿模式</span>
                             {effectiveOutlineMode && <Check size={12} />}
                         </button>
                         <button
