@@ -381,6 +381,13 @@ export const ShotCard = ({
     // 线稿提示词折叠状态
     const [outlinePromptExpanded, setOutlinePromptExpanded] = useState(false);
 
+    // 同步父组件的 defaultStream 到本地 activeStream
+    useEffect(() => {
+        if (defaultStream) {
+            setActiveStream(defaultStream);
+        }
+    }, [defaultStream]);
+
     // Helper to render character or object item (handles both string and object types)
     const renderFrameItem = (item: unknown): string => {
         if (typeof item === 'string') return item;
