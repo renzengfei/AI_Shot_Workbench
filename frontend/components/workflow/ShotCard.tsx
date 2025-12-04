@@ -1313,8 +1313,8 @@ export const ShotCard = ({
                                         onClick={() => setActiveStream('outline')}
                                         className={`w-14 flex-1 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all duration-300 active:scale-95 ${activeStream === 'outline' ? 'bg-[#007AFF] text-white shadow-lg shadow-[#007AFF]/25' : 'bg-white/50 text-slate-500 hover:bg-white/70 hover:text-slate-700 border border-white/60'}`}
                                     >
-                                        <Pencil size={20} />
-                                        <span className="text-xs font-medium">线稿</span>
+                                        <Pencil size={18} />
+                                        <span className="text-[10px] font-medium tracking-widest" style={{ writingMode: 'vertical-rl' }}>线稿</span>
                                     </button>
                                     {/* 图片 Tab */}
                                     <div className="relative flex-1 flex flex-col">
@@ -1328,8 +1328,8 @@ export const ShotCard = ({
                                             }}
                                             className={`w-14 flex-1 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all duration-300 active:scale-95 ${activeStream === 'image' ? 'bg-[#007AFF] text-white shadow-lg shadow-[#007AFF]/25' : 'bg-white/50 text-slate-500 hover:bg-white/70 hover:text-slate-700 border border-white/60'}`}
                                         >
-                                            <ImageIcon size={20} />
-                                            <span className="text-xs font-medium">图片</span>
+                                            <ImageIcon size={18} />
+                                            <span className="text-[10px] font-medium tracking-widest" style={{ writingMode: 'vertical-rl' }}>图片</span>
                                         </button>
                                         {newImages.length > 0 && (
                                             <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#FF3B30] shadow-sm animate-pulse">
@@ -1341,8 +1341,8 @@ export const ShotCard = ({
                                         onClick={() => setActiveStream('video')}
                                         className={`w-14 flex-1 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all duration-300 active:scale-95 ${activeStream === 'video' ? 'bg-[#007AFF] text-white shadow-lg shadow-[#007AFF]/25' : 'bg-white/50 text-slate-500 hover:bg-white/70 hover:text-slate-700 border border-white/60'}`}
                                     >
-                                        <Video size={20} />
-                                        <span className="text-xs font-medium">视频</span>
+                                        <Video size={18} />
+                                        <span className="text-[10px] font-medium tracking-widest" style={{ writingMode: 'vertical-rl' }}>视频</span>
                                     </button>
                                 </div>
                             )}
