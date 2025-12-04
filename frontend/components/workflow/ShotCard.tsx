@@ -1307,21 +1307,20 @@ export const ShotCard = ({
 
                             {/* 5. 流切换器 (Apple Glass 竖向Tab) */}
                             {showGeneration && (
-                                <div className={`flex-shrink-0 w-16 ${CARD_HEIGHT} flex flex-col items-center justify-center gap-1 py-4`}>
+                                <div className={`flex-shrink-0 w-[72px] ${CARD_HEIGHT} flex flex-col items-center gap-2 p-2 bg-white/60 backdrop-blur-2xl border border-white/80 ${CARD_RADIUS} shadow-xl shadow-black/5`}>
                                     {/* 线稿 Tab */}
                                     <button
                                         onClick={() => setActiveStream('outline')}
-                                        className={`group relative w-12 flex-1 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all duration-300 active:scale-95
+                                        className={`group w-14 flex-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all duration-200 active:scale-95
                                             ${activeStream === 'outline' 
-                                                ? 'bg-white/70 backdrop-blur-xl shadow-lg shadow-black/10' 
-                                                : 'bg-transparent hover:bg-white/30'}`}
+                                                ? 'bg-[#007AFF] shadow-md shadow-[#007AFF]/30' 
+                                                : 'bg-white/60 hover:bg-white/90 border border-white/50'}`}
                                     >
-                                        <Pencil size={20} className={`transition-colors duration-300 ${activeStream === 'outline' ? 'text-[#007AFF]' : 'text-slate-400 group-hover:text-slate-600'}`} />
-                                        <span className={`text-[9px] font-semibold tracking-wide transition-colors duration-300 ${activeStream === 'outline' ? 'text-[#007AFF]' : 'text-slate-400 group-hover:text-slate-600'}`}>线稿</span>
-                                        {activeStream === 'outline' && <div className="absolute bottom-2 w-1 h-1 rounded-full bg-[#007AFF]" />}
+                                        <Pencil size={18} className={activeStream === 'outline' ? 'text-white' : 'text-slate-500 group-hover:text-slate-700'} />
+                                        <span className={`text-[10px] font-medium ${activeStream === 'outline' ? 'text-white' : 'text-slate-500 group-hover:text-slate-700'}`}>线稿</span>
                                     </button>
                                     {/* 图片 Tab */}
-                                    <div className="relative flex-1 flex flex-col w-12">
+                                    <div className="relative flex-1 flex flex-col w-14">
                                         <button
                                             onClick={() => {
                                                 setActiveStream('image');
@@ -1329,30 +1328,28 @@ export const ShotCard = ({
                                                     onClearNewImages?.(shot, index);
                                                 }
                                             }}
-                                            className={`group relative w-full h-full rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all duration-300 active:scale-95
+                                            className={`group w-full h-full rounded-xl flex flex-col items-center justify-center gap-1 transition-all duration-200 active:scale-95
                                                 ${activeStream === 'image' 
-                                                    ? 'bg-white/70 backdrop-blur-xl shadow-lg shadow-black/10' 
-                                                    : 'bg-transparent hover:bg-white/30'}`}
+                                                    ? 'bg-[#007AFF] shadow-md shadow-[#007AFF]/30' 
+                                                    : 'bg-white/60 hover:bg-white/90 border border-white/50'}`}
                                         >
-                                            <ImageIcon size={20} className={`transition-colors duration-300 ${activeStream === 'image' ? 'text-[#007AFF]' : 'text-slate-400 group-hover:text-slate-600'}`} />
-                                            <span className={`text-[9px] font-semibold tracking-wide transition-colors duration-300 ${activeStream === 'image' ? 'text-[#007AFF]' : 'text-slate-400 group-hover:text-slate-600'}`}>图片</span>
-                                            {activeStream === 'image' && <div className="absolute bottom-2 w-1 h-1 rounded-full bg-[#007AFF]" />}
+                                            <ImageIcon size={18} className={activeStream === 'image' ? 'text-white' : 'text-slate-500 group-hover:text-slate-700'} />
+                                            <span className={`text-[10px] font-medium ${activeStream === 'image' ? 'text-white' : 'text-slate-500 group-hover:text-slate-700'}`}>图片</span>
                                         </button>
                                         {newImages.length > 0 && (
-                                            <span className="absolute top-1 right-0 w-2 h-2 rounded-full bg-[#FF3B30] shadow-sm animate-pulse" />
+                                            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#FF3B30] shadow-sm animate-pulse" />
                                         )}
                                     </div>
                                     {/* 视频 Tab */}
                                     <button
                                         onClick={() => setActiveStream('video')}
-                                        className={`group relative w-12 flex-1 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all duration-300 active:scale-95
+                                        className={`group w-14 flex-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all duration-200 active:scale-95
                                             ${activeStream === 'video' 
-                                                ? 'bg-white/70 backdrop-blur-xl shadow-lg shadow-black/10' 
-                                                : 'bg-transparent hover:bg-white/30'}`}
+                                                ? 'bg-[#007AFF] shadow-md shadow-[#007AFF]/30' 
+                                                : 'bg-white/60 hover:bg-white/90 border border-white/50'}`}
                                     >
-                                        <Video size={20} className={`transition-colors duration-300 ${activeStream === 'video' ? 'text-[#007AFF]' : 'text-slate-400 group-hover:text-slate-600'}`} />
-                                        <span className={`text-[9px] font-semibold tracking-wide transition-colors duration-300 ${activeStream === 'video' ? 'text-[#007AFF]' : 'text-slate-400 group-hover:text-slate-600'}`}>视频</span>
-                                        {activeStream === 'video' && <div className="absolute bottom-2 w-1 h-1 rounded-full bg-[#007AFF]" />}
+                                        <Video size={18} className={activeStream === 'video' ? 'text-white' : 'text-slate-500 group-hover:text-slate-700'} />
+                                        <span className={`text-[10px] font-medium ${activeStream === 'video' ? 'text-white' : 'text-slate-500 group-hover:text-slate-700'}`}>视频</span>
                                     </button>
                                 </div>
                             )}
