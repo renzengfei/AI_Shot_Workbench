@@ -890,10 +890,12 @@ export const ShotCard = ({
 
                 {/* Header: Shot Number & Duration */}
                 <div className="relative z-10 flex items-center justify-between mb-8">
-                    <div className="flex items-center gap-3 flex-wrap">
-                        <span className="text-5xl font-semibold text-slate-800 tracking-tight tabular-nums">
-                            {String(index + 1).padStart(2, '0')}
-                        </span>
+                    <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 rounded-2xl bg-white/60 backdrop-blur-xl border border-white/40 shadow-lg shadow-black/5 flex items-center justify-center">
+                            <span className="text-2xl font-semibold text-slate-700 tabular-nums">
+                                {String(index + 1).padStart(2, '0')}
+                            </span>
+                        </div>
                     </div>
 
                     <div className="flex items-center gap-4 flex-wrap justify-end">
