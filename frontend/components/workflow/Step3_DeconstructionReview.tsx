@@ -1605,9 +1605,9 @@ export default function Step3_DeconstructionReview({
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         workspace_path: currentWorkspace.path,
-                        shot_id: shotId,
-                        source_image_path: imagePath,
-                        prompt: outlinePrompts[shotId] || globalOutlinePrompt,
+                        shot_id: String(shotId),
+                        frame_url: imagePath,
+                        outline_prompt: outlinePrompts[shotId] || globalOutlinePrompt,
                     }),
                 });
                 if (resp.ok) {
