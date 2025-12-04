@@ -730,10 +730,13 @@ async def generate_images_internal(request: GenerateImageRequest) -> dict:
 
     # 3. 准备参考图片的 data URLs
     image_data_urls = []
-    for img_id in request.reference_image_ids or []:
+    print(f"[参考图] 收到 {len(request.reference_image_ids or [])} 个参考图 ID")
+    for i, img_id in enumerate(request.reference_image_ids or []):
         path = get_reference_image_path(img_id)
         if not path or not os.path.exists(path):
+            print(f"  [跳过] image{i+1}: {img_id[:80]}... -> 路径不存在")
             continue
+        print(f"  [加载] image{i+1}: {os.path.basename(path)}")
         with open(path, "rb") as f:
             encoded = base64.b64encode(f.read()).decode("utf-8")
             mime = "image/png"
@@ -742,6 +745,7 @@ async def generate_images_internal(request: GenerateImageRequest) -> dict:
             elif path.lower().endswith(".webp"):
                 mime = "image/webp"
             image_data_urls.append(f"data:{mime};base64,{encoded}")
+    print(f"[参考图] 成功加载 {len(image_data_urls)} 张参考图")
 
     # 4. 准备输出目录
     shot_id = request.shot_id or "unknown"
