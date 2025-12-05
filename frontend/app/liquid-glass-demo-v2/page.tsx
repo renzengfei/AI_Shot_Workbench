@@ -13,7 +13,6 @@ export default function LiquidGlassDesignSystem() {
     const [radioValue, setRadioValue] = useState('option1');
     const [inputValue, setInputValue] = useState('');
     const [switchOn, setSwitchOn] = useState(true);
-    const [darkMode, setDarkMode] = useState(false);
     const [showBackToTop, setShowBackToTop] = useState(false);
     const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
@@ -79,18 +78,6 @@ export default function LiquidGlassDesignSystem() {
                     --glass-border: rgba(255, 255, 255, 0.3);
                     --glass-shadow-inset: rgba(255, 255, 255, 0.5);
                     --code-bg: rgba(0, 0, 0, 0.05);
-                }
-                
-                .dark-mode {
-                    --bg-primary: #000000;
-                    --bg-secondary: #1C1C1E;
-                    --text-primary: #F5F5F7;
-                    --text-secondary: rgba(255, 255, 255, 0.7);
-                    --text-tertiary: rgba(255, 255, 255, 0.5);
-                    --glass-bg: rgba(30, 30, 30, 0.6);
-                    --glass-border: rgba(255, 255, 255, 0.1);
-                    --glass-shadow-inset: rgba(255, 255, 255, 0.1);
-                    --code-bg: rgba(255, 255, 255, 0.08);
                 }
                 
                 * { 
@@ -165,30 +152,6 @@ export default function LiquidGlassDesignSystem() {
                     color: #34C759;
                 }
                 
-                /* 深色模式切换按钮 */
-                .theme-toggle {
-                    width: 36px;
-                    height: 36px;
-                    border-radius: 10px;
-                    border: none;
-                    background: rgba(0, 0, 0, 0.05);
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 16px;
-                    transition: all 0.2s;
-                }
-                .theme-toggle:hover {
-                    background: rgba(0, 0, 0, 0.1);
-                }
-                .dark-mode .theme-toggle {
-                    background: rgba(255, 255, 255, 0.1);
-                    color: #FFD60A;
-                }
-                .dark-mode .theme-toggle:hover {
-                    background: rgba(255, 255, 255, 0.15);
-                }
                 
                 /* 章节入场动画 */
                 section {
@@ -603,7 +566,7 @@ export default function LiquidGlassDesignSystem() {
                 .page-btn.active { background: #007AFF; color: #fff; }
             `}</style>
 
-            <div className={darkMode ? 'dark-mode' : ''} style={{
+            <div style={{
                 minHeight: '100vh',
                 background: 'var(--bg-primary)',
                 color: 'var(--text-primary)',
@@ -653,9 +616,6 @@ export default function LiquidGlassDesignSystem() {
                             </button>
                         ))}
                         <span style={{ color: 'var(--text-tertiary)', margin: '0 4px' }}>...</span>
-                        <button className="theme-toggle" onClick={() => setDarkMode(!darkMode)} title={darkMode ? '切换亮色模式' : '切换深色模式'}>
-                            <i className={`fas ${darkMode ? 'fa-sun' : 'fa-moon'}`}></i>
-                        </button>
                     </div>
                 </nav>
                 
