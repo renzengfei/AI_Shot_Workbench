@@ -204,12 +204,13 @@ export default function LiquidGlassDesignSystem() {
                     transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
                 }
                 .glass-card:hover {
-                    transform: translateY(-2px);
+                    transform: translateY(-3px);
                     box-shadow: 
-                        inset 0 1px 1px 0 rgba(255, 255, 255, 0.9),
-                        inset 0 -1px 1px 0 rgba(0, 0, 0, 0.05),
-                        0 8px 40px rgba(0, 0, 0, 0.1),
-                        0 2px 8px rgba(0, 0, 0, 0.06);
+                        inset 0 1px 0 0 rgba(255, 255, 255, 1),
+                        inset 0 -1px 0 0 rgba(255, 255, 255, 0.4),
+                        0 2px 4px rgba(0, 0, 0, 0.02),
+                        0 8px 24px rgba(0, 0, 0, 0.06),
+                        0 24px 64px rgba(0, 0, 0, 0.08);
                 }
                 
                 /* 渐变文字 - 柔和的双色渐变 */
@@ -235,42 +236,55 @@ export default function LiquidGlassDesignSystem() {
                     -webkit-text-fill-color: transparent; 
                 }
 
-                /* Liquid Glass 容器 - 增强材质质感 */
+                /* Liquid Glass 容器 - 高级材质 */
                 .glass-card {
                     position: relative;
                     overflow: hidden;
-                    border-radius: 24px;
-                    /* 多层渐变背景模拟玻璃内部光线折射 */
+                    border-radius: 28px;
+                    /* 多层渐变模拟玻璃内部光线 */
                     background: 
-                        linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.1) 100%),
-                        rgba(255, 255, 255, 0.2);
-                    backdrop-filter: blur(40px) saturate(200%);
-                    -webkit-backdrop-filter: blur(40px) saturate(200%);
-                    /* 双层边框模拟玻璃厚度 */
-                    border: 1px solid rgba(255, 255, 255, 0.5);
-                    /* 多层阴影创造深度和立体感 */
+                        linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.3) 100%),
+                        rgba(255, 255, 255, 0.15);
+                    backdrop-filter: blur(60px) saturate(180%);
+                    -webkit-backdrop-filter: blur(60px) saturate(180%);
+                    /* 精致边框 */
+                    border: 1px solid rgba(255, 255, 255, 0.6);
+                    /* 多层精致阴影 */
                     box-shadow: 
-                        /* 内部顶部高光 */
-                        inset 0 1px 1px 0 rgba(255, 255, 255, 0.8),
-                        /* 内部底部暗边 */
-                        inset 0 -1px 1px 0 rgba(0, 0, 0, 0.05),
-                        /* 外部投影 */
-                        0 4px 32px rgba(0, 0, 0, 0.06),
-                        0 1px 4px rgba(0, 0, 0, 0.04);
+                        inset 0 1px 0 0 rgba(255, 255, 255, 0.9),
+                        inset 0 -1px 0 0 rgba(255, 255, 255, 0.3),
+                        0 1px 3px rgba(0, 0, 0, 0.02),
+                        0 4px 12px rgba(0, 0, 0, 0.04),
+                        0 16px 48px rgba(0, 0, 0, 0.06);
                 }
                 /* 玻璃顶部高光条 */
                 .glass-card::before {
                     content: '';
                     position: absolute;
                     top: 0;
-                    left: 20px;
-                    right: 20px;
+                    left: 32px;
+                    right: 32px;
                     height: 1px;
                     background: linear-gradient(90deg, 
                         transparent 0%, 
-                        rgba(255,255,255,0.8) 20%, 
-                        rgba(255,255,255,0.9) 50%, 
-                        rgba(255,255,255,0.8) 80%, 
+                        rgba(255,255,255,0.6) 15%, 
+                        rgba(255,255,255,1) 50%, 
+                        rgba(255,255,255,0.6) 85%, 
+                        transparent 100%);
+                }
+                /* 玻璃底部微光 */
+                .glass-card::after {
+                    content: '';
+                    position: absolute;
+                    bottom: 0;
+                    left: 48px;
+                    right: 48px;
+                    height: 1px;
+                    background: linear-gradient(90deg, 
+                        transparent 0%, 
+                        rgba(255,255,255,0.3) 30%, 
+                        rgba(255,255,255,0.4) 50%, 
+                        rgba(255,255,255,0.3) 70%, 
                         transparent 100%);
                 }
 
@@ -612,18 +626,22 @@ export default function LiquidGlassDesignSystem() {
                 overflow: 'hidden',
                 transition: 'background 0.3s, color 0.3s',
             }}>
-                {/* 底层背景 - 微妙的冷暖渐变衬托玻璃 */}
+                {/* 底层背景 - 精致的多层渐变 */}
                 <div style={{ 
                     position: 'fixed', 
                     inset: 0, 
-                    background: 'linear-gradient(160deg, #F8F9FC 0%, #F5F5F7 40%, #FAF8F6 100%)',
+                    background: `
+                        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(120,140,200,0.15) 0%, transparent 50%),
+                        radial-gradient(ellipse 60% 40% at 100% 100%, rgba(200,160,140,0.12) 0%, transparent 50%),
+                        linear-gradient(180deg, #FAFBFD 0%, #F5F5F7 50%, #F8F7F5 100%)
+                    `,
                     pointerEvents: 'none',
                     zIndex: -1
                 }} />
-                {/* 柔和的光晕 - 增强但保持高级感 */}
-                <div style={{ position: 'fixed', top: '-20%', right: '-15%', width: '70%', height: '70%', borderRadius: '50%', background: 'radial-gradient(circle, rgba(180,195,230,0.5) 0%, transparent 65%)', pointerEvents: 'none' }} />
-                <div style={{ position: 'fixed', bottom: '-15%', left: '-10%', width: '60%', height: '60%', borderRadius: '50%', background: 'radial-gradient(circle, rgba(230,210,200,0.45) 0%, transparent 65%)', pointerEvents: 'none' }} />
-                <div style={{ position: 'fixed', top: '30%', left: '60%', width: '50%', height: '50%', borderRadius: '50%', background: 'radial-gradient(circle, rgba(200,225,215,0.4) 0%, transparent 65%)', pointerEvents: 'none' }} />
+                {/* 光晕层 - 更大更柔和 */}
+                <div style={{ position: 'fixed', top: '-30%', right: '-20%', width: '80%', height: '80%', borderRadius: '50%', background: 'radial-gradient(circle, rgba(160,180,220,0.4) 0%, rgba(180,200,240,0.2) 40%, transparent 70%)', pointerEvents: 'none', filter: 'blur(40px)' }} />
+                <div style={{ position: 'fixed', bottom: '-25%', left: '-15%', width: '70%', height: '70%', borderRadius: '50%', background: 'radial-gradient(circle, rgba(220,190,170,0.35) 0%, rgba(240,210,190,0.15) 40%, transparent 70%)', pointerEvents: 'none', filter: 'blur(40px)' }} />
+                <div style={{ position: 'fixed', top: '20%', left: '55%', width: '60%', height: '60%', borderRadius: '50%', background: 'radial-gradient(circle, rgba(180,210,200,0.3) 0%, transparent 60%)', pointerEvents: 'none', filter: 'blur(60px)' }} />
 
                 {/* 顶部导航 */}
                 <nav className="glass-card" style={{ 
