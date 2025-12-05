@@ -1434,12 +1434,6 @@ export const ShotCard = ({
                                                     >
                                                         <div className={mediaTitleClass}>{genInfo || ' '}</div>
                                                         <div className={`${mediaBaseClass} border border-white/10 shadow-inner cursor-pointer relative`}>
-                                                            {/* 左上角：选中勾选标识 */}
-                                                            {isSelected && (
-                                                                <span className="absolute top-2 left-2 w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center z-10 shadow-md">
-                                                                    <Check size={14} />
-                                                                </span>
-                                                            )}
                                                             {/* 右上角：NEW 标识 */}
                                                             {isNew && (
                                                                 <span className="absolute top-2 right-2 px-2 py-1 rounded-md text-xs font-semibold bg-[#e11d48] text-white z-10">

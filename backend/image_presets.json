@@ -1,10 +1,10 @@
 [
   {
     "id": "194dd1f4-e3d8-4fb9-9536-64986ca37415",
-    "name": "写实风格，cinematic film stil",
-    "content": "写实风格，cinematic film still, candid shot with natural light, raw photo texture, subtle film grain, highly detailed surfaces, color graded，真实人物和场景，角色参考上传的图片，尺寸9:16",
+    "name": "写实风格，bright environment,",
+    "content": "写实风格，bright environment,raw photo texture, subtle film grain, highly detailed surfaces,high key lighting,broad lighting，真实人物和场景",
     "created_at": "2025-11-27T11:47:26.853582",
-    "updated_at": "2025-12-05T19:06:04.382010",
+    "updated_at": "2025-12-05T21:26:26.604746",
     "images_per_generation": 1
   }
 ]
