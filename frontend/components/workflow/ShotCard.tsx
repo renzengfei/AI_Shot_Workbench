@@ -27,7 +27,7 @@ const WaitTimer = ({ startTime }: { startTime: number }) => {
     const minutes = Math.floor(elapsed / 60);
     const seconds = elapsed % 60;
     return (
-        <span className="text-xs text-slate-400 font-mono">
+        <span className="text-xs text-[var(--lg-text-tertiary)] font-mono">
             已等待 {minutes > 0 ? `${minutes}分` : ''}{seconds}秒
         </span>
     );
@@ -41,14 +41,14 @@ const ErrorTooltip = ({ error }: { error: string }) => {
         <div className="mt-2 w-full">
             <button
                 onClick={() => setExpanded(!expanded)}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-600 text-sm hover:bg-red-100 transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-2 lg-error text-sm hover:opacity-90 transition-opacity"
             >
                 <AlertCircle size={16} className="flex-shrink-0" />
                 <span className="font-medium">生成失败</span>
                 <ChevronDown size={14} className={`ml-auto transition-transform ${expanded ? 'rotate-180' : ''}`} />
             </button>
             {expanded && (
-                <div className="mt-1 p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 max-h-32 overflow-y-auto whitespace-pre-wrap break-words">
+                <div className="mt-1 p-3 lg-error text-xs max-h-32 overflow-y-auto whitespace-pre-wrap break-words">
                     {error}
                 </div>
             )}
@@ -69,8 +69,8 @@ const FinalizeButton = ({
             onClick={onClick}
             className={`relative w-6 h-6 rounded-full transition-colors duration-100
                 ${isFinalized
-                    ? 'bg-[#71717a]'
-                    : 'bg-transparent border-[1.5px] border-slate-300 hover:border-slate-400'
+                    ? 'bg-[var(--lg-blue)]'
+                    : 'bg-transparent border-[1.5px] border-[var(--lg-glass-border)] hover:border-[var(--lg-blue)]'
                 }
                 active:scale-95 transition-transform duration-75
             `}
@@ -126,13 +126,13 @@ const ImageLightbox = ({
 
     return (
         <div
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md"
+            className="lg-overlay flex items-center justify-center"
             onClick={onClose}
         >
             {/* 关闭按钮 */}
             <button
                 onClick={onClose}
-                className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors z-10"
+                className="absolute top-4 right-4 lg-overlay-btn z-10"
             >
                 <X size={24} />
             </button>
@@ -146,7 +146,7 @@ const ImageLightbox = ({
             {currentIndex > 0 && (
                 <button
                     onClick={(e) => { e.stopPropagation(); onPrev(); }}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 lg-overlay-btn"
                 >
                     <ChevronLeft size={28} />
                 </button>
@@ -169,7 +169,7 @@ const ImageLightbox = ({
             {currentIndex < images.length - 1 && (
                 <button
                     onClick={(e) => { e.stopPropagation(); onNext(); }}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 lg-overlay-btn"
                 >
                     <ChevronRight size={28} />
                 </button>
@@ -233,10 +233,7 @@ const PromptViewer = ({
             <button
                 onClick={fetchPrompt}
                 disabled={loading}
-                className={compact
-                    ? "flex items-center justify-center p-2 rounded-lg bg-slate-100/80 border border-slate-200/30 text-slate-400 hover:bg-slate-200/80 hover:text-slate-600 transition-all duration-200 active:scale-95"
-                    : "flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100/80 border border-slate-200/50 text-slate-500 text-xs font-medium hover:bg-slate-200/80 hover:text-slate-700 transition-all duration-200 active:scale-95"
-                }
+                className={`lg-btn lg-btn-glass ${compact ? 'p-2' : 'lg-btn-xs'} active:scale-95`}
                 title="查看生图 Prompt"
             >
                 <FileText size={compact ? 14 : 12} />
@@ -244,24 +241,24 @@ const PromptViewer = ({
             </button>
             {isOpen && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+                    className="lg-modal-overlay"
                     onClick={() => setIsOpen(false)}
                 >
                     <div
-                        className="relative w-[90%] max-w-2xl max-h-[80vh] bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/50 overflow-hidden"
+                        className="lg-modal-content max-w-2xl max-h-[80vh] overflow-hidden"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200/50">
-                            <h3 className="text-base font-semibold text-slate-700">生图 Prompt</h3>
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--lg-glass-border)]">
+                            <h3 className="text-base font-semibold text-[var(--lg-text-primary)]">生图 Prompt</h3>
                             <button
                                 onClick={() => setIsOpen(false)}
-                                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                                className="lg-btn lg-btn-glass p-1.5"
                             >
                                 <X size={18} />
                             </button>
                         </div>
                         <div className="p-5 overflow-y-auto max-h-[60vh]">
-                            <pre className="whitespace-pre-wrap text-sm text-slate-600 leading-relaxed font-mono bg-slate-50/80 rounded-xl p-4 border border-slate-100">
+                            <pre className="lg-code-block whitespace-pre-wrap text-sm leading-relaxed">
                                 {prompt}
                             </pre>
                         </div>
@@ -469,96 +466,96 @@ export const ShotCard = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                     {/* Foreground */}
                     <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-[var(--lg-text-secondary)]">
                             <Users size={14} />
                             <span>前景 / FOREGROUND</span>
                         </div>
                         <div className="space-y-2 pl-1">
                             <div>
-                                <div className="text-slate-500 text-[10px] mb-1">角色:</div>
+                                <div className="lg-field-label">角色:</div>
                                 <div className="space-y-1">
                                     {(frame.foreground?.characters || []).map((c: unknown, i: number) => (
-                                        <div key={i} className="p-2 rounded-lg bg-white/60 border border-slate-200/50 text-slate-700">{renderFrameItem(c) || '添加角色...'}</div>
+                                        <div key={i} className="lg-field-card text-[var(--lg-text-primary)]">{renderFrameItem(c) || '添加角色...'}</div>
                                     ))}
-                                    {(!frame.foreground?.characters?.length) && <div className="p-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 italic">无角色</div>}
+                                    {(!frame.foreground?.characters?.length) && <div className="lg-field-card lg-field-empty">无角色</div>}
                                 </div>
                             </div>
                             <div>
-                                <div className="text-slate-500 text-[10px] mb-1">道具:</div>
+                                <div className="lg-field-label">道具:</div>
                                 <div className="space-y-1">
                                     {(frame.foreground?.objects || []).map((o: unknown, i: number) => (
-                                        <div key={i} className="p-2 rounded-lg bg-white/60 border border-slate-200/50 text-slate-700">{renderFrameItem(o) || '添加道具...'}</div>
+                                        <div key={i} className="lg-field-card text-[var(--lg-text-primary)]">{renderFrameItem(o) || '添加道具...'}</div>
                                     ))}
-                                    {(!frame.foreground?.objects?.length) && <div className="p-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 italic">无道具</div>}
+                                    {(!frame.foreground?.objects?.length) && <div className="lg-field-card lg-field-empty">无道具</div>}
                                 </div>
                             </div>
                         </div>
                     </div>
                     {/* Midground */}
                     <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-[var(--lg-text-secondary)]">
                             <Box size={14} />
                             <span>中景 / MIDGROUND</span>
                         </div>
                         <div className="space-y-2 pl-1">
                             <div>
-                                <div className="text-slate-500 text-[10px] mb-1">角色:</div>
+                                <div className="lg-field-label">角色:</div>
                                 <div className="space-y-1">
                                     {(frame.midground?.characters || []).map((c: unknown, i: number) => (
-                                        <div key={i} className="p-2 rounded-lg bg-white/60 border border-slate-200/50 text-slate-700">{renderFrameItem(c) || '添加角色...'}</div>
+                                        <div key={i} className="lg-field-card text-[var(--lg-text-primary)]">{renderFrameItem(c) || '添加角色...'}</div>
                                     ))}
-                                    {(!frame.midground?.characters?.length) && <div className="p-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 italic">无角色</div>}
+                                    {(!frame.midground?.characters?.length) && <div className="lg-field-card lg-field-empty">无角色</div>}
                                 </div>
                             </div>
                             <div>
-                                <div className="text-slate-500 text-[10px] mb-1">道具:</div>
+                                <div className="lg-field-label">道具:</div>
                                 <div className="space-y-1">
                                     {(frame.midground?.objects || []).map((o: unknown, i: number) => (
-                                        <div key={i} className="p-2 rounded-lg bg-white/60 border border-slate-200/50 text-slate-700">{renderFrameItem(o) || '添加道具...'}</div>
+                                        <div key={i} className="lg-field-card text-[var(--lg-text-primary)]">{renderFrameItem(o) || '添加道具...'}</div>
                                     ))}
-                                    {(!frame.midground?.objects?.length) && <div className="p-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 italic">无道具</div>}
+                                    {(!frame.midground?.objects?.length) && <div className="lg-field-card lg-field-empty">无道具</div>}
                                 </div>
                             </div>
                         </div>
                     </div>
                     {/* Background */}
                     <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-[var(--lg-text-secondary)]">
                             <Layout size={14} />
                             <span>背景 / BACKGROUND</span>
                         </div>
                         <div className="space-y-2 pl-1">
                             <div>
-                                <div className="text-slate-500 text-[10px] mb-1">环境:</div>
-                                <div className="p-2 rounded-lg bg-white/60 border border-slate-200/50 text-slate-700">
-                                    {frame.background?.environment || <span className="italic text-slate-400">无</span>}
+                                <div className="lg-field-label">环境:</div>
+                                <div className="lg-field-card text-[var(--lg-text-primary)]">
+                                    {frame.background?.environment || <span className="lg-field-empty">无</span>}
                                 </div>
                             </div>
                             <div>
-                                <div className="text-slate-500 text-[10px] mb-1">景深:</div>
-                                <div className="p-2 rounded-lg bg-white/60 border border-slate-200/50 text-slate-700">
-                                    {frame.background?.depth || <span className="italic text-slate-400">无</span>}
+                                <div className="lg-field-label">景深:</div>
+                                <div className="lg-field-card text-[var(--lg-text-primary)]">
+                                    {frame.background?.depth || <span className="lg-field-empty">无</span>}
                                 </div>
                             </div>
                         </div>
                     </div>
                     {/* Lighting & Palette */}
                     <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-[var(--lg-text-secondary)]">
                             <Zap size={14} />
                             <span>光影与色调 / LIGHTING & PALETTE</span>
                         </div>
                         <div className="space-y-2 pl-1">
                             <div>
-                                <div className="text-slate-500 text-[10px] mb-1">光照:</div>
-                                <div className="p-2 rounded-lg bg-white/60 border border-slate-200/50 text-slate-700">
-                                    {frame.lighting || <span className="italic text-slate-400">无</span>}
+                                <div className="lg-field-label">光照:</div>
+                                <div className="lg-field-card text-[var(--lg-text-primary)]">
+                                    {frame.lighting || <span className="lg-field-empty">无</span>}
                                 </div>
                             </div>
                             <div>
-                                <div className="text-slate-500 text-[10px] mb-1">色调:</div>
-                                <div className="p-2 rounded-lg bg-white/60 border border-slate-200/50 text-slate-700">
-                                    {frame.color_palette || <span className="italic text-slate-400">无</span>}
+                                <div className="lg-field-label">色调:</div>
+                                <div className="lg-field-card text-[var(--lg-text-primary)]">
+                                    {frame.color_palette || <span className="lg-field-empty">无</span>}
                                 </div>
                             </div>
                         </div>
@@ -567,8 +564,8 @@ export const ShotCard = ({
             );
         } catch {
             return (
-                <div className="text-slate-700 whitespace-pre-wrap text-sm">
-                    {jsonStr || <span className="italic text-slate-400">(空)</span>}
+                <div className="text-[var(--lg-text-primary)] whitespace-pre-wrap text-sm">
+                    {jsonStr || <span className="lg-field-empty">(空)</span>}
                 </div>
             );
         }
@@ -579,19 +576,19 @@ export const ShotCard = ({
         try {
             const arr = JSON.parse(jsonStr);
             if (!Array.isArray(arr) || arr.length === 0) {
-                return <span className="italic text-slate-400">(空)</span>;
+                return <span className="lg-field-empty">(空)</span>;
             }
             return (
                 <div className="space-y-1">
                     {arr.map((item, i) => (
-                        <div key={i} className="p-2 rounded-lg bg-white/50 border border-slate-200/50 text-slate-700 text-sm">
+                        <div key={i} className="lg-field-card text-[var(--lg-text-primary)] text-sm">
                             {renderFrameItem(item)}
                         </div>
                     ))}
                 </div>
             );
         } catch {
-            return <div className="text-sm text-slate-700">{jsonStr}</div>;
+            return <div className="text-sm text-[var(--lg-text-primary)]">{jsonStr}</div>;
         }
     };
 

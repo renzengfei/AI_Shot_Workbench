@@ -2904,7 +2904,7 @@ export default function Step3_DeconstructionReview({
         } catch {
             // Not valid JSON, render as plain text
             return (
-                <div className="text-[var(--color-text-secondary)] whitespace-pre-wrap text-xs">
+                <div className="text-[var(--lg-text-secondary)] whitespace-pre-wrap text-xs">
                     {jsonStr || <span className="italic text-slate-400">(空)</span>}
                 </div>
             );
@@ -2919,25 +2919,25 @@ export default function Step3_DeconstructionReview({
         return (
             <div className="relative inline-flex items-center gap-1 annotation-wrapper">
                 <button
-                    className={`annotation-btn text-xs px-3 py-1 rounded-lg border transition shadow-sm ${value ? 'border-blue-500/50 text-blue-400 bg-blue-500/15' : 'border-[var(--glass-border)] text-[var(--color-text-tertiary)] bg-[var(--glass-bg-light)]/60 hover:text-[var(--color-text-primary)]'}`}
+                    className={`annotation-btn text-xs px-3 py-1 rounded-lg border transition shadow-sm ${value ? 'border-blue-500/50 text-blue-400 bg-blue-500/15' : 'border-[var(--glass-border)] text-[var(--lg-text-tertiary)] bg-[var(--glass-bg-light)]/60 hover:text-[var(--lg-text-primary)]'}`}
                     onClick={() => openAnnotation(id, label)}
                 >
                     批注
                 </button>
                 {isOpen && (
                     <div className="annotation-popover absolute z-[9999] -top-2 right-0 translate-y-[-100%] w-72 lg-card border border-[var(--glass-border)] shadow-2xl p-3 rounded-xl">
-                        <div className="flex items-center justify-between mb-2 text-xs text-[var(--color-text-primary)]">
+                        <div className="flex items-center justify-between mb-2 text-xs text-[var(--lg-text-primary)]">
                             <span className="font-semibold">{label}</span>
                             <div className="flex items-center gap-1">
                                 <button
                                     onClick={() => clearAnnotation(id)}
-                                    className="flex items-center gap-1 px-2 py-0.5 rounded border border-[var(--glass-border)] hover:border-red-400 hover:text-red-400 text-[var(--color-text-tertiary)] transition"
+                                    className="flex items-center gap-1 px-2 py-0.5 rounded border border-[var(--glass-border)] hover:border-red-400 hover:text-red-400 text-[var(--lg-text-tertiary)] transition"
                                 >
                                     <Trash2 size={12} /> 清空
                                 </button>
                                 <button
                                     onClick={() => setEditingKey(null)}
-                                    className="px-2 py-0.5 rounded border border-[var(--glass-border)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+                                    className="px-2 py-0.5 rounded border border-[var(--glass-border)] text-[var(--lg-text-tertiary)] hover:text-[var(--lg-text-primary)]"
                                 >
                                     关闭
                                 </button>
@@ -2947,7 +2947,7 @@ export default function Step3_DeconstructionReview({
                             ref={textareaRef}
                             value={value}
                             onChange={(e) => updateAnnotation(id, e.target.value)}
-                            className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg p-2 text-xs text-[var(--color-text-primary)] min-h-[100px] focus:outline-none focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/20"
+                            className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg p-2 text-xs text-[var(--lg-text-primary)] min-h-[100px] focus:outline-none focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/20"
                             placeholder={`填写对「${label}」的批注...`}
                         />
                     </div>
@@ -3485,33 +3485,17 @@ export default function Step3_DeconstructionReview({
         <>
             {/* Liquid Glass Background - 精致多层背景 */}
             <div className="lg-background" />
-            {/* 柔和光晕层 */}
-            <div className="lg-blur-orb lg-orb-blue" style={{ 
-                top: '-30%', 
-                right: '-20%', 
-                width: '80%', 
-                height: '80%'
-            }} />
-            <div className="lg-blur-orb lg-orb-warm" style={{ 
-                bottom: '-25%', 
-                left: '-15%', 
-                width: '70%', 
-                height: '70%'
-            }} />
-            <div className="lg-blur-orb lg-orb-green" style={{ 
-                top: '20%', 
-                left: '55%',
-                width: '60%', 
-                height: '60%',
-                filter: 'blur(60px)'
-            }} />
+            {/* 柔和光晕层 - 使用新的预定义类 */}
+            <div className="lg-orb-1" />
+            <div className="lg-orb-2" />
+            <div className="lg-orb-3" />
 
             <div className="space-y-8 pb-32 relative z-10">
                 {/* Header */}
                 <div className="lg-card-static p-6 space-y-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-2xl font-bold text-[var(--color-text-primary)] flex items-center gap-2">
-                            <Film size={24} className="text-blue-400" />
+                        <h2 className="text-2xl font-bold text-[var(--lg-text-primary)] flex items-center gap-2">
+                            <Film size={24} className="text-[var(--lg-blue)]" />
                             人工改写
                         </h2>
                         <button
@@ -3521,7 +3505,7 @@ export default function Step3_DeconstructionReview({
                             下一步: 生产剧本 <ArrowRight size={16} />
                         </button>
                     </div>
-                    <div className="text-sm text-[var(--color-text-secondary)]">
+                    <div className="text-sm text-[var(--lg-text-secondary)]">
                         {modeSubtitleMap[mode]}
                     </div>
                     <div className="flex items-center gap-3 flex-wrap">
@@ -3532,8 +3516,8 @@ export default function Step3_DeconstructionReview({
                                 className={`
                                 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
                                 ${mode === key
-                                        ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20 ring-2 ring-blue-400/50'
-                                        : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] hover:text-[var(--color-text-primary)] border border-[var(--glass-border)]'}
+                                        ? 'bg-[var(--lg-blue)] text-white shadow-lg shadow-[var(--lg-blue)]/20 ring-2 ring-[var(--lg-blue)]/50'
+                                        : 'lg-card-inset text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)]'}
                             `}
                             >
                                 <div className="flex flex-col items-start gap-0.5">
@@ -3555,7 +3539,7 @@ export default function Step3_DeconstructionReview({
                             {promptCopyStatus === 'copied' ? <Check size={14} /> : <Copy size={14} />}
                             <span>{promptCopyStatus === 'loading' ? '加载中...' : promptCopyStatus === 'copied' ? '已复制' : '复制提示词'}</span>
                         </button>
-                        <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                        <div className="flex items-center gap-2 text-sm text-[var(--lg-text-secondary)]">
                             <span className="hidden md:inline">剧本文件</span>
                             <select
                                 value={selectedDeconstructionFile || 'deconstruction.json'}
@@ -3637,7 +3621,7 @@ export default function Step3_DeconstructionReview({
                                     )}
                                     <button
                                         onClick={() => setShowComparePanel(false)}
-                                        className="p-1 hover:bg-[var(--color-bg-tertiary)] rounded text-[var(--color-text-tertiary)]"
+                                        className="p-1 hover:bg-[var(--color-bg-tertiary)] rounded text-[var(--lg-text-tertiary)]"
                                     >
                                         <X size={16} />
                                     </button>
@@ -3652,7 +3636,7 @@ export default function Step3_DeconstructionReview({
                                         value={compareRound1Text}
                                         onChange={(e) => setCompareRound1Text(e.target.value)}
                                         placeholder="粘贴 Round 1 JSON（含 round1_skeleton 和 round1_hook）..."
-                                        className={`w-full h-28 bg-[var(--color-bg-primary)] border rounded-lg p-3 text-xs font-mono text-[var(--color-text-primary)] focus:outline-none focus:ring-1 resize-none ${compareRound1Error
+                                        className={`w-full h-28 bg-[var(--color-bg-primary)] border rounded-lg p-3 text-xs font-mono text-[var(--lg-text-primary)] focus:outline-none focus:ring-1 resize-none ${compareRound1Error
                                             ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20'
                                             : 'border-[var(--glass-border)] focus:border-blue-500/50 focus:ring-blue-500/20'
                                             }`}
@@ -3671,7 +3655,7 @@ export default function Step3_DeconstructionReview({
                                         value={compareRound2Text}
                                         onChange={(e) => setCompareRound2Text(e.target.value)}
                                         placeholder="粘贴 Round 2 Markdown（含角色说明 + 分镜表格）..."
-                                        className={`w-full h-28 bg-[var(--color-bg-primary)] border rounded-lg p-3 text-xs font-mono text-[var(--color-text-primary)] focus:outline-none focus:ring-1 resize-none ${compareRound2Error
+                                        className={`w-full h-28 bg-[var(--color-bg-primary)] border rounded-lg p-3 text-xs font-mono text-[var(--lg-text-primary)] focus:outline-none focus:ring-1 resize-none ${compareRound2Error
                                             ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20'
                                             : 'border-[var(--glass-border)] focus:border-purple-500/50 focus:ring-purple-500/20'
                                             }`}
@@ -3704,7 +3688,7 @@ export default function Step3_DeconstructionReview({
                                 )}
                             </div>
                             {compareData && diffMap.size > 0 && (
-                                <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+                                <div className="text-xs text-[var(--lg-text-secondary)] leading-relaxed">
                                     <span className="text-amber-400 font-medium">提示:</span> 在下方字段旁边点击
                                     <span className="mx-1 px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px]">核验</span>
                                     按钮查看差异并选择是否采纳。
@@ -3717,7 +3701,7 @@ export default function Step3_DeconstructionReview({
                     <div className="flex items-center gap-4 p-3 lg-card-inset">
                         <button
                             onClick={toggleGlobalMute}
-                            className="p-1.5 hover:bg-[var(--color-bg-tertiary)] rounded text-[var(--color-text-primary)]"
+                            className="p-1.5 hover:bg-[var(--color-bg-tertiary)] rounded text-[var(--lg-text-primary)]"
                         >
                             {isGlobalMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
                         </button>
@@ -3730,21 +3714,21 @@ export default function Step3_DeconstructionReview({
                             onChange={handleGlobalVolumeChange}
                             className="flex-1 h-1 bg-[var(--color-bg-secondary)] rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-500"
                         />
-                        <span className="text-xs text-[var(--color-text-tertiary)] w-8 text-right">
+                        <span className="text-xs text-[var(--lg-text-tertiary)] w-8 text-right">
                             {Math.round((isGlobalMuted ? 0 : globalVolume) * 100)}%
                         </span>
                     </div>
                     {/* Theme Switcher */}
                     <div className="flex items-center gap-3 p-3 lg-card-inset">
-                        <span className="text-xs font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider">Theme</span>
+                        <span className="text-xs font-semibold text-[var(--lg-text-tertiary)] uppercase tracking-wider">Theme</span>
                         <div className="flex bg-[var(--color-bg-tertiary)] p-0.5 rounded-lg">
                             {(['glacier', 'midnight', 'obsidian'] as const).map(theme => (
                                 <button
                                     key={theme}
                                     onClick={() => setCurrentTheme(theme)}
                                     className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${currentTheme === theme
-                                        ? 'bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] shadow-sm'
-                                        : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                                        ? 'bg-[var(--color-bg-elevated)] text-[var(--lg-text-primary)] shadow-sm'
+                                        : 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)]'
                                         }`}
                                 >
                                     {theme.charAt(0).toUpperCase() + theme.slice(1)}
@@ -3768,17 +3752,17 @@ export default function Step3_DeconstructionReview({
                                 <span className="text-sm font-semibold">{mode === 'final' ? '优化摘要' : '修订摘要（对比终版）'}</span>
                             </div>
                             {optimizedMetadata && (
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-[var(--color-text-secondary)]">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-[var(--lg-text-secondary)]">
                                     {Object.entries(optimizedMetadata).map(([k, v]) => (
                                         <div key={k} className="p-3 rounded-lg bg-[var(--color-bg-secondary)]/50 border border-[var(--glass-border)]">
-                                            <div className="text-xs uppercase text-[var(--color-text-tertiary)]">{k}</div>
-                                            <div className="text-[var(--color-text-primary)] break-words">{String(v)}</div>
+                                            <div className="text-xs uppercase text-[var(--lg-text-tertiary)]">{k}</div>
+                                            <div className="text-[var(--lg-text-primary)] break-words">{String(v)}</div>
                                         </div>
                                     ))}
                                 </div>
                             )}
                             {optimizedAnalysis?.summary && (
-                                <div className="text-sm text-[var(--color-text-primary)] leading-relaxed bg-[var(--glass-bg-light)]/70 p-3 rounded-lg border border-[var(--glass-border)]">
+                                <div className="text-sm text-[var(--lg-text-primary)] leading-relaxed bg-[var(--glass-bg-light)]/70 p-3 rounded-lg border border-[var(--glass-border)]">
                                     {optimizedAnalysis.summary}
                                 </div>
                             )}
@@ -3793,19 +3777,19 @@ export default function Step3_DeconstructionReview({
                             )}
                             {optimizedAnalysis?.checkpoints && typeof optimizedAnalysis.checkpoints === 'object' && (
                                 <div className="space-y-2">
-                                    <div className="text-xs font-semibold text-[var(--color-text-primary)]">Checkpoints</div>
+                                    <div className="text-xs font-semibold text-[var(--lg-text-primary)]">Checkpoints</div>
                                     <div className="grid gap-2 md:grid-cols-2">
                                         {Object.entries(optimizedAnalysis.checkpoints as Record<string, unknown>).map(([k, v]) => (
                                             <div key={k} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--glass-bg-light)]/70 text-xs space-y-1">
-                                                <div className="uppercase text-[var(--color-text-tertiary)]">{k}</div>
-                                                <div className="text-[var(--color-text-primary)] whitespace-pre-wrap leading-relaxed">{String(v)}</div>
+                                                <div className="uppercase text-[var(--lg-text-tertiary)]">{k}</div>
+                                                <div className="text-[var(--lg-text-primary)] whitespace-pre-wrap leading-relaxed">{String(v)}</div>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
                             )}
                             {!optimizedMetadata && !optimizedAnalysis?.summary && (
-                                <div className="text-xs text-[var(--color-text-tertiary)]">未提供优化元数据。</div>
+                                <div className="text-xs text-[var(--lg-text-tertiary)]">未提供优化元数据。</div>
                             )}
 
                             {deletedShots && deletedShots.length > 0 && (
@@ -3816,8 +3800,8 @@ export default function Step3_DeconstructionReview({
                                     <div className="grid gap-2 md:grid-cols-2">
                                         {deletedShots.map((d, idx) => (
                                             <div key={`${d.original_id ?? idx}`} className="p-3 rounded-lg border border-red-500/20 bg-red-500/5 text-xs space-y-1">
-                                                <div className="font-semibold text-[var(--color-text-primary)]">Shot #{d.original_id ?? idx + 1}</div>
-                                                {d.reason && <div className="text-[var(--color-text-secondary)] leading-relaxed">{d.reason}</div>}
+                                                <div className="font-semibold text-[var(--lg-text-primary)]">Shot #{d.original_id ?? idx + 1}</div>
+                                                {d.reason && <div className="text-[var(--lg-text-secondary)] leading-relaxed">{d.reason}</div>}
                                                 {d.type && <div className="text-xs uppercase text-red-300">类型: {d.type}</div>}
                                             </div>
                                         ))}
@@ -3826,20 +3810,20 @@ export default function Step3_DeconstructionReview({
                             )}
                             {Array.isArray(modifiedAssets) && modifiedAssets.length > 0 && (
                                 <div className="space-y-2">
-                                    <div className="text-xs font-semibold text-[var(--color-text-primary)]">元素替换</div>
+                                    <div className="text-xs font-semibold text-[var(--lg-text-primary)]">元素替换</div>
                                     <div className="grid gap-2 md:grid-cols-2">
                                         {modifiedAssets.map((m, idx) => (
                                             <div key={`${m.original ?? idx}-${idx}`} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--glass-bg-light)]/70 text-xs space-y-1">
-                                                <div className="flex items-center gap-2 text-[var(--color-text-primary)]">
-                                                    <span className="line-through text-[var(--color-text-tertiary)]">{m.original}</span>
-                                                    <ArrowRight size={10} className="text-[var(--color-text-secondary)]" />
+                                                <div className="flex items-center gap-2 text-[var(--lg-text-primary)]">
+                                                    <span className="line-through text-[var(--lg-text-tertiary)]">{m.original}</span>
+                                                    <ArrowRight size={10} className="text-[var(--lg-text-secondary)]" />
                                                     <span className="text-emerald-400 font-semibold">{m.replacement}</span>
                                                 </div>
                                                 {m.type && <div className={`text-xs uppercase ${modTypeClass(m.type)}`}>{m.type}</div>}
                                                 {m.element_type && <div className="text-xs text-amber-300 uppercase">{m.element_type}</div>}
-                                                {m.reason && <div className="text-[var(--color-text-secondary)] leading-relaxed">{m.reason}</div>}
+                                                {m.reason && <div className="text-[var(--lg-text-secondary)] leading-relaxed">{m.reason}</div>}
                                                 {m.affected_shots && m.affected_shots.length > 0 && (
-                                                    <div className="text-xs text-[var(--color-text-tertiary)]">影响镜头: {m.affected_shots.join(', ')}</div>
+                                                    <div className="text-xs text-[var(--lg-text-tertiary)]">影响镜头: {m.affected_shots.join(', ')}</div>
                                                 )}
                                             </div>
                                         ))}
@@ -3848,14 +3832,14 @@ export default function Step3_DeconstructionReview({
                             )}
                             {optimizedAnalysis?.modified_assets_overview && Array.isArray(optimizedAnalysis.modified_assets_overview) && (
                                 <div className="space-y-2">
-                                    <div className="text-xs font-semibold text-[var(--color-text-primary)]">Modified Assets 概览</div>
+                                    <div className="text-xs font-semibold text-[var(--lg-text-primary)]">Modified Assets 概览</div>
                                     <div className="grid gap-2 md:grid-cols-2">
                                         {(optimizedAnalysis.modified_assets_overview as Array<Record<string, unknown>>).map((item, idx) => (
                                             <div key={idx} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--glass-bg-light)]/70 text-xs space-y-1">
-                                                {!!item.shot_id && <div className="font-semibold text-[var(--color-text-primary)]">Shot {String(item.shot_id)}</div>}
-                                                {!!item.field && <div className="text-[var(--color-text-secondary)]">字段: {String(item.field)}</div>}
-                                                {!!item.element_type && <div className="text-[var(--color-text-secondary)]">元素: {String(item.element_type)}</div>}
-                                                {!!item.reason && <div className="text-[var(--color-text-primary)] whitespace-pre-wrap leading-relaxed">{String(item.reason)}</div>}
+                                                {!!item.shot_id && <div className="font-semibold text-[var(--lg-text-primary)]">Shot {String(item.shot_id)}</div>}
+                                                {!!item.field && <div className="text-[var(--lg-text-secondary)]">字段: {String(item.field)}</div>}
+                                                {!!item.element_type && <div className="text-[var(--lg-text-secondary)]">元素: {String(item.element_type)}</div>}
+                                                {!!item.reason && <div className="text-[var(--lg-text-primary)] whitespace-pre-wrap leading-relaxed">{String(item.reason)}</div>}
                                             </div>
                                         ))}
                                     </div>
@@ -4576,19 +4560,19 @@ export default function Step3_DeconstructionReview({
                             )}
                             {mode === 'revision' && missingModifiedShots.length > 0 && (
                                 <div className="lg-card-compact p-4 border-l-4 border-l-purple-500 space-y-3">
-                                    <div className="text-sm font-semibold text-[var(--color-text-primary)]">修订日志中的其他镜头</div>
+                                    <div className="text-sm font-semibold text-[var(--lg-text-primary)]">修订日志中的其他镜头</div>
                                     <div className="grid gap-3 md:grid-cols-2">
                                         {missingModifiedShots.map((m, idx) => (
                                             <div key={`missing-${m.id}-${idx}`} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--color-bg-secondary)]/50 space-y-2">
                                                 <div className="flex items-center justify-between">
-                                                    <div className="text-sm font-semibold text-[var(--color-text-primary)]">Shot #{String(m.id)}</div>
+                                                    <div className="text-sm font-semibold text-[var(--lg-text-primary)]">Shot #{String(m.id)}</div>
                                                     <span className="text-xs px-2 py-1 rounded-full border border-purple-500/30 text-purple-300 bg-purple-500/10 uppercase">
                                                         {String(m.action || 'CHANGE')}
                                                     </span>
                                                 </div>
-                                                {m.reason && <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed">{String(m.reason)}</div>}
+                                                {m.reason && <div className="text-xs text-[var(--lg-text-secondary)] leading-relaxed">{String(m.reason)}</div>}
                                                 {!!m.changes && Object.keys(m.changes).length > 0 && (
-                                                    <div className="text-xs text-[var(--color-text-tertiary)]">变更字段: {Object.keys(m.changes).join(', ')}</div>
+                                                    <div className="text-xs text-[var(--lg-text-tertiary)]">变更字段: {Object.keys(m.changes).join(', ')}</div>
                                                 )}
                                                 {!!m.backup && (
                                                     <pre className="text-[11px] whitespace-pre-wrap bg-[var(--glass-bg-light)]/60 p-2 rounded border border-[var(--glass-border)]">
@@ -4655,8 +4639,8 @@ export default function Step3_DeconstructionReview({
                                     <Layout size={24} className="text-white" />
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold text-[var(--color-text-primary)]">参考图库</h2>
-                                    <p className="text-sm text-[var(--color-text-secondary)]">
+                                    <h2 className="text-xl font-bold text-[var(--lg-text-primary)]">参考图库</h2>
+                                    <p className="text-sm text-[var(--lg-text-secondary)]">
                                         {activeCharacterForPick ? `为「${activeCharacterForPick}」选择参考图` : '管理全局参考图库 · 所有工作空间可见'}
                                     </p>
                                 </div>
