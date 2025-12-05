@@ -3482,7 +3482,7 @@ export default function Step3_DeconstructionReview({
     }, [assets]);
 
     return (
-        <>
+        <div className="lg-page">
             {/* Liquid Glass Background - 精致多层背景 */}
             <div className="lg-background" />
             {/* 柔和光晕层 - 使用新的预定义类 */}
@@ -5229,6 +5229,6 @@ export default function Step3_DeconstructionReview({
                 onClose={() => setShowVideoConfigModal(false)}
                 onSave={(config) => setVideoGenConfig(config)}
             />
-        </>
+        </div>
     );
 }
