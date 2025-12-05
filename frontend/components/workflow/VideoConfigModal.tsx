@@ -229,33 +229,18 @@ export function VideoConfigModal({ isOpen, onClose, onSave }: VideoConfigModalPr
               </div>
 
           {/* Common Settings */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">
-                每镜头视频数 <span className="text-slate-400">({config.videosPerShot})</span>
-              </label>
-              <input
-                type="range"
-                min={1}
-                max={5}
-                value={config.videosPerShot}
-                onChange={(e) => setConfig({ ...config, videosPerShot: Number(e.target.value) })}
-                className="w-full accent-blue-500"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">
-                并发数 <span className="text-slate-400">({config.concurrency})</span>
-              </label>
-              <input
-                type="range"
-                min={1}
-                max={5}
-                value={config.concurrency}
-                onChange={(e) => setConfig({ ...config, concurrency: Number(e.target.value) })}
-                className="w-full accent-blue-500"
-              />
-            </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700">
+              并发数 <span className="text-slate-400">({config.concurrency})</span>
+            </label>
+            <input
+              type="range"
+              min={1}
+              max={5}
+              value={config.concurrency}
+              onChange={(e) => setConfig({ ...config, concurrency: Number(e.target.value) })}
+              className="w-full accent-blue-500"
+            />
           </div>
 
           {/* Poll Interval */}

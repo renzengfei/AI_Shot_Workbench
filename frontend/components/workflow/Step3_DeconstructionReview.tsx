@@ -157,10 +157,21 @@ export default function Step3_DeconstructionReview({
     const [imagePresetLoading, setImagePresetLoading] = useState(false);
     const [imagePresetError, setImagePresetError] = useState<string | null>(null);
     const [showPresetModal, setShowPresetModal] = useState(false);
+    const [showVideoPresetModal, setShowVideoPresetModal] = useState(false);
     const [showProviderModal, setShowProviderModal] = useState(false);
     const [showVideoConfigModal, setShowVideoConfigModal] = useState(false);
     const [videoGenConfig, setVideoGenConfig] = useState<VideoGenConfig | null>(null);
     const [selectedImagePresetId, setSelectedImagePresetId] = useState<string | null>(null);
+    // 视频设定（localStorage 持久化）
+    const [videoPreset, setVideoPreset] = useState<{ videosPerShot: number; promptPrefix: string }>(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const saved = localStorage.getItem('videoPreset');
+                if (saved) return JSON.parse(saved);
+            } catch { /* ignore */ }
+        }
+        return { videosPerShot: 3, promptPrefix: '' };
+    });
     // Shot pagination
     const [shotPage, setShotPage] = useState(0);
     const shotsPerPage = 5;
@@ -1930,8 +1941,8 @@ export default function Step3_DeconstructionReview({
 
     // 生视频回调（支持同时生成多个视频变体）
     const handleGenerateVideo = async (shot: Round2Shot, index: number) => {
-        // 从配置读取视频数量，默认 3
-        const videoCount = videoGenConfig?.videosPerShot || 3;
+        // 从视频设定读取视频数量，默认 3
+        const videoCount = videoPreset.videosPerShot || 3;
         if (!currentWorkspace?.path) {
             showToast('请先选择工作空间', 'error');
             return;
@@ -1951,8 +1962,11 @@ export default function Step3_DeconstructionReview({
             return;
         }
 
-        // 获取视频描述
-        const prompt = shot.visual_changes || '让人物动起来';
+        // 获取视频描述，如果有提示词前缀则拼接
+        const basePrompt = shot.visual_changes || '让人物动起来';
+        const prompt = videoPreset.promptPrefix?.trim()
+            ? `${videoPreset.promptPrefix.trim()}\n\n${basePrompt}`
+            : basePrompt;
 
         setGeneratingVideoShots(prev => ({ ...prev, [shotId]: true }));
         setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'pending' }));
@@ -3759,6 +3773,14 @@ export default function Step3_DeconstructionReview({
                                 生图设定
                             </button>
                             <button
+                                onClick={() => setShowVideoPresetModal(true)}
+                                className="lg-btn lg-btn-sm lg-btn-glass"
+                                type="button"
+                            >
+                                <Video size={14} />
+                                视频设定
+                            </button>
+                            <button
                                 onClick={() => setShowProviderModal(true)}
                                 className="lg-btn lg-btn-sm lg-btn-glass"
                                 type="button"
@@ -5481,6 +5503,63 @@ export default function Step3_DeconstructionReview({
                 onClose={() => setShowVideoConfigModal(false)}
                 onSave={(config) => setVideoGenConfig(config)}
             />
+            {/* 视频设定模态框 */}
+            {showVideoPresetModal && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowVideoPresetModal(false)}>
+                    <div className="w-full max-w-md lg-card lg-card-strong rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--lg-glass-border)]">
+                            <h3 className="lg-title-3 text-[var(--lg-text-primary)]">视频设定</h3>
+                            <button onClick={() => setShowVideoPresetModal(false)} className="p-1 rounded-lg hover:bg-slate-100 transition">
+                                <X size={18} className="text-slate-500" />
+                            </button>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700">每次生成视频数</label>
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="range"
+                                        min={1}
+                                        max={5}
+                                        value={videoPreset.videosPerShot}
+                                        onChange={(e) => {
+                                            const newVal = { ...videoPreset, videosPerShot: Number(e.target.value) };
+                                            setVideoPreset(newVal);
+                                            localStorage.setItem('videoPreset', JSON.stringify(newVal));
+                                        }}
+                                        className="flex-1 accent-blue-500"
+                                    />
+                                    <span className="w-8 text-center text-sm font-medium text-slate-700">{videoPreset.videosPerShot}</span>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700">提示词前缀</label>
+                                <p className="text-xs text-slate-500">生成视频时，此文案会自动拼接到视频提示词前面</p>
+                                <AutoTextArea
+                                    value={videoPreset.promptPrefix}
+                                    onChange={(e) => {
+                                        const newVal = { ...videoPreset, promptPrefix: e.target.value };
+                                        setVideoPreset(newVal);
+                                        localStorage.setItem('videoPreset', JSON.stringify(newVal));
+                                    }}
+                                    minRows={3}
+                                    maxRows={6}
+                                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none"
+                                    placeholder="例如：画面保持稳定，人物动作流畅自然..."
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2 px-5 py-4 border-t border-[var(--lg-glass-border)]">
+                            <button
+                                onClick={() => setShowVideoPresetModal(false)}
+                                className="px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 transition"
+                            >
+                                完成
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
