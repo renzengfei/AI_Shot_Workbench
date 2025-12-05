@@ -1377,7 +1377,7 @@ export const ShotCard = ({
                                                         className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} lg-card-compact transition-all duration-300 ${isSelected ? 'ring-2 ring-green-500/40' : ''} ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
                                                     >
                                                         <div className={mediaTitleClass}>{genInfo || ' '}</div>
-                                                        <div className={`${mediaBaseClass} border border-white/10 shadow-inner cursor-pointer relative`}>
+                                                        <div className="relative">
                                                             {/* 右上角：NEW 标识 */}
                                                             {isNew && (
                                                                 <span className="absolute top-2 right-2 px-2 py-1 rounded-md text-xs font-semibold bg-[#e11d48] text-white z-10">
@@ -1390,7 +1390,7 @@ export const ShotCard = ({
                                                                 volume={globalVolume}
                                                                 muted={isGlobalMuted}
                                                                 aspectRatio="aspect-[9/16]"
-                                                                className="w-full h-full object-cover"
+                                                                className="w-full"
                                                                 lazy
                                                                 defaultRate={2.5}
                                                                 onPlay={() => onVideoSeen?.(url)}
