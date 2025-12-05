@@ -4445,69 +4445,60 @@ export default function Step3_DeconstructionReview({
                         {/* 全局素材流切换按钮 + 导出按钮 */}
                         {typeof round2Data !== 'string' && round2Data?.shots && round2Data.shots.length > 0 && (
                             <div className="flex items-center justify-between gap-4 mb-4">
-                                {/* 左侧：定稿统计 */}
-                                <div className="flex items-center gap-3 text-sm">
-                                    {(() => {
-                                        const activeShots = round2Data.shots.filter(s => !s.discarded);
-                                        const total = activeShots.length;
-                                        const outlineCount = activeShots.filter(s => s.finalizedOutline).length;
-                                        const imageCount = activeShots.filter(s => s.finalizedImage).length;
-                                        const videoCount = activeShots.filter(s => s.finalizedVideo).length;
-                                        return (
-                                            <>
-                                                <span className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-100 text-slate-600">
-                                                    <Pencil size={12} />
-                                                    <span className="font-medium">{outlineCount}/{total}</span>
+                                {/* 左侧：素材流切换（带定稿统计） */}
+                                {(() => {
+                                    const activeShots = round2Data.shots.filter(s => !s.discarded);
+                                    const total = activeShots.length;
+                                    const outlineCount = activeShots.filter(s => s.finalizedOutline).length;
+                                    const imageCount = activeShots.filter(s => s.finalizedImage).length;
+                                    const videoCount = activeShots.filter(s => s.finalizedVideo).length;
+                                    return (
+                                        <div className="flex items-center gap-1 p-1 lg-card-inset">
+                                            <button
+                                                onClick={() => setDefaultStream('outline')}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${defaultStream === 'outline'
+                                                    ? 'bg-[var(--lg-blue)] text-white shadow-sm'
+                                                    : 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)] hover:bg-white/50'
+                                                    }`}
+                                            >
+                                                <Pencil size={14} />
+                                                线稿
+                                                <span className={`ml-1 text-xs ${defaultStream === 'outline' ? 'text-white/80' : 'text-[var(--lg-text-tertiary)]'}`}>
+                                                    {outlineCount}/{total}
                                                 </span>
-                                                <span className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-50 text-blue-600">
-                                                    <ImageIcon size={12} />
-                                                    <span className="font-medium">{imageCount}/{total}</span>
+                                            </button>
+                                            <button
+                                                onClick={() => setDefaultStream('image')}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${defaultStream === 'image'
+                                                    ? 'bg-[var(--lg-blue)] text-white shadow-sm'
+                                                    : 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)] hover:bg-white/50'
+                                                    }`}
+                                            >
+                                                <ImageIcon size={14} />
+                                                图片
+                                                <span className={`ml-1 text-xs ${defaultStream === 'image' ? 'text-white/80' : 'text-[var(--lg-text-tertiary)]'}`}>
+                                                    {imageCount}/{total}
                                                 </span>
-                                                <span className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-green-50 text-green-600">
-                                                    <Film size={12} />
-                                                    <span className="font-medium">{videoCount}/{total}</span>
+                                            </button>
+                                            <button
+                                                onClick={() => setDefaultStream('video')}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${defaultStream === 'video'
+                                                    ? 'bg-[var(--lg-blue)] text-white shadow-sm'
+                                                    : 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)] hover:bg-white/50'
+                                                    }`}
+                                            >
+                                                <Video size={14} />
+                                                视频
+                                                <span className={`ml-1 text-xs ${defaultStream === 'video' ? 'text-white/80' : 'text-[var(--lg-text-tertiary)]'}`}>
+                                                    {videoCount}/{total}
                                                 </span>
-                                            </>
-                                        );
-                                    })()}
-                                </div>
+                                            </button>
+                                        </div>
+                                    );
+                                })()}
 
                                 {/* 右侧：操作按钮组 */}
                                 <div className="flex items-center gap-4">
-                                    {/* 素材流切换 - 使用统一的玻璃容器 + 蓝色选中态 */}
-                                    <div className="flex items-center gap-1 p-1 lg-card-inset">
-                                        <button
-                                            onClick={() => setDefaultStream('outline')}
-                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${defaultStream === 'outline'
-                                                ? 'bg-[var(--lg-blue)] text-white shadow-sm'
-                                                : 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)] hover:bg-white/50'
-                                                }`}
-                                        >
-                                            <Pencil size={14} />
-                                            线稿
-                                        </button>
-                                        <button
-                                            onClick={() => setDefaultStream('image')}
-                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${defaultStream === 'image'
-                                                ? 'bg-[var(--lg-blue)] text-white shadow-sm'
-                                                : 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)] hover:bg-white/50'
-                                                }`}
-                                        >
-                                            <ImageIcon size={14} />
-                                            图片
-                                        </button>
-                                        <button
-                                            onClick={() => setDefaultStream('video')}
-                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${defaultStream === 'video'
-                                                ? 'bg-[var(--lg-blue)] text-white shadow-sm'
-                                                : 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)] hover:bg-white/50'
-                                                }`}
-                                        >
-                                            <Video size={14} />
-                                            视频
-                                        </button>
-                                    </div>
-
                                     {/* 分隔线 */}
                                     <div className="w-px h-6 bg-[var(--lg-glass-border)]" />
 
