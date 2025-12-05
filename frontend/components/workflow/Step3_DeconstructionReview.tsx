@@ -4472,9 +4472,10 @@ export default function Step3_DeconstructionReview({
                                 {(() => {
                                     const activeShots = round2Data.shots.filter(s => !s.discarded);
                                     const total = activeShots.length;
-                                    const outlineCount = activeShots.filter(s => s.finalizedOutline).length;
-                                    const imageCount = activeShots.filter(s => s.finalizedImage).length;
-                                    const videoCount = activeShots.filter(s => s.finalizedVideo).length;
+                                    // 新逻辑：有选中内容即为定稿
+                                    const outlineCount = activeShots.filter((s, idx) => !!activeOutlineUrls[s.id ?? idx + 1]).length;
+                                    const imageCount = activeShots.filter((s, idx) => savedIndexes[s.id ?? idx + 1] !== undefined).length;
+                                    const videoCount = activeShots.filter((s, idx) => (selectedVideoIndexes[s.id ?? idx + 1]?.length || 0) > 0).length;
                                     return (
                                         <div className="flex items-center gap-1 p-1 lg-card-inset">
                                             <button

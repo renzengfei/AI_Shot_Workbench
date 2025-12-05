@@ -1013,19 +1013,7 @@ export const ShotCard = ({
                                 {/* 1.5 选中线稿图 - 仅在线稿模式下显示 */}
                                 {showGeneration && effectiveOutlineMode && (
                                     <div className={`${mediaCardBase} ${shot.finalizedOutline ? 'ring-2 ring-zinc-400/30 !duration-100' : ''}`}>
-                                        <div className="flex items-center justify-between">
-                                            <div className={mediaTitleClass}>选中线稿图</div>
-                                            {activeOutlineUrl && (
-                                                <FinalizeButton
-                                                    isFinalized={!!(shot.finalizedOutline && activeOutlineUrl.includes(shot.finalizedOutline))}
-                                                    onClick={() => {
-                                                        const filename = activeOutlineUrl.split('/').pop() || '';
-                                                        const isFinalized = shot.finalizedOutline === filename;
-                                                        onFinalizeOutline?.(shot, index, isFinalized ? null : filename);
-                                                    }}
-                                                />
-                                            )}
-                                        </div>
+                                        <div className={mediaTitleClass}>选中线稿图</div>
                                         <div className={`${mediaBaseClass} border border-[#6B7280]/30 shadow-sm flex items-center justify-center`}>
                                             {activeOutlineUrl ? (
                                                 // eslint-disable-next-line @next/next/no-img-element
@@ -1060,20 +1048,8 @@ export const ShotCard = ({
                                 {/* 2. 选中的生成图片 - 放大 */}
                                 {showGeneration && (
                                     <div className={`${mediaCardBase} ${shot.finalizedImage ? 'ring-2 ring-zinc-400/30 !duration-100' : ''}`}>
-                                        <div className="flex items-center justify-between">
-                                            <div className={mediaTitleClass}>
-                                                {getGenerationInfo(activeImage || '') || '选中生成图'}
-                                            </div>
-                                            {activeImage && (
-                                                <FinalizeButton
-                                                    isFinalized={!!(shot.finalizedImage && activeImage.includes(shot.finalizedImage))}
-                                                    onClick={() => {
-                                                        const filename = activeImage.split('/').pop() || '';
-                                                        const isFinalized = shot.finalizedImage === filename;
-                                                        onFinalizeImage?.(shot, index, isFinalized ? null : filename);
-                                                    }}
-                                                />
-                                            )}
+                                        <div className={mediaTitleClass}>
+                                            {getGenerationInfo(activeImage || '') || '选中生成图'}
                                         </div>
                                         <div className={`${mediaBaseClass} border ${highlightGenerated || (activeImage && newImages.includes(activeImage)) ? 'border-red-400' : 'border-slate-200'} shadow-sm flex items-center justify-center text-lg text-blue-300`}>
                                             {(activeImage && newImages.includes(activeImage)) && (
@@ -1155,17 +1131,6 @@ export const ShotCard = ({
                                                     >
                                                         <X size={14} className="text-[var(--lg-text-tertiary)]" />
                                                     </button>
-                                                )}
-                                                {/* 定稿按钮 */}
-                                                {videoSrc && (
-                                                    <FinalizeButton
-                                                        isFinalized={!!(shot.finalizedVideo && videoSrc.includes(shot.finalizedVideo))}
-                                                        onClick={() => {
-                                                            const filename = videoSrc.split('/').pop() || '';
-                                                            const isFinalized = shot.finalizedVideo === filename;
-                                                            onFinalizeVideo?.(shot, index, isFinalized ? null : filename);
-                                                        }}
-                                                    />
                                                 )}
                                             </div>
                                         </div>
