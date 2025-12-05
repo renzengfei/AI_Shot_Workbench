@@ -2691,9 +2691,9 @@ export default function Step3_DeconstructionReview({
             })
             .catch(() => {
                 setSavedIndexes({});
-                // 初始化 window 变量为空对象，避免后续保存时读取到 undefined
-                (window as unknown as Record<string, unknown>).__savedImageFilenames = {};
-                setSavedIndexesLoaded(true); // 即使失败也标记完成
+                // 【重要】网络失败时不设置 savedIndexesLoaded，阻止保存操作
+                // 这样可以避免覆盖服务器上的数据
+                console.error('加载图片选择数据失败，保存功能已禁用');
             });
     }, [currentWorkspace?.path, generatedDir]);
 
@@ -2735,9 +2735,9 @@ export default function Step3_DeconstructionReview({
             .catch(() => {
                 setSavedVideoFilenames({});
                 setSavedVideoIndexes({});
-                // 初始化 window 变量为空对象，避免后续保存时读取到 undefined
-                (window as unknown as Record<string, unknown>).__savedVideoFilenames = {};
-                setSavedVideoIndexesLoaded(true);
+                // 【重要】网络失败时不设置 savedVideoIndexesLoaded，阻止保存操作
+                // 这样可以避免覆盖服务器上的数据
+                console.error('加载视频选择数据失败，保存功能已禁用');
             });
     }, [currentWorkspace?.path, generatedDir]);
 
