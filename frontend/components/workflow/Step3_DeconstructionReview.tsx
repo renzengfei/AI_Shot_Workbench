@@ -3483,29 +3483,27 @@ export default function Step3_DeconstructionReview({
 
     return (
         <>
-            {/* Liquid Glass Background Blur Orbs */}
-            <div className="lg-blur-orb" style={{ 
-                top: '-200px', 
-                right: '-100px', 
-                width: '600px', 
-                height: '600px', 
-                background: 'linear-gradient(135deg, #FF9500, #FF2D55)' 
+            {/* Liquid Glass Background - 精致多层背景 */}
+            <div className="lg-background" />
+            {/* 柔和光晕层 */}
+            <div className="lg-blur-orb lg-orb-blue" style={{ 
+                top: '-30%', 
+                right: '-20%', 
+                width: '80%', 
+                height: '80%'
             }} />
-            <div className="lg-blur-orb" style={{ 
-                bottom: '-200px', 
-                left: '-100px', 
-                width: '500px', 
-                height: '500px', 
-                background: 'linear-gradient(135deg, #5AC8FA, #007AFF)' 
+            <div className="lg-blur-orb lg-orb-warm" style={{ 
+                bottom: '-25%', 
+                left: '-15%', 
+                width: '70%', 
+                height: '70%'
             }} />
-            <div className="lg-blur-orb" style={{ 
-                top: '40%', 
-                left: '50%', 
-                transform: 'translateX(-50%)',
-                width: '400px', 
-                height: '400px', 
-                background: 'linear-gradient(135deg, #34C759, #30D158)',
-                opacity: 0.15
+            <div className="lg-blur-orb lg-orb-green" style={{ 
+                top: '20%', 
+                left: '55%',
+                width: '60%', 
+                height: '60%',
+                filter: 'blur(60px)'
             }} />
 
             <div className="space-y-12 pb-32 relative z-10">

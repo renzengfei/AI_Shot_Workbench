@@ -1,3 +1,4 @@
+import '@/styles/liquid-glass.css';
 import { Clock, Zap, Image as ImageIcon, Layers, Sparkles, Users, Sun, Palette, CheckCircle2, RefreshCw, Box, Layout, Trash2, ChevronDown, Check, AlertCircle, Video, Wand2, Loader2, FileText, X, ChevronLeft, ChevronRight, Undo2, Square, Pencil, Film } from 'lucide-react';
 import { type ReactNode, useState, useEffect, useMemo } from 'react';
 import { AutoTextArea } from '@/components/ui/AutoTextArea';
@@ -798,7 +799,7 @@ export const ShotCard = ({
 
     // Media container: 9:16 aspect with premium styling
     const mediaBaseClass = `relative aspect-[9/16] ${CARD_RADIUS} overflow-hidden bg-[var(--theme-bg-page)] border border-[var(--theme-border)]`;
-    const mediaCardBase = `flex-shrink-0 ${MEDIA_WIDTH} ${CARD_RADIUS} glass-card ${CARD_PADDING} flex flex-col ${CARD_GAP} transition-all duration-300`;
+    const mediaCardBase = `flex-shrink-0 ${MEDIA_WIDTH} ${CARD_RADIUS} lg-card ${CARD_PADDING} flex flex-col ${CARD_GAP} transition-all duration-300`;
     // Title styling: fixed height for alignment
     const mediaTitleClass = 'h-5 text-xs font-semibold text-[var(--theme-text-sub)] text-center tracking-wide uppercase';
 
@@ -878,7 +879,7 @@ export const ShotCard = ({
         <>
             <div
                 id={`shot-${index}`}
-                className={`relative group p-6 glass-card ${borderColor}`}
+                className={`relative group p-6 lg-card ${borderColor}`}
             >
                 {/* Discarded Overlay */}
                 {isDiscarded && (
@@ -1057,7 +1058,7 @@ export const ShotCard = ({
                                                 value={selectedProviderId || providers.find(p => p.is_default)?.id || providers[0]?.id || ''}
                                                 onChange={(e) => onProviderChange?.(shot, index, e.target.value)}
                                                 disabled={isGenerating}
-                                                className="flex-shrink-0 px-2 py-2 rounded-lg text-xs font-medium bg-white/80 border border-slate-200/50 text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50 disabled:opacity-50"
+                                                className="lg-input flex-shrink-0 py-2 text-xs font-medium disabled:opacity-50 w-auto"
                                                 title="选择生图供应商"
                                             >
                                                 {providers.map(p => (
@@ -1077,9 +1078,9 @@ export const ShotCard = ({
                                                 }, 50);
                                             }}
                                             disabled={isGenerating}
-                                            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shadow-md transition-all duration-200 active:scale-95 ${isGenerating
-                                                ? 'bg-slate-400 text-white cursor-not-allowed'
-                                                : 'bg-zinc-800 text-white hover:bg-zinc-700'
+                                            className={`flex-1 lg-btn ${isGenerating
+                                                ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
+                                                : 'lg-btn-primary'
                                                 }`}
                                         >
                                             {isGenerating ? (
@@ -1134,7 +1135,7 @@ export const ShotCard = ({
                             )}
 
                             {/* 4. 首帧/视频描述 */}
-                            <div className={`flex-shrink-0 ${DESC_WIDTH} ${CARD_HEIGHT} glass-card ${CARD_PADDING} flex flex-col ${CARD_GAP} overflow-y-auto`}>
+                            <div className={`flex-shrink-0 ${DESC_WIDTH} ${CARD_HEIGHT} lg-card ${CARD_PADDING} flex flex-col ${CARD_GAP} overflow-y-auto`}>
                                 {/* 线稿提示词输入框 - 仅在线稿模式下显示，默认折叠 */}
                                 {effectiveOutlineMode && (
                                     <div className="flex flex-col gap-2 flex-shrink-0 mb-2">

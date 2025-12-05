@@ -18,11 +18,11 @@
     --lg-text-secondary: rgba(0, 0, 0, 0.65);
     --lg-text-tertiary: rgba(0, 0, 0, 0.45);
     
-    /* 玻璃材质 */
+    /* 玻璃材质 - 高级版本 */
     --lg-glass-bg: rgba(255, 255, 255, 0.25);
-    --lg-glass-bg-strong: rgba(255, 255, 255, 0.72);
-    --lg-glass-border: rgba(255, 255, 255, 0.3);
-    --lg-glass-blur: 20px;
+    --lg-glass-bg-strong: rgba(255, 255, 255, 0.85);
+    --lg-glass-border: rgba(255, 255, 255, 0.6);
+    --lg-glass-blur: 60px;
     --lg-glass-saturate: 180%;
     
     /* 系统色 */
@@ -33,10 +33,10 @@
     --lg-purple: #AF52DE;
     --lg-cyan: #5AC8FA;
     
-    /* 阴影 */
-    --lg-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
-    --lg-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
-    --lg-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
+    /* 阴影 - 更精致的多层阴影 */
+    --lg-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.02), 0 4px 12px rgba(0, 0, 0, 0.04);
+    --lg-shadow-md: 0 1px 3px rgba(0, 0, 0, 0.02), 0 4px 12px rgba(0, 0, 0, 0.04), 0 16px 48px rgba(0, 0, 0, 0.06);
+    --lg-shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.02), 0 8px 24px rgba(0, 0, 0, 0.06), 0 24px 64px rgba(0, 0, 0, 0.08);
     --lg-shadow-xl: 0 24px 80px rgba(0, 0, 0, 0.25);
     
     /* 圆角 */
@@ -44,7 +44,7 @@
     --lg-radius-md: 12px;
     --lg-radius-lg: 16px;
     --lg-radius-xl: 20px;
-    --lg-radius-2xl: 24px;
+    --lg-radius-2xl: 28px;
     
     /* 间距 */
     --lg-space-1: 4px;
@@ -63,42 +63,56 @@
     --lg-easing-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* 深色模式 */
-.dark, [data-theme="dark"] {
-    --lg-bg-primary: #000000;
-    --lg-bg-secondary: #1C1C1E;
-    --lg-text-primary: #F5F5F7;
-    --lg-text-secondary: rgba(255, 255, 255, 0.7);
-    --lg-text-tertiary: rgba(255, 255, 255, 0.5);
-    --lg-glass-bg: rgba(30, 30, 30, 0.6);
-    --lg-glass-bg-strong: rgba(50, 50, 50, 0.85);
-    --lg-glass-border: rgba(255, 255, 255, 0.1);
-}
-
-/* ==================== 玻璃卡片 ==================== */
+/* ==================== 玻璃卡片 - 高级材质 ==================== */
 .lg-card {
-    background: var(--lg-glass-bg);
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--lg-radius-2xl);
+    /* 多层渐变模拟玻璃内部光线 */
+    background: 
+        linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.3) 100%),
+        rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(var(--lg-glass-blur)) saturate(var(--lg-glass-saturate));
     -webkit-backdrop-filter: blur(var(--lg-glass-blur)) saturate(var(--lg-glass-saturate));
-    border-radius: var(--lg-radius-xl);
+    /* 精致边框 */
     border: 1px solid var(--lg-glass-border);
+    /* 多层精致阴影 */
     box-shadow: 
-        inset 1px 1px 0 0 rgba(255, 255, 255, 0.5),
-        inset -1px -1px 0 0 rgba(255, 255, 255, 0.15),
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.9),
+        inset 0 -1px 0 0 rgba(255, 255, 255, 0.3),
         var(--lg-shadow-md);
-    transition: all var(--lg-transition-slow) var(--lg-easing-default);
+    transition: all var(--lg-transition-slow) var(--lg-easing-spring);
+}
+
+/* 玻璃顶部高光条 */
+.lg-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 32px;
+    right: 32px;
+    height: 1px;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(255,255,255,0.6) 15%, 
+        rgba(255,255,255,1) 50%, 
+        rgba(255,255,255,0.6) 85%, 
+        transparent 100%);
+    pointer-events: none;
 }
 
 .lg-card:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     box-shadow: 
-        inset 1px 1px 0 0 rgba(255, 255, 255, 0.5),
-        inset -1px -1px 0 0 rgba(255, 255, 255, 0.1),
+        inset 0 1px 0 0 rgba(255, 255, 255, 1),
+        inset 0 -1px 0 0 rgba(255, 255, 255, 0.4),
         var(--lg-shadow-lg);
 }
 
 .lg-card-strong {
-    background: var(--lg-glass-bg-strong);
+    background: 
+        linear-gradient(180deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0.7) 100%),
+        var(--lg-glass-bg-strong);
 }
 
 /* ==================== 按钮 ==================== */
@@ -121,8 +135,11 @@
     color: #fff;
 }
 .lg-btn-primary:hover {
-    filter: brightness(1.1);
-    transform: scale(1.02);
+    filter: brightness(1.05);
+    transform: translateY(-1px);
+}
+.lg-btn-primary:active {
+    transform: scale(0.98);
 }
 
 .lg-btn-secondary {
@@ -225,9 +242,9 @@
 .lg-footnote { font-size: 13px; }
 .lg-caption { font-size: 12px; }
 
-/* ==================== 渐变文字 ==================== */
+/* ==================== 渐变文字 - 柔和双色渐变 ==================== */
 .lg-gradient-text {
-    background: linear-gradient(135deg, #007AFF 0%, #5AC8FA 25%, #34C759 50%, #FF9500 75%, #FF2D55 100%);
+    background: linear-gradient(135deg, #1D1D1F 0%, #636366 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -235,6 +252,20 @@
 }
 .lg-gradient-blue {
     background: linear-gradient(135deg, #007AFF 0%, #5AC8FA 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+}
+.lg-gradient-purple {
+    background: linear-gradient(135deg, #AF52DE 0%, #C77DFF 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+}
+.lg-gradient-green {
+    background: linear-gradient(135deg, #34C759 0%, #70E090 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -250,15 +281,68 @@
     from { opacity: 0; transform: scale(0.95); }
     to { opacity: 1; transform: scale(1); }
 }
+@keyframes lg-slide-up {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
 .lg-animate-fade-in { animation: lg-fade-in var(--lg-transition-slow) var(--lg-easing-default); }
 .lg-animate-scale-in { animation: lg-scale-in var(--lg-transition-slow) var(--lg-easing-spring); }
+.lg-animate-slide-up { animation: lg-slide-up var(--lg-transition-slow) var(--lg-easing-spring); }
 
-/* ==================== 模糊背景装饰 ==================== */
+/* ==================== 模态框 ==================== */
+.lg-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: lg-fade-in var(--lg-transition-normal) var(--lg-easing-default);
+}
+
+.lg-modal-content {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(40px) saturate(200%);
+    -webkit-backdrop-filter: blur(40px) saturate(200%);
+    border-radius: var(--lg-radius-xl);
+    padding: var(--lg-space-8);
+    max-width: 400px;
+    width: 90%;
+    box-shadow: var(--lg-shadow-xl);
+    animation: lg-slide-up var(--lg-transition-slow) var(--lg-easing-spring);
+}
+
+/* ==================== 背景装饰 - 柔和光晕 ==================== */
 .lg-blur-orb {
     position: fixed;
     border-radius: 50%;
-    filter: blur(150px);
-    opacity: 0.25;
+    filter: blur(40px);
     pointer-events: none;
     z-index: -1;
+}
+
+/* 预设光晕 - 精致的灰蓝色调 */
+.lg-orb-blue {
+    background: radial-gradient(circle, rgba(160,180,220,0.4) 0%, rgba(180,200,240,0.2) 40%, transparent 70%);
+}
+.lg-orb-warm {
+    background: radial-gradient(circle, rgba(220,190,170,0.35) 0%, rgba(240,210,190,0.15) 40%, transparent 70%);
+}
+.lg-orb-green {
+    background: radial-gradient(circle, rgba(180,210,200,0.3) 0%, transparent 60%);
+}
+
+/* 精致多层背景渐变 */
+.lg-background {
+    position: fixed;
+    inset: 0;
+    background: 
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(120,140,200,0.15) 0%, transparent 50%),
+        radial-gradient(ellipse 60% 40% at 100% 100%, rgba(200,160,140,0.12) 0%, transparent 50%),
+        linear-gradient(180deg, #FAFBFD 0%, #F5F5F7 50%, #F8F7F5 100%);
+    pointer-events: none;
+    z-index: -2;
 }
