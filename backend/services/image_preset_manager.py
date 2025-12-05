@@ -53,6 +53,7 @@ class ImagePresetManager:
         content: str,
         character_ref_template: Optional[str] = None,
         scene_ref_template: Optional[str] = None,
+        images_per_generation: Optional[int] = None,
     ) -> Dict[str, Any]:
         now = datetime.now().isoformat()
         preset = {
@@ -61,6 +62,7 @@ class ImagePresetManager:
             "content": content.strip(),
             "character_ref_template": (character_ref_template or "").strip() or None,
             "scene_ref_template": (scene_ref_template or "").strip() or None,
+            "images_per_generation": images_per_generation if images_per_generation and images_per_generation > 0 else 2,
             "created_at": now,
             "updated_at": now,
         }
@@ -76,6 +78,7 @@ class ImagePresetManager:
         content: Optional[str] = None,
         character_ref_template: Optional[str] = None,
         scene_ref_template: Optional[str] = None,
+        images_per_generation: Optional[int] = None,
     ) -> Optional[Dict[str, Any]]:
         presets = self._load()
         updated = None
@@ -92,6 +95,8 @@ class ImagePresetManager:
                     p["character_ref_template"] = character_ref_template.strip() or None
                 if scene_ref_template is not None:
                     p["scene_ref_template"] = scene_ref_template.strip() or None
+                if images_per_generation is not None:
+                    p["images_per_generation"] = images_per_generation if images_per_generation > 0 else 2
                 p["updated_at"] = datetime.now().isoformat()
                 updated = p
                 break

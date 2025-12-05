@@ -8,6 +8,8 @@ export interface ImagePreset {
     character_ref_template?: string | null;
     /** 场景参考模板，如 "画面的景别、人物姿势和动作严格参考图{image}。" */
     scene_ref_template?: string | null;
+    /** 每次生成图片数量，默认 2 */
+    images_per_generation?: number | null;
     created_at?: string;
     updated_at?: string;
 }
@@ -24,6 +26,7 @@ export interface PresetFormData {
     name?: string;
     character_ref_template?: string | null;
     scene_ref_template?: string | null;
+    images_per_generation?: number | null;
 }
 
 export async function createImagePreset(data: PresetFormData): Promise<ImagePreset> {

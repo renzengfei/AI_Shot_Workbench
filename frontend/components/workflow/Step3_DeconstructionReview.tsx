@@ -165,7 +165,7 @@ export default function Step3_DeconstructionReview({
     const [shotPage, setShotPage] = useState(0);
     const shotsPerPage = 5;
     const [workspacePresetSnapshot, setWorkspacePresetSnapshot] = useState<ImagePreset | null>(null);
-    const [presetForm, setPresetForm] = useState<{ content: string }>({ content: '' });
+    const [presetForm, setPresetForm] = useState<{ content: string; images_per_generation: number }>({ content: '', images_per_generation: 2 });
     const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
     const [presetSaving, setPresetSaving] = useState(false);
     // Generated images per shot
@@ -938,12 +938,12 @@ export default function Step3_DeconstructionReview({
 
     const handleEditPreset = (preset: ImagePreset) => {
         setEditingPresetId(preset.id);
-        setPresetForm({ content: preset.content });
+        setPresetForm({ content: preset.content, images_per_generation: preset.images_per_generation || 2 });
     };
 
     const handleResetPresetForm = () => {
         setEditingPresetId(null);
-        setPresetForm({ content: '' });
+        setPresetForm({ content: '', images_per_generation: 2 });
     };
 
     const handleSavePreset = async () => {
@@ -957,6 +957,7 @@ export default function Step3_DeconstructionReview({
             const formData = {
                 content: presetForm.content,
                 name: autoName,
+                images_per_generation: presetForm.images_per_generation,
             };
             if (editingPresetId) {
                 const updated = await updateImagePreset(editingPresetId, formData);
@@ -1626,7 +1627,7 @@ export default function Step3_DeconstructionReview({
                     prompt,
                     reference_image_ids: refs,
                     generated_dir: generatedDir,
-                    count: 2,
+                    count: activeImagePreset?.images_per_generation || 2,
                     ...(providerId && { provider_id: providerId }),
                 }),
             });
@@ -5377,6 +5378,18 @@ export default function Step3_DeconstructionReview({
                                     className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none"
                                     placeholder="描述画风、用词模板、比例等，将在生成时拼接到首帧描述后"
                                 />
+                                <div className="flex items-center gap-3">
+                                    <label className="text-xs text-slate-600 whitespace-nowrap">每次生成</label>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={4}
+                                        value={presetForm.images_per_generation}
+                                        onChange={(e) => setPresetForm((prev) => ({ ...prev, images_per_generation: Math.max(1, Math.min(4, parseInt(e.target.value) || 2)) }))}
+                                        className="w-16 px-2 py-1 rounded-lg border border-slate-200 bg-white text-sm text-center focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+                                    />
+                                    <span className="text-xs text-slate-500">张图片（1-4）</span>
+                                </div>
                                 <div className="flex gap-2 justify-end">
                                     <button
                                         onClick={() => void handleSavePreset()}

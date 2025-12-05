@@ -304,11 +304,13 @@ class CategoryRenameRequest(BaseModel):
 class ImagePresetCreateRequest(BaseModel):
     name: Optional[str] = None
     content: str
+    images_per_generation: Optional[int] = None
 
 
 class ImagePresetUpdateRequest(BaseModel):
     name: Optional[str] = None
     content: Optional[str] = None
+    images_per_generation: Optional[int] = None
 
 
 class WorkspacePresetRequest(BaseModel):
@@ -597,13 +599,22 @@ def list_image_presets():
 
 @app.post("/api/image-presets")
 def create_image_preset(payload: ImagePresetCreateRequest):
-    preset = image_preset_manager.create_preset(payload.name, payload.content)
+    preset = image_preset_manager.create_preset(
+        payload.name, 
+        payload.content, 
+        images_per_generation=payload.images_per_generation
+    )
     return {"preset": preset}
 
 
 @app.patch("/api/image-presets/{preset_id}")
 def update_image_preset(preset_id: str, payload: ImagePresetUpdateRequest):
-    updated = image_preset_manager.update_preset(preset_id, payload.name, payload.content)
+    updated = image_preset_manager.update_preset(
+        preset_id, 
+        payload.name, 
+        payload.content,
+        images_per_generation=payload.images_per_generation
+    )
     if not updated:
         raise HTTPException(status_code=404, detail="生图设定不存在")
     return {"preset": updated}
