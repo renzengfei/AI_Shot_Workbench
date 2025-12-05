@@ -1128,8 +1128,8 @@ export default function Step3_DeconstructionReview({
                 ? current.filter(i => i !== idx)  // 移除
                 : [...current, idx];               // 添加
 
-            // 在回调中直接获取最新值并保存
-            saveVideoSelectionsToBackend(shotId, next);
+            // 延迟保存，避免在 setState 回调中触发 Zustand 更新导致渲染错误
+            setTimeout(() => saveVideoSelectionsToBackend(shotId, next), 0);
 
             return { ...prev, [shotId]: next };
         });
@@ -1141,8 +1141,8 @@ export default function Step3_DeconstructionReview({
             const current = prev[shotId] || [];
             const next = current.filter(i => i !== idx);
 
-            // 在回调中直接获取最新值并保存
-            saveVideoSelectionsToBackend(shotId, next);
+            // 延迟保存，避免在 setState 回调中触发 Zustand 更新导致渲染错误
+            setTimeout(() => saveVideoSelectionsToBackend(shotId, next), 0);
 
             return { ...prev, [shotId]: next };
         });
