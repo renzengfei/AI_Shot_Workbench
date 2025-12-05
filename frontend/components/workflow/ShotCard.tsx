@@ -1004,9 +1004,9 @@ export const ShotCard = ({
                                         <button
                                             onClick={() => onGenerateOutline?.(shot, index)}
                                             disabled={isGeneratingOutline}
-                                            className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shadow-md transition-all duration-200 active:scale-95 ${isGeneratingOutline
-                                                ? 'bg-slate-400 text-white cursor-not-allowed'
-                                                : 'bg-slate-500 text-white hover:bg-slate-600'
+                                            className={`lg-btn lg-btn-sm w-full ${isGeneratingOutline
+                                                ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
+                                                : 'lg-btn-secondary'
                                                 }`}
                                         >
                                             {isGeneratingOutline ? (
@@ -1217,9 +1217,9 @@ export const ShotCard = ({
                                                         }, 50);
                                                     }}
                                                     disabled={isGenerating}
-                                                    className={`flex items-center justify-center gap-2 w-[100px] py-1.5 rounded-xl text-xs font-medium shadow-sm transition-all duration-200 active:scale-95 normal-case h-[34px] ${isGenerating
-                                                        ? 'bg-slate-400 text-white cursor-not-allowed'
-                                                        : 'bg-zinc-800 text-white hover:bg-zinc-700'
+                                                    className={`lg-btn lg-btn-xs ${isGenerating
+                                                        ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
+                                                        : 'lg-btn-primary'
                                                         }`}
                                                 >
                                                     {isGenerating ? (
@@ -1410,13 +1410,12 @@ export const ShotCard = ({
                                                             onPlay={() => onVideoSeen?.(url)}
                                                         />
                                                     </div>
-                                                    {/* 操作按钮区 */}
                                                     <div className="flex items-center gap-2">
                                                         <button
                                                             onClick={() => onSelectVideoIndex?.(idx)}
-                                                            className={`flex-1 flex items-center justify-center gap-2 text-sm font-medium ${BTN_RADIUS} px-4 py-2.5 transition-all duration-200 active:scale-[0.98] ${isSelected
-                                                                ? 'bg-[#71717a] text-white shadow-md'
-                                                                : 'bg-white/70 border border-slate-200/50 text-slate-600 hover:bg-white hover:border-[#71717a]/50 hover:text-[#71717a]'}`}
+                                                            className={`flex-1 lg-btn lg-btn-sm ${isSelected
+                                                                ? 'lg-btn-secondary'
+                                                                : 'lg-btn-glass'}`}
                                                         >
                                                             {isSelected ? <><Check size={14} /> 已选择</> : '选择此视频'}
                                                         </button>
@@ -1555,11 +1554,11 @@ export const ShotCard = ({
                                                 <div className="flex items-center gap-2">
                                                     <button
                                                         onClick={() => onSelectGeneratedIndex?.(shot, index, originalIdx)}
-                                                        className={`flex-1 flex items-center justify-center gap-2 text-sm font-medium ${BTN_RADIUS} px-4 py-2.5 transition-all duration-200 active:scale-[0.98] ${isActive
-                                                            ? 'bg-zinc-800 text-white shadow-sm'
-                                                            : 'bg-white/70 border border-slate-200/50 text-slate-600 hover:bg-white hover:border-blue-300 hover:text-blue-600'}`}
+                                                        className={`flex-1 lg-btn lg-btn-sm ${isActive
+                                                            ? 'lg-btn-secondary'
+                                                            : 'lg-btn-glass'}`}
                                                     >
-                                                        {isActive ? <><Check size={14} /> 已选择</> : '选择此图'}
+                                                        {isActive ? <><Check size={14} /> 已选择</> : '选择此图片'}
                                                     </button>
                                                     <span className={`text-xs font-medium text-slate-400 px-2.5 py-2 bg-slate-100/80 ${BTN_RADIUS} border border-slate-200/30`}>
                                                         #{getImageIndex(url)}
@@ -2215,49 +2214,52 @@ export const ShotCard = ({
                     </div>
                 </div>
             </div>
-
             {/* Delete Confirmation Modal */}
-            {deleteConfirm && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-slate-200">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 rounded-full bg-red-100">
-                                <Trash2 size={20} className="text-red-500" />
+            {
+                deleteConfirm && (
+                    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                        <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-slate-200">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-2 rounded-full bg-red-100">
+                                    <Trash2 size={20} className="text-red-500" />
+                                </div>
+                                <h3 className="text-lg font-semibold text-slate-800">确认删除</h3>
                             </div>
-                            <h3 className="text-lg font-semibold text-slate-800">确认删除</h3>
-                        </div>
-                        <p className="text-slate-600 mb-6">
-                            确定要删除 <span className="font-medium text-slate-800">{deleteConfirm.label}</span> 吗？此操作无法撤销。
-                        </p>
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setDeleteConfirm(null)}
-                                className="flex-1 px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 transition font-medium"
-                            >
-                                取消
-                            </button>
-                            <button
-                                onClick={() => handleDeleteItem(deleteConfirm.type, deleteConfirm.index)}
-                                className="flex-1 px-4 py-2 rounded-xl bg-[#e11d48] text-white hover:bg-[#be123c] transition font-medium shadow-lg shadow-[#e11d48]/20"
-                            >
-                                确认删除
-                            </button>
+                            <p className="text-slate-600 mb-6">
+                                确定要删除 <span className="font-medium text-slate-800">{deleteConfirm.label}</span> 吗？此操作无法撤销。
+                            </p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setDeleteConfirm(null)}
+                                    className="flex-1 px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 transition font-medium"
+                                >
+                                    取消
+                                </button>
+                                <button
+                                    onClick={() => handleDeleteItem(deleteConfirm.type, deleteConfirm.index)}
+                                    className="flex-1 px-4 py-2 rounded-xl bg-[#e11d48] text-white hover:bg-[#be123c] transition font-medium shadow-lg shadow-[#e11d48]/20"
+                                >
+                                    确认删除
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* 图片放大查看 Lightbox */}
-            {lightboxIndex !== null && sortedImages.length > 0 && (
-                <ImageLightbox
-                    images={sortedImages}
-                    currentIndex={lightboxIndex}
-                    onClose={() => setLightboxIndex(null)}
-                    onPrev={() => setLightboxIndex(Math.max(0, lightboxIndex - 1))}
-                    onNext={() => setLightboxIndex(Math.min(sortedImages.length - 1, lightboxIndex + 1))}
-                    getImageIndex={getImageIndex}
-                />
-            )}
+            {
+                lightboxIndex !== null && sortedImages.length > 0 && (
+                    <ImageLightbox
+                        images={sortedImages}
+                        currentIndex={lightboxIndex}
+                        onClose={() => setLightboxIndex(null)}
+                        onPrev={() => setLightboxIndex(Math.max(0, lightboxIndex - 1))}
+                        onNext={() => setLightboxIndex(Math.min(sortedImages.length - 1, lightboxIndex + 1))}
+                        getImageIndex={getImageIndex}
+                    />
+                )
+            }
         </>
     );
 };
