@@ -43,13 +43,11 @@
 3. **保守点击策略**：关闭弹窗等操作只使用精确选择器（如 `data-testid`、`aria-label`），禁止使用模糊选择器（如 `[class*="close"]`）或随机位置点击。
 4. **网页结构易变**：第三方网站的 DOM 结构随时可能变化，不要假设之前的选择器仍然有效。
 
-## UI 设计规范 (Liquid Glass Design System)
+## UI 设计规范
 
-本项目采用 **Liquid Glass** 设计风格。开发 UI 时请参考完整设计规范：
+本项目采用 **Liquid Glass** 设计风格（基于 Apple iOS 26 HIG）。
 
-- **📖 设计规范文档**: `frontend/app/liquid-glass-demo-v2/page.tsx`（可视化 + 代码示例）
-- **🎨 可复用样式**: `frontend/styles/liquid-glass.css`（导入即用）
-- **🌐 在线预览**: http://localhost:3000/liquid-glass-demo-v2
+开发 UI 组件时，参考 `frontend/app/liquid-glass-demo-v2/page.tsx` 获取完整设计规范与代码示例。
 
 ## Git 变更范围（提交清单）
 
