@@ -2733,6 +2733,8 @@ export default function Step3_DeconstructionReview({
             .catch(() => {
                 setSavedVideoFilenames({});
                 setSavedVideoIndexes({});
+                // 初始化 window 变量为空对象，避免后续保存时读取到 undefined
+                (window as unknown as Record<string, unknown>).__savedVideoFilenames = {};
                 setSavedVideoIndexesLoaded(true);
             });
     }, [currentWorkspace?.path, generatedDir]);
