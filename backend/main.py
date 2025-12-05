@@ -925,7 +925,7 @@ async def run_image_task(task_path: str, payload: ImageTaskCreateRequest):
     if count > 4:
         count = 4
 
-    # 并发生成多张图片
+    # 串行生成多张图片（间隔 3 秒，避免 API 限流）
     async def generate_one():
         gen_req = GenerateImageRequest(
             workspace_path=payload.workspace_path,
@@ -937,8 +937,15 @@ async def run_image_task(task_path: str, payload: ImageTaskCreateRequest):
         )
         return await generate_images_internal(gen_req)
 
-    tasks = [generate_one() for _ in range(count)]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    results = []
+    for i in range(count):
+        if i > 0:
+            await asyncio.sleep(3)  # 间隔 3 秒
+        try:
+            result = await generate_one()
+            results.append(result)
+        except Exception as e:
+            results.append(e)
 
     error_messages = []
     for result in results:
