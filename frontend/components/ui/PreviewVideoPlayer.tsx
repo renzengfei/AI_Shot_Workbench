@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, type ChangeEvent, type ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, Maximize } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Maximize, Loader2 } from 'lucide-react';
 
 interface PreviewVideoPlayerProps {
     src: string;
@@ -37,6 +37,7 @@ export const PreviewVideoPlayer = ({
         if (typeof window === 'undefined') return false;
         return typeof IntersectionObserver === 'undefined' ? true : false;
     });
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         if (videoRef.current) {
@@ -77,7 +78,7 @@ export const PreviewVideoPlayer = ({
                     observer.disconnect();
                 }
             });
-        }, { rootMargin: '200px' });
+        }, { rootMargin: '500px' });  // 提前 500px 开始加载
         observer.observe(el);
         return () => observer.disconnect();
     }, [lazy, shouldLoad]);
@@ -90,7 +91,10 @@ export const PreviewVideoPlayer = ({
         const onLoadedMetadata = () => {
             setDuration(video.duration);
             video.playbackRate = rate;  // 视频加载后应用默认倍速
+            setIsLoading(false);  // 视频元数据加载完成
         };
+        const onCanPlay = () => setIsLoading(false);
+        const onWaiting = () => setIsLoading(true);
         const onPlayEvent = () => {
             setPlaying(true);
             onPlay?.();  // 调用外部回调
@@ -100,6 +104,8 @@ export const PreviewVideoPlayer = ({
 
         video.addEventListener('timeupdate', onTimeUpdate);
         video.addEventListener('loadedmetadata', onLoadedMetadata);
+        video.addEventListener('canplay', onCanPlay);
+        video.addEventListener('waiting', onWaiting);
         video.addEventListener('play', onPlayEvent);
         video.addEventListener('pause', onPause);
         video.addEventListener('ended', onEnded);
@@ -107,6 +113,8 @@ export const PreviewVideoPlayer = ({
         return () => {
             video.removeEventListener('timeupdate', onTimeUpdate);
             video.removeEventListener('loadedmetadata', onLoadedMetadata);
+            video.removeEventListener('canplay', onCanPlay);
+            video.removeEventListener('waiting', onWaiting);
             video.removeEventListener('play', onPlayEvent);
             video.removeEventListener('pause', onPause);
             video.removeEventListener('ended', onEnded);
@@ -183,6 +191,12 @@ export const PreviewVideoPlayer = ({
                     preload={shouldLoad ? "metadata" : "none"}
                     poster={poster}
                 />
+                {/* 加载指示器 */}
+                {isLoading && shouldLoad && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+                        <Loader2 size={32} className="text-white animate-spin" />
+                    </div>
+                )}
             </div>
 
             {/* Controls Area - Liquid Glass Style */}
