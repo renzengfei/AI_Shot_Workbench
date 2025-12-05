@@ -1491,7 +1491,7 @@ export default function Step3_DeconstructionReview({
         }
 
         // 获取首帧描述
-        let initialFrameDesc = typeof shot.initial_frame === 'string'
+        const initialFrameDesc = typeof shot.initial_frame === 'string'
             ? shot.initial_frame
             : JSON.stringify(shot.initial_frame || {});
 
@@ -2947,7 +2947,7 @@ export default function Step3_DeconstructionReview({
                             ref={textareaRef}
                             value={value}
                             onChange={(e) => updateAnnotation(id, e.target.value)}
-                            className="w-full bg-[var(--color-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg p-2 text-xs text-[var(--lg-text-primary)] min-h-[100px] focus:outline-none focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/20"
+                            className="w-full bg-[var(--lg-bg-secondary)]/60 border border-[var(--glass-border)] rounded-lg p-2 text-xs text-[var(--lg-text-primary)] min-h-[100px] focus:outline-none focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/20"
                             placeholder={`填写对「${label}」的批注...`}
                         />
                     </div>
@@ -3621,7 +3621,7 @@ export default function Step3_DeconstructionReview({
                                     )}
                                     <button
                                         onClick={() => setShowComparePanel(false)}
-                                        className="p-1 hover:bg-[var(--color-bg-tertiary)] rounded text-[var(--lg-text-tertiary)]"
+                                        className="p-1 hover:bg-[var(--lg-bg-tertiary)] rounded text-[var(--lg-text-tertiary)]"
                                     >
                                         <X size={16} />
                                     </button>
@@ -3636,7 +3636,7 @@ export default function Step3_DeconstructionReview({
                                         value={compareRound1Text}
                                         onChange={(e) => setCompareRound1Text(e.target.value)}
                                         placeholder="粘贴 Round 1 JSON（含 round1_skeleton 和 round1_hook）..."
-                                        className={`w-full h-28 bg-[var(--color-bg-primary)] border rounded-lg p-3 text-xs font-mono text-[var(--lg-text-primary)] focus:outline-none focus:ring-1 resize-none ${compareRound1Error
+                                        className={`w-full h-28 bg-[var(--lg-bg-primary)] border rounded-lg p-3 text-xs font-mono text-[var(--lg-text-primary)] focus:outline-none focus:ring-1 resize-none ${compareRound1Error
                                             ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20'
                                             : 'border-[var(--glass-border)] focus:border-blue-500/50 focus:ring-blue-500/20'
                                             }`}
@@ -3655,7 +3655,7 @@ export default function Step3_DeconstructionReview({
                                         value={compareRound2Text}
                                         onChange={(e) => setCompareRound2Text(e.target.value)}
                                         placeholder="粘贴 Round 2 Markdown（含角色说明 + 分镜表格）..."
-                                        className={`w-full h-28 bg-[var(--color-bg-primary)] border rounded-lg p-3 text-xs font-mono text-[var(--lg-text-primary)] focus:outline-none focus:ring-1 resize-none ${compareRound2Error
+                                        className={`w-full h-28 bg-[var(--lg-bg-primary)] border rounded-lg p-3 text-xs font-mono text-[var(--lg-text-primary)] focus:outline-none focus:ring-1 resize-none ${compareRound2Error
                                             ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20'
                                             : 'border-[var(--glass-border)] focus:border-purple-500/50 focus:ring-purple-500/20'
                                             }`}
@@ -3701,7 +3701,7 @@ export default function Step3_DeconstructionReview({
                     <div className="flex items-center gap-4 p-3 lg-card-inset">
                         <button
                             onClick={toggleGlobalMute}
-                            className="p-1.5 hover:bg-[var(--color-bg-tertiary)] rounded text-[var(--lg-text-primary)]"
+                            className="p-1.5 hover:bg-[var(--lg-bg-tertiary)] rounded text-[var(--lg-text-primary)]"
                         >
                             {isGlobalMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
                         </button>
@@ -3712,7 +3712,7 @@ export default function Step3_DeconstructionReview({
                             step={0.01}
                             value={isGlobalMuted ? 0 : globalVolume}
                             onChange={handleGlobalVolumeChange}
-                            className="flex-1 h-1 bg-[var(--color-bg-secondary)] rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-500"
+                            className="flex-1 h-1 bg-[var(--lg-bg-secondary)] rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-500"
                         />
                         <span className="text-xs text-[var(--lg-text-tertiary)] w-8 text-right">
                             {Math.round((isGlobalMuted ? 0 : globalVolume) * 100)}%
@@ -3721,13 +3721,13 @@ export default function Step3_DeconstructionReview({
                     {/* Theme Switcher */}
                     <div className="flex items-center gap-3 p-3 lg-card-inset">
                         <span className="text-xs font-semibold text-[var(--lg-text-tertiary)] uppercase tracking-wider">Theme</span>
-                        <div className="flex bg-[var(--color-bg-tertiary)] p-0.5 rounded-lg">
+                        <div className="flex bg-[var(--lg-bg-tertiary)] p-0.5 rounded-lg">
                             {(['glacier', 'midnight', 'obsidian'] as const).map(theme => (
                                 <button
                                     key={theme}
                                     onClick={() => setCurrentTheme(theme)}
                                     className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${currentTheme === theme
-                                        ? 'bg-[var(--color-bg-elevated)] text-[var(--lg-text-primary)] shadow-sm'
+                                        ? 'bg-[var(--lg-bg-elevated)] text-[var(--lg-text-primary)] shadow-sm'
                                         : 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)]'
                                         }`}
                                 >
@@ -3754,7 +3754,7 @@ export default function Step3_DeconstructionReview({
                             {optimizedMetadata && (
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-[var(--lg-text-secondary)]">
                                     {Object.entries(optimizedMetadata).map(([k, v]) => (
-                                        <div key={k} className="p-3 rounded-lg bg-[var(--color-bg-secondary)]/50 border border-[var(--glass-border)]">
+                                        <div key={k} className="p-3 rounded-lg bg-[var(--lg-bg-secondary)]/50 border border-[var(--glass-border)]">
                                             <div className="text-xs uppercase text-[var(--lg-text-tertiary)]">{k}</div>
                                             <div className="text-[var(--lg-text-primary)] break-words">{String(v)}</div>
                                         </div>
@@ -4563,7 +4563,7 @@ export default function Step3_DeconstructionReview({
                                     <div className="text-sm font-semibold text-[var(--lg-text-primary)]">修订日志中的其他镜头</div>
                                     <div className="grid gap-3 md:grid-cols-2">
                                         {missingModifiedShots.map((m, idx) => (
-                                            <div key={`missing-${m.id}-${idx}`} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--color-bg-secondary)]/50 space-y-2">
+                                            <div key={`missing-${m.id}-${idx}`} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--lg-bg-secondary)]/50 space-y-2">
                                                 <div className="flex items-center justify-between">
                                                     <div className="text-sm font-semibold text-[var(--lg-text-primary)]">Shot #{String(m.id)}</div>
                                                     <span className="text-xs px-2 py-1 rounded-full border border-purple-500/30 text-purple-300 bg-purple-500/10 uppercase">

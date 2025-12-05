@@ -12,6 +12,8 @@
     /* 背景 */
     --lg-bg-primary: #F5F5F7;
     --lg-bg-secondary: #FFFFFF;
+    --lg-bg-tertiary: rgba(0, 0, 0, 0.04);
+    --lg-bg-elevated: rgba(255, 255, 255, 0.95);
     
     /* 文字 */
     --lg-text-primary: #1D1D1F;

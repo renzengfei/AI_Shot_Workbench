@@ -1055,7 +1055,7 @@ export const ShotCard = ({
                                                 value={selectedProviderId || providers.find(p => p.is_default)?.id || providers[0]?.id || ''}
                                                 onChange={(e) => onProviderChange?.(shot, index, e.target.value)}
                                                 disabled={isGenerating}
-                                                className="lg-input flex-shrink-0 py-2 text-xs font-medium disabled:opacity-50 w-auto"
+                                                className="lg-input flex-shrink-0 py-2 text-xs font-medium disabled:opacity-50 max-w-[100px]"
                                                 title="选择生图供应商"
                                             >
                                                 {providers.map(p => (
