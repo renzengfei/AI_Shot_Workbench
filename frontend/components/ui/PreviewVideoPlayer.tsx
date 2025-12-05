@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, type ChangeEvent } from 'react';
+import { useRef, useState, useEffect, type ChangeEvent, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Maximize } from 'lucide-react';
 
 interface PreviewVideoPlayerProps {
@@ -11,6 +11,7 @@ interface PreviewVideoPlayerProps {
     lazy?: boolean;
     onPlay?: () => void;  // 播放时回调（用于清除 NEW 标识）
     defaultRate?: number;  // 默认播放速度，原片用 1，生成视频用 2.5
+    leftAction?: ReactNode;  // 控制栏左侧的自定义按钮
 }
 
 export const PreviewVideoPlayer = ({
@@ -23,6 +24,7 @@ export const PreviewVideoPlayer = ({
     lazy = true,
     onPlay,
     defaultRate = 1,
+    leftAction,
 }: PreviewVideoPlayerProps) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -183,7 +185,11 @@ export const PreviewVideoPlayer = ({
                 </div>
 
                 {/* Buttons Row - Liquid Glass Style */}
-                <div className="flex items-center justify-end gap-2">
+                <div className="flex items-center justify-between gap-2">
+                    {/* Left Action Slot */}
+                    <div className="flex items-center">{leftAction}</div>
+                    {/* Right Controls */}
+                    <div className="flex items-center gap-2">
                     {/* Playback Rate Selector - Liquid Glass Pill Style */}
                     <div className="flex items-center rounded-lg bg-white/50 border border-[var(--lg-glass-border)] p-0.5">
                         {[1, 2, 2.5, 3, 4].map((r) => (
@@ -211,6 +217,7 @@ export const PreviewVideoPlayer = ({
                     <button onClick={toggleFullscreen} className="p-1.5 rounded-lg hover:bg-white/60 text-[var(--lg-text-primary)] transition-colors">
                         <Maximize size={14} />
                     </button>
+                    </div>
                 </div>
             </div>
         </div>

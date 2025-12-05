@@ -1394,17 +1394,17 @@ export const ShotCard = ({
                                                                 lazy
                                                                 defaultRate={2.5}
                                                                 onPlay={() => onVideoSeen?.(url)}
+                                                                leftAction={
+                                                                    <button
+                                                                        onClick={() => onSelectVideoIndex?.(idx)}
+                                                                        className={`lg-btn lg-btn-xs ${isSelected
+                                                                            ? 'lg-btn-primary'
+                                                                            : 'lg-btn-glass'}`}
+                                                                    >
+                                                                        {isSelected ? <><Check size={14} /> 已选</> : '选择'}
+                                                                    </button>
+                                                                }
                                                             />
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <button
-                                                                onClick={() => onSelectVideoIndex?.(idx)}
-                                                                className={`flex-1 lg-btn lg-btn-sm ${isSelected
-                                                                    ? 'lg-btn-primary'
-                                                                    : 'lg-btn-glass'}`}
-                                                            >
-                                                                {isSelected ? <><Check size={14} /> 已选中</> : '选择'}
-                                                            </button>
                                                         </div>
                                                     </div>
                                                 );
