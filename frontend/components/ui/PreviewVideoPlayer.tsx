@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, type ChangeEvent } from 'react';
-import { Play, Pause, ChevronLeft, ChevronRight, Maximize } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Maximize } from 'lucide-react';
 
 interface PreviewVideoPlayerProps {
     src: string;
@@ -183,14 +183,24 @@ export const PreviewVideoPlayer = ({
                 </div>
 
                 {/* Buttons Row - Liquid Glass Style */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-end gap-2">
+                    {/* Playback Rate Selector - Liquid Glass Pill Style */}
+                    <div className="flex items-center rounded-lg bg-white/50 border border-[var(--lg-glass-border)] p-0.5">
+                        {[1, 2, 2.5, 3, 4].map((r) => (
+                            <button
+                                key={r}
+                                onClick={() => changeRate(r)}
+                                className={`text-xs px-1.5 py-0.5 rounded-md font-medium transition-all ${rate === r
+                                    ? 'bg-[var(--lg-blue)] text-white shadow-sm'
+                                    : 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)] hover:bg-white/60'
+                                    }`}
+                            >
+                                {r}x
+                            </button>
+                        ))}
+                    </div>
+                    {/* Frame Step Buttons */}
                     <div className="flex items-center gap-0.5">
-                        <button onClick={togglePlay} className="p-1.5 rounded-lg hover:bg-white/60 text-[var(--lg-text-primary)] transition-colors">
-                            {playing ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
-                        </button>
-
-                        <div className="w-px h-4 bg-[var(--lg-glass-border)] mx-1" />
-
                         <button onClick={() => stepFrame(-1)} className="p-1.5 rounded-lg hover:bg-white/60 text-[var(--lg-text-primary)] transition-colors" title="上一帧">
                             <ChevronLeft size={14} />
                         </button>
@@ -198,27 +208,9 @@ export const PreviewVideoPlayer = ({
                             <ChevronRight size={14} />
                         </button>
                     </div>
-
-                    <div className="flex items-center gap-2">
-                        {/* Playback Rate Selector - Liquid Glass Pill Style */}
-                        <div className="flex items-center rounded-lg bg-white/50 border border-[var(--lg-glass-border)] p-0.5">
-                            {[1, 2, 2.5, 3, 4].map((r) => (
-                                <button
-                                    key={r}
-                                    onClick={() => changeRate(r)}
-                                    className={`text-xs px-1.5 py-0.5 rounded-md font-medium transition-all ${rate === r
-                                        ? 'bg-[var(--lg-blue)] text-white shadow-sm'
-                                        : 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)] hover:bg-white/60'
-                                        }`}
-                                >
-                                    {r}x
-                                </button>
-                            ))}
-                        </div>
-                        <button onClick={toggleFullscreen} className="p-1.5 rounded-lg hover:bg-white/60 text-[var(--lg-text-primary)] transition-colors">
-                            <Maximize size={14} />
-                        </button>
-                    </div>
+                    <button onClick={toggleFullscreen} className="p-1.5 rounded-lg hover:bg-white/60 text-[var(--lg-text-primary)] transition-colors">
+                        <Maximize size={14} />
+                    </button>
                 </div>
             </div>
         </div>
