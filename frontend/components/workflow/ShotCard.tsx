@@ -1305,7 +1305,7 @@ export const ShotCard = ({
 
                             {/* 5. 流切换器 (Apple Glass 竖向Tab) */}
                             {showGeneration && (
-                                <div className={`flex-shrink-0 w-[72px] ${CARD_HEIGHT} flex flex-col items-center gap-2 p-2 glass-card`}>
+                                <div className={`flex-shrink-0 w-[72px] ${CARD_HEIGHT} flex flex-col items-center gap-2 p-2 lg-card`}>
                                     {/* 线稿 Tab */}
                                     <button
                                         onClick={() => setActiveStream('outline')}

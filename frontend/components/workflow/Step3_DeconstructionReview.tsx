@@ -2925,7 +2925,7 @@ export default function Step3_DeconstructionReview({
                     批注
                 </button>
                 {isOpen && (
-                    <div className="annotation-popover absolute z-[9999] -top-2 right-0 translate-y-[-100%] w-72 glass-card border border-[var(--glass-border)] shadow-2xl p-3 rounded-xl">
+                    <div className="annotation-popover absolute z-[9999] -top-2 right-0 translate-y-[-100%] w-72 lg-card border border-[var(--glass-border)] shadow-2xl p-3 rounded-xl">
                         <div className="flex items-center justify-between mb-2 text-xs text-[var(--color-text-primary)]">
                             <span className="font-semibold">{label}</span>
                             <div className="flex items-center gap-1">
@@ -3780,7 +3780,7 @@ export default function Step3_DeconstructionReview({
                     )}
                     {/* Final Mode Metadata & Analysis */}
                     {(mode === 'final' || mode === 'revision') && (
-                        <div className="glass-card p-5 border border-purple-500/20 bg-[var(--glass-bg-light)] space-y-3">
+                        <div className="lg-card p-5 border border-purple-500/20 bg-[var(--glass-bg-light)] space-y-3">
                             <div className="flex items-center gap-2 text-purple-300">
                                 <Zap size={16} />
                                 <span className="text-sm font-semibold">{mode === 'final' ? '优化摘要' : '修订摘要（对比终版）'}</span>
@@ -3901,7 +3901,7 @@ export default function Step3_DeconstructionReview({
 
                         {/* NEW: Macro Optimization Analysis for Round 1 */}
                         {mode === 'revision' && (
-                            <div className="glass-card p-6 border-l-4 border-l-emerald-500 bg-emerald-500/5 space-y-4 rounded-2xl shadow-lg shadow-emerald-900/10">
+                            <div className="lg-card p-6 border-l-4 border-l-emerald-500 bg-emerald-500/5 space-y-4 rounded-2xl shadow-lg shadow-emerald-900/10">
                                 <div className="flex items-center gap-3 text-emerald-400">
                                     <div className="p-1.5 rounded-md bg-emerald-500/20">
                                         <Zap size={18} />
@@ -3916,7 +3916,7 @@ export default function Step3_DeconstructionReview({
                             {/* Left Column: Narrative Flow (7/12) */}
                             <div className="xl:col-span-7 space-y-8">
                                 {/* Logic Chain */}
-                                <div className="glass-card p-6 space-y-4">
+                                <div className="lg-card p-6 space-y-4">
                                     <div className="flex items-center gap-3 mb-2">
                                         <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-500">
                                             <GitBranch size={18} />
@@ -3940,7 +3940,7 @@ export default function Step3_DeconstructionReview({
                                     />
                                 </div>
 
-                                <div className="glass-card p-6 space-y-6">
+                                <div className="lg-card p-6 space-y-6">
                                     <div className="flex items-center gap-3 mb-2">
                                         <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500">
                                             <Layout size={18} />
@@ -3983,7 +3983,7 @@ export default function Step3_DeconstructionReview({
                             {/* Right Column: Mechanics & Analysis (5/12) */}
                             <div className="xl:col-span-5 space-y-8">
                                 {/* Hooks Analysis */}
-                                <div className="glass-card p-6 space-y-5">
+                                <div className="lg-card p-6 space-y-5">
                                     <div className="flex items-center gap-3 mb-4">
                                         <div className="p-2 rounded-lg bg-pink-500/10 text-pink-500">
                                             <Anchor size={18} />
@@ -4041,7 +4041,7 @@ export default function Step3_DeconstructionReview({
                                 </div>
 
                                 {/* Viral Elements */}
-                                <div className="glass-card p-6 space-y-4">
+                                <div className="lg-card p-6 space-y-4">
                                     <div className="flex items-center gap-3 mb-4">
                                         <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
                                             <Zap size={18} />
@@ -4158,7 +4158,7 @@ export default function Step3_DeconstructionReview({
 
                                 {/* Add Character */}
                                 {canEdit && (
-                                    <div className="glass-card p-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                                    <div className="lg-card p-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50/50 hover:bg-slate-50 transition-colors">
                                         <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
                                             <div className="flex-1 flex flex-col gap-3 w-full">
                                                 <div className="flex flex-col gap-1.5">
@@ -4327,7 +4327,7 @@ export default function Step3_DeconstructionReview({
                                         })}
                                     </div>
                                 ) : (
-                                    <div className="glass-card p-6 rounded-2xl border border-dashed border-slate-200 text-sm text-slate-500">
+                                    <div className="lg-card p-6 rounded-2xl border border-dashed border-slate-200 text-sm text-slate-500">
                                         暂无角色，请添加角色信息。
                                     </div>
                                 )}
@@ -4583,7 +4583,7 @@ export default function Step3_DeconstructionReview({
                             )}
 
                             {typeof round2Data === 'string' && (
-                                <div className="glass-card p-6 border-amber-500/30 bg-amber-500/5">
+                                <div className="lg-card p-6 border-amber-500/30 bg-amber-500/5">
                                     <div className="text-amber-400 text-base font-medium mb-3 flex items-center gap-2">
                                         <AlertCircle size={20} /> Markdown 解析失败
                                     </div>
@@ -4593,7 +4593,7 @@ export default function Step3_DeconstructionReview({
                                 </div>
                             )}
                             {mode === 'revision' && missingModifiedShots.length > 0 && (
-                                <div className="glass-card p-5 border border-purple-500/20 bg-[var(--glass-bg-light)]/80 space-y-3">
+                                <div className="lg-card p-5 border border-purple-500/20 bg-[var(--glass-bg-light)]/80 space-y-3">
                                     <div className="text-sm font-semibold text-[var(--color-text-primary)]">修订日志中的其他镜头</div>
                                     <div className="grid gap-3 md:grid-cols-2">
                                         {missingModifiedShots.map((m, idx) => (
