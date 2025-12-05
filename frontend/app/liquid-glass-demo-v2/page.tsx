@@ -211,16 +211,28 @@ export default function LiquidGlassDesignSystem() {
                         0 8px 40px rgba(0, 0, 0, 0.12);
                 }
                 
-                /* 渐变文字 - 克制的单色渐变 */
+                /* 渐变文字 - 柔和的双色渐变 */
                 .gradient-text {
-                    background: linear-gradient(135deg, #1D1D1F 0%, #48484A 100%);
+                    background: linear-gradient(135deg, #1D1D1F 0%, #636366 100%);
                     -webkit-background-clip: text;
                     -webkit-text-fill-color: transparent;
                     background-clip: text;
                 }
-                .gradient-blue { color: #007AFF; }
-                .gradient-purple { color: #AF52DE; }
-                .gradient-green { color: #34C759; }
+                .gradient-blue { 
+                    background: linear-gradient(135deg, #007AFF 0%, #5AC8FA 100%); 
+                    -webkit-background-clip: text; 
+                    -webkit-text-fill-color: transparent; 
+                }
+                .gradient-purple { 
+                    background: linear-gradient(135deg, #AF52DE 0%, #C77DFF 100%); 
+                    -webkit-background-clip: text; 
+                    -webkit-text-fill-color: transparent; 
+                }
+                .gradient-green { 
+                    background: linear-gradient(135deg, #34C759 0%, #70E090 100%); 
+                    -webkit-background-clip: text; 
+                    -webkit-text-fill-color: transparent; 
+                }
 
                 /* Liquid Glass 容器 */
                 .glass-card {
@@ -575,9 +587,10 @@ export default function LiquidGlassDesignSystem() {
                 overflow: 'hidden',
                 transition: 'background 0.3s, color 0.3s',
             }}>
-                {/* 底层模糊图案 - 降低饱和度，更柔和 */}
-                <div className="blur-orb" style={{ position: 'fixed', top: '-300px', right: '-200px', width: '800px', height: '800px', borderRadius: '50%', background: 'linear-gradient(135deg, #E8E8ED, #D1D1D6)', filter: 'blur(120px)', opacity: 0.6, pointerEvents: 'none' }} />
-                <div className="blur-orb" style={{ position: 'fixed', bottom: '-300px', left: '-200px', width: '700px', height: '700px', borderRadius: '50%', background: 'linear-gradient(135deg, #B8D4E8, #C7D2E8)', filter: 'blur(120px)', opacity: 0.5, pointerEvents: 'none' }} />
+                {/* 底层模糊图案 - 柔和但有色彩，体现液态玻璃透明感 */}
+                <div className="blur-orb" style={{ position: 'fixed', top: '-200px', right: '-100px', width: '700px', height: '700px', borderRadius: '50%', background: 'linear-gradient(135deg, #C7A4FF, #A8C5FF)', filter: 'blur(100px)', opacity: 0.35, pointerEvents: 'none' }} />
+                <div className="blur-orb" style={{ position: 'fixed', bottom: '-200px', left: '-100px', width: '600px', height: '600px', borderRadius: '50%', background: 'linear-gradient(135deg, #A8E6CF, #88D8C0)', filter: 'blur(100px)', opacity: 0.3, pointerEvents: 'none' }} />
+                <div className="blur-orb" style={{ position: 'fixed', top: '50%', left: '30%', width: '500px', height: '500px', borderRadius: '50%', background: 'linear-gradient(135deg, #FFB8C6, #FFC8A8)', filter: 'blur(100px)', opacity: 0.25, pointerEvents: 'none' }} />
 
                 {/* 顶部导航 */}
                 <nav className="glass-card" style={{ 
@@ -636,22 +649,22 @@ export default function LiquidGlassDesignSystem() {
                         <div className="glass-card" style={{ padding: '40px', marginBottom: '24px' }}>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '32px' }}>
                                 <div>
-                                    <div style={{ fontSize: '28px', fontWeight: 700, marginBottom: '8px', color: '#007AFF' }}>透明</div>
-                                    <p style={{ fontSize: '14px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Transparent</p>
+                                    <div style={{ fontSize: '36px', fontWeight: 700, marginBottom: '8px' }} className="gradient-blue">透明</div>
+                                    <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Transparent</p>
                                     <p style={{ fontSize: '15px', color: 'var(--text-tertiary)', marginTop: '12px', lineHeight: 1.6 }}>
                                         让内容透过界面自然呈现，创造层次分明的视觉体验。
                                     </p>
                                 </div>
                                 <div>
-                                    <div style={{ fontSize: '28px', fontWeight: 700, marginBottom: '8px', color: '#AF52DE' }}>流动</div>
-                                    <p style={{ fontSize: '14px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Flowing</p>
+                                    <div style={{ fontSize: '36px', fontWeight: 700, marginBottom: '8px' }} className="gradient-purple">流动</div>
+                                    <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Flowing</p>
                                     <p style={{ fontSize: '15px', color: 'var(--text-tertiary)', marginTop: '12px', lineHeight: 1.6 }}>
                                         界面随交互自然流动，响应用户的每一次触碰。
                                     </p>
                                 </div>
                                 <div>
-                                    <div style={{ fontSize: '28px', fontWeight: 700, marginBottom: '8px', color: '#34C759' }}>深度</div>
-                                    <p style={{ fontSize: '14px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Depth</p>
+                                    <div style={{ fontSize: '36px', fontWeight: 700, marginBottom: '8px' }} className="gradient-green">深度</div>
+                                    <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Depth</p>
                                     <p style={{ fontSize: '15px', color: 'var(--text-tertiary)', marginTop: '12px', lineHeight: 1.6 }}>
                                         通过光影和层叠创造真实的空间感知。
                                     </p>
