@@ -612,14 +612,18 @@ export default function LiquidGlassDesignSystem() {
                 overflow: 'hidden',
                 transition: 'background 0.3s, color 0.3s',
             }}>
-                {/* 底层微妙渐变 - 不依赖色球，用整体渐变提供层次 */}
+                {/* 底层背景 - 微妙的冷暖渐变衬托玻璃 */}
                 <div style={{ 
                     position: 'fixed', 
                     inset: 0, 
-                    background: 'linear-gradient(135deg, rgba(245,245,247,1) 0%, rgba(250,250,252,1) 50%, rgba(245,245,247,1) 100%)',
+                    background: 'linear-gradient(160deg, #F8F9FC 0%, #F5F5F7 40%, #FAF8F6 100%)',
                     pointerEvents: 'none',
                     zIndex: -1
                 }} />
+                {/* 柔和的光晕 - 低饱和度，提供层次但不喧宾夺主 */}
+                <div style={{ position: 'fixed', top: '-15%', right: '-10%', width: '50%', height: '50%', borderRadius: '50%', background: 'radial-gradient(circle, rgba(200,210,230,0.4) 0%, transparent 70%)', pointerEvents: 'none' }} />
+                <div style={{ position: 'fixed', bottom: '-10%', left: '-5%', width: '40%', height: '40%', borderRadius: '50%', background: 'radial-gradient(circle, rgba(220,215,210,0.35) 0%, transparent 70%)', pointerEvents: 'none' }} />
+                <div style={{ position: 'fixed', top: '40%', left: '50%', width: '30%', height: '30%', borderRadius: '50%', background: 'radial-gradient(circle, rgba(210,220,215,0.3) 0%, transparent 70%)', pointerEvents: 'none', transform: 'translateX(-50%)' }} />
 
                 {/* 顶部导航 */}
                 <nav className="glass-card" style={{ 
