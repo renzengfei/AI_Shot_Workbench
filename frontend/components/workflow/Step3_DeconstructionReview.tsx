@@ -2571,8 +2571,10 @@ export default function Step3_DeconstructionReview({
         Object.keys(pending).forEach(k => { active[Number(k)] = true; });
         setGeneratingVideoShots(active);
 
-        // 为每个 pending 任务轮询检查状态
         const apiBase = '/api/yunwu';
+        const intervals: NodeJS.Timeout[] = [];
+
+        // 为每个 pending 任务设置轮询
         Object.entries(pending).forEach(([shotIdStr, { taskIds, startedAt }]) => {
             const shotId = Number(shotIdStr);
             const taskStatus: Record<string, string> = {};
@@ -2586,7 +2588,7 @@ export default function Step3_DeconstructionReview({
             setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'processing' }));
 
             // 轮询检查每个任务状态
-            const checkTask = async (taskId: string) => {
+            const checkTask = async (taskId: string): Promise<boolean> => {
                 try {
                     const resp = await fetch(`${API_BASE}${apiBase}/tasks/${taskId}`);
                     if (resp.ok) {
@@ -2602,19 +2604,23 @@ export default function Step3_DeconstructionReview({
                                 }
                                 return { ...prev, [shotId]: tasks };
                             });
+                            return true; // 任务已完成
                         } else if (data?.task?.status === 'failed') {
                             taskStatus[taskId] = 'failed';
+                            return true; // 任务已结束（失败）
                         }
                     }
                 } catch { /* ignore */ }
+                return false; // 任务仍在进行
             };
 
-            // 检查所有任务
-            Promise.all(taskIds.map(checkTask)).then(() => {
+            // 检查所有任务并处理完成
+            const checkAllTasks = async () => {
+                await Promise.all(taskIds.map(checkTask));
                 const completed = Object.values(taskStatus).filter(s => s === 'completed').length;
                 const failed = Object.values(taskStatus).filter(s => s === 'failed').length;
                 if (completed + failed === taskIds.length) {
-                    // 所有任务完成
+                    // 所有任务完成，清理状态
                     setGeneratingVideoShots(prev => { const next = { ...prev }; delete next[shotId]; return next; });
                     setVideoTaskStatuses(prev => ({ ...prev, [shotId]: failed < taskIds.length ? 'completed' : 'failed' }));
                     setVideoTaskProgresses(prev => { const next = { ...prev }; delete next[shotId]; return next; });
@@ -2623,9 +2629,30 @@ export default function Step3_DeconstructionReview({
                     if (completed > 0) {
                         showToast(`镜头 ${shotId}：${completed}/${taskIds.length} 个视频已完成`, 'success');
                     }
+                    return true; // 全部完成
+                }
+                return false; // 还有任务在进行
+            };
+
+            // 立即检查一次
+            checkAllTasks().then(allDone => {
+                if (!allDone) {
+                    // 未完成则启动轮询（每 10 秒检查一次）
+                    const interval = setInterval(async () => {
+                        const done = await checkAllTasks();
+                        if (done) {
+                            clearInterval(interval);
+                        }
+                    }, 10000);
+                    intervals.push(interval);
                 }
             });
         });
+
+        // 清理函数：组件卸载时清除所有轮询
+        return () => {
+            intervals.forEach(clearInterval);
+        };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pendingVideoKey]);
 
