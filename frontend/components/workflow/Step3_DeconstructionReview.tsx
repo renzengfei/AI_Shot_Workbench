@@ -45,7 +45,8 @@ import {
     Round2Data,
     Round2Shot,
     DeletedShot,
-    OptimizedStoryboardPayload
+    OptimizedStoryboardPayload,
+    StructuredInitialFrame
 } from '@/types/deconstruction';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8000';
@@ -77,6 +78,12 @@ export default function Step3_DeconstructionReview({
     } = useWorkspace();
     const { nextStep } = useStepNavigator();
     const [mode, setMode] = useState<ReviewMode>('review');
+    // Theme Management
+    const [currentTheme, setCurrentTheme] = useState<'glacier' | 'midnight' | 'obsidian'>('glacier');
+    useEffect(() => {
+        document.documentElement.dataset.theme = currentTheme;
+    }, [currentTheme]);
+
     const [assets, setAssets] = useState<AssetItem[]>([]);
     const [round1Data, setRound1Data] = useState<Round1Data | string | null>(null);
     const [round2Data, setRound2Data] = useState<Round2Data | string | null>(null);
@@ -95,7 +102,7 @@ export default function Step3_DeconstructionReview({
     const [optimizedStoryboard, setOptimizedStoryboard] = useState<OptimizedStoryboardPayload | null>(null);
     const [optimizedError, setOptimizedError] = useState<string | null>(null);
     const [optimizedMetadata, setOptimizedMetadata] = useState<Record<string, unknown> | null>(null);
-    const [optimizedAnalysis, setOptimizedAnalysis] = useState<{ summary?: string; knowledge_base_applied?: string[] } | null>(null);
+    const [optimizedAnalysis, setOptimizedAnalysis] = useState<NonNullable<OptimizedStoryboardPayload['optimization_analysis']> | null>(null);
     const [deletedShots, setDeletedShots] = useState<DeletedShot[]>([]);
     const [modifiedAssets, setModifiedAssets] = useState<
         Array<{
@@ -179,7 +186,7 @@ export default function Step3_DeconstructionReview({
     const [generatingVideoShots, setGeneratingVideoShots] = useState<Record<number, boolean>>({});
     const [videoTaskStatuses, setVideoTaskStatuses] = useState<Record<number, 'pending' | 'processing' | 'completed' | 'failed' | null>>({});
     const [videoProgress, setVideoProgress] = useState<Record<number, number>>({}); // 视频生成进度 0-100
-    const [videoTaskProgresses, setVideoTaskProgresses] = useState<Record<number, Array<{taskId: string; progress: number; status: string; startTime: number}>>>({}); // 每个任务的进度
+    const [videoTaskProgresses, setVideoTaskProgresses] = useState<Record<number, Array<{ taskId: string; progress: number; status: string; startTime: number }>>>({}); // 每个任务的进度
     const [newlyGeneratedVideos, setNewlyGeneratedVideos] = useState<Record<number, string[]>>({});  // 新生成的视频 URL
     const [generatedVideos, setGeneratedVideos] = useState<Record<number, string[]>>({});  // 视频列表
     const [selectedVideoIndexes, setSelectedVideoIndexes] = useState<Record<number, number>>({});  // 选中的视频索引
@@ -311,10 +318,10 @@ export default function Step3_DeconstructionReview({
         : null;
     const pendingGenKey = workspaceSlug ? `pendingGenerations:${workspaceSlug}:${generatedDir}` : null;
     const pendingOutlineKey = workspaceSlug ? `pendingOutlineGenerations:${workspaceSlug}` : null;
-    
+
     // 线稿生成持久化类型
     type PendingOutline = { startedAt: number; lastOutlineCount: number };
-    
+
     // 读取 pending outline generations
     const readPendingOutlines = useCallback((): Record<number, PendingOutline> => {
         if (!pendingOutlineKey) return {};
@@ -325,7 +332,7 @@ export default function Step3_DeconstructionReview({
             return {};
         }
     }, [pendingOutlineKey]);
-    
+
     // 写入 pending outline generations
     const writePendingOutlines = useCallback((pending: Record<number, PendingOutline>) => {
         if (!pendingOutlineKey) return;
@@ -333,14 +340,14 @@ export default function Step3_DeconstructionReview({
             localStorage.setItem(pendingOutlineKey, JSON.stringify(pending));
         } catch { /* ignore */ }
     }, [pendingOutlineKey]);
-    
+
     // 清除单个 pending outline
     const clearPendingOutline = useCallback((shotId: number) => {
         const pending = readPendingOutlines();
         delete pending[shotId];
         writePendingOutlines(pending);
     }, [readPendingOutlines, writePendingOutlines]);
-    
+
     // newlyGeneratedVideos 的 localStorage key
     const newVideosStorageKey = workspaceSlug
         ? `newlyGeneratedVideos:${workspaceSlug}:${generatedDir}`
@@ -375,7 +382,7 @@ export default function Step3_DeconstructionReview({
                 if (typeof round2Data === 'string' || !round2Data?.shots) return;
                 const shots = round2Data.shots;
                 const outlinesMap: Record<number, string[]> = {};
-                
+
                 for (const shot of shots) {
                     const shotId = shot.id ?? (shots.indexOf(shot) + 1);
                     const resp = await fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/outlines?shot_id=${shotId}`);
@@ -388,7 +395,7 @@ export default function Step3_DeconstructionReview({
                     }
                 }
                 setGeneratedOutlines(outlinesMap);
-                
+
                 // 从后端加载保存的线稿选择（只有保存过的才会选中）
                 try {
                     const savedResp = await fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-outlines?generated_dir=${generatedDir}`);
@@ -410,19 +417,19 @@ export default function Step3_DeconstructionReview({
                 } catch {
                     // 请求失败时不设置，保持未选中状态
                 }
-                
+
                 // 恢复 pending outline 状态
                 const pending = readPendingOutlines();
                 const TIMEOUT_MS = 2 * 60 * 1000; // 2分钟超时
                 const now = Date.now();
                 const toRestore: Record<number, boolean> = {};
                 const toCleanup: number[] = [];
-                
+
                 for (const [shotIdStr, info] of Object.entries(pending)) {
                     const shotId = Number(shotIdStr);
                     const elapsed = now - info.startedAt;
                     const currentCount = outlinesMap[shotId]?.length || 0;
-                    
+
                     if (elapsed > TIMEOUT_MS) {
                         // 超时，清除
                         toCleanup.push(shotId);
@@ -434,14 +441,14 @@ export default function Step3_DeconstructionReview({
                         toRestore[shotId] = true;
                     }
                 }
-                
+
                 // 清除已完成或超时的 pending
                 if (toCleanup.length > 0) {
                     const newPending = { ...pending };
                     toCleanup.forEach(id => delete newPending[id]);
                     writePendingOutlines(newPending);
                 }
-                
+
                 // 恢复生成中状态
                 if (Object.keys(toRestore).length > 0) {
                     setGeneratingOutlines(prev => ({ ...prev, ...toRestore }));
@@ -449,18 +456,18 @@ export default function Step3_DeconstructionReview({
                     const pollInterval = setInterval(async () => {
                         const stillPending = readPendingOutlines();
                         let allDone = true;
-                        
+
                         for (const shotIdStr of Object.keys(stillPending)) {
                             const shotId = Number(shotIdStr);
                             const info = stillPending[shotId];
                             const elapsed = Date.now() - info.startedAt;
-                            
+
                             if (elapsed > TIMEOUT_MS) {
                                 clearPendingOutline(shotId);
                                 setGeneratingOutlines(prev => ({ ...prev, [shotId]: false }));
                                 continue;
                             }
-                            
+
                             // 检查是否有新线稿
                             try {
                                 const resp = await fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/outlines?shot_id=${shotId}`);
@@ -481,12 +488,12 @@ export default function Step3_DeconstructionReview({
                                 }
                             } catch { /* ignore */ }
                         }
-                        
+
                         if (allDone || Object.keys(readPendingOutlines()).length === 0) {
                             clearInterval(pollInterval);
                         }
                     }, 3000); // 每3秒检查一次
-                    
+
                     // 组件卸载时清除轮询
                     return () => clearInterval(pollInterval);
                 }
@@ -555,7 +562,7 @@ export default function Step3_DeconstructionReview({
             })
             .filter(Boolean);
         if (!normalized.length) return;
-        
+
         // 关键修复：先计算合并后的图片列表，然后传递给索引匹配逻辑
         // 不能依赖 generatedImagesRef，因为 ref 是通过 useEffect 异步更新的
         let mergedImages: string[] = [];
@@ -563,7 +570,7 @@ export default function Step3_DeconstructionReview({
             mergedImages = Array.from(new Set([...(prev[shotId] || []), ...normalized]));
             return { ...prev, [shotId]: mergedImages };
         });
-        
+
         // 设置默认浏览索引（如果还没有的话）
         // 注意：选中图片的匹配由专门的 useEffect 处理（依赖 savedIndexes + generatedImages）
         setGeneratedIndexes((prev) => {
@@ -1023,7 +1030,7 @@ export default function Step3_DeconstructionReview({
     // 选择视频（点击视频缩略图时调用），保存文件名到后端（与图片一致）
     const handleSelectVideoIndex = (shotId: number, idx: number) => {
         setSelectedVideoIndexes(prev => ({ ...prev, [shotId]: idx }));
-        
+
         // 保存到后端（使用文件名而不是索引）
         if (currentWorkspace?.path && generatedDir) {
             const videos = generatedVideos[shotId] || [];
@@ -1033,22 +1040,22 @@ export default function Step3_DeconstructionReview({
                     console.warn('视频选择数据尚未加载完成，跳过保存以避免数据丢失');
                     return;
                 }
-                
+
                 const videoUrl = videos[idx];
                 const filename = videoUrl.split('/').pop() || '';
-                
+
                 // 获取已保存的文件名映射
                 const savedFilenames = (window as unknown as Record<string, unknown>).__savedVideoFilenames as Record<string, string> || {};
-                
+
                 // 合并：保留原有选择 + 添加/更新当前选择
                 // 统一使用 x.0 格式的 key（如 "1.0", "2.0"）
                 const allSelections: Record<string, string> = { ...savedFilenames };
                 const shotKey = Number.isInteger(shotId) ? shotId.toFixed(1) : String(shotId);
                 allSelections[shotKey] = filename;
-                
+
                 // 同步更新 window 临时变量
                 (window as unknown as Record<string, unknown>).__savedVideoFilenames = allSelections;
-                
+
                 fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-videos`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1069,7 +1076,7 @@ export default function Step3_DeconstructionReview({
         if (!list.length) return;
         const bounded = Math.min(Math.max(0, targetIndex), list.length - 1);
         setGeneratedIndexes((prev) => ({ ...prev, [shotId]: bounded }));
-        
+
         // 提取文件名并保存到后端（使用文件名更稳定）
         const imageUrl = list[bounded];
         const filename = imageUrl?.split('/').pop() || '';
@@ -1079,22 +1086,22 @@ export default function Step3_DeconstructionReview({
                 console.warn('图片选择数据尚未加载完成，跳过保存以避免数据丢失');
                 return;
             }
-            
+
             setSavedIndexes((prev) => ({ ...prev, [shotId]: bounded })); // 同时更新本地状态
-            
+
             // 【关键修复】直接从 window 临时变量获取已保存的文件名，避免数据丢失
             // 不再从 savedIndexesRef 重新构建，因为那样在数据未加载完时会导致覆盖
             const savedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string> || {};
-            
+
             // 合并：保留原有选择 + 添加/更新当前选择
             // 统一使用 x.0 格式的 key（如 "1.0", "2.0"）
             const allSelections: Record<string, string> = { ...savedFilenames };
             const shotKey = Number.isInteger(shotId) ? shotId.toFixed(1) : String(shotId);
             allSelections[shotKey] = filename;
-            
+
             // 同步更新 window 临时变量
             (window as unknown as Record<string, unknown>).__savedImageFilenames = allSelections;
-            
+
             fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-images`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1246,10 +1253,10 @@ export default function Step3_DeconstructionReview({
                     item.category === activeCategoryTab
                         ? deleteCategoryMode === 'clear'
                             ? (() => {
-                                  const clone = { ...item };
-                                  delete clone.category;
-                                  return clone;
-                              })()
+                                const clone = { ...item };
+                                delete clone.category;
+                                return clone;
+                            })()
                             : { ...item, category: '' }
                         : item,
                 ),
@@ -1471,37 +1478,37 @@ export default function Step3_DeconstructionReview({
             return;
         }
         const shotId = shot.id ?? index + 1;
-        
+
         // 判断是否开启线稿模式（优先使用单镜头覆盖，否则使用全局配置）
         const isOutlineMode = outlineModes[shotId] !== undefined ? outlineModes[shotId] : globalOutlineMode;
         const activeOutline = activeOutlineUrls[shotId];
-        
+
         // 线稿模式检查
         if (isOutlineMode && !activeOutline) {
             showToast('线稿模式下请先生成线稿图', 'error');
             return;
         }
-        
+
         // 获取首帧描述
-        let initialFrameDesc = typeof shot.initial_frame === 'string' 
-            ? shot.initial_frame 
+        let initialFrameDesc = typeof shot.initial_frame === 'string'
+            ? shot.initial_frame
             : JSON.stringify(shot.initial_frame || {});
-        
+
         // 构建提示词
         let basePrompt = `首帧描述: ${initialFrameDesc}`;
-        
+
         // 线稿模式下添加参考图指引
         if (isOutlineMode && activeOutline) {
             // 从首帧描述中提取角色名（【xxx】格式），去重
             const characterMatches = initialFrameDesc.match(/【([^】]+)】/g) || [];
             const characters = [...new Set(characterMatches.map((m: string) => m.replace(/[【】]/g, '')))];
-            
+
             // 使用全局配置的模板，如果没有则使用默认值
-            const charTemplate = globalCharRefTemplate.trim() 
+            const charTemplate = globalCharRefTemplate.trim()
                 || '角色【{name}】的形象、服装、发型严格参考图{image}。';
-            const sceneTemplate = globalSceneRefTemplate.trim() 
+            const sceneTemplate = globalSceneRefTemplate.trim()
                 || '画面的景别、人物姿势和动作严格参考图{image}。';
-            
+
             let referenceGuide = '\n\n';
             characters.forEach((char: string, idx: number) => {
                 referenceGuide += charTemplate
@@ -1509,16 +1516,16 @@ export default function Step3_DeconstructionReview({
                     .replace('{image}', `image${idx + 1}`) + '\n';
             });
             referenceGuide += sceneTemplate.replace('{image}', `image${characters.length + 1}`);
-            
+
             basePrompt += referenceGuide;
         }
-        
+
         const presetText = activeImagePreset?.content?.trim();
         const prompt = presetText ? `${basePrompt}\n\n生图设定：${presetText}` : basePrompt;
-        
+
         // 构建参考图列表
         let refs: string[];
-        
+
         if (isOutlineMode && activeOutline) {
             // 线稿模式下，按提示词中角色出现顺序构建 refs（确保 image1 对应第一个角色）
             const characterMatches = initialFrameDesc.match(/【([^】]+)】/g) || [];
@@ -1651,26 +1658,26 @@ export default function Step3_DeconstructionReview({
             return;
         }
         const shotId = shot.id ?? index + 1;
-        
+
         // 获取原片首帧 URL
         const preferredKeyframe = shot.keyframe && frameNameSet.has(shot.keyframe) ? shot.keyframe : null;
-        const frameName = preferredKeyframe || 
+        const frameName = preferredKeyframe ||
             (shot.original_id ? frameMap.get(shot.original_id) : undefined) ||
             frameMap.get(shotId) || null;
-        
+
         if (!frameName) {
             showToast('未找到原片首帧', 'error');
             return;
         }
-        
+
         const frameUrl = `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/assets/frames/${frameName}`;
-        
+
         setGeneratingOutlines((prev) => ({ ...prev, [shotId]: true }));
         // 记录 pending 状态（刷新后可恢复）
         const pending = readPendingOutlines();
         pending[shotId] = { startedAt: Date.now(), lastOutlineCount: generatedOutlines[shotId]?.length || 0 };
         writePendingOutlines(pending);
-        
+
         try {
             const resp = await fetch(`${API_BASE}/api/generate-outline`, {
                 method: 'POST',
@@ -1711,7 +1718,7 @@ export default function Step3_DeconstructionReview({
         const shotId = shot.id ?? index + 1;
         const filename = url.split('/').pop();
         if (!filename) return;
-        
+
         try {
             const resp = await fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/outlines/${shotId}/${filename}`, {
                 method: 'DELETE',
@@ -1740,55 +1747,55 @@ export default function Step3_DeconstructionReview({
             return;
         }
         if (typeof round2Data === 'string' || !round2Data?.shots) return;
-        
+
         // 筛选有原片首帧的镜头
         const shotsWithFrames = round2Data.shots.filter((shot, idx) => {
             const shotId = shot.id ?? idx + 1;
             if (shot.discarded) return false;
             // 检查是否有原片首帧
             const preferredKeyframe = shot.keyframe && frameNameSet.has(shot.keyframe) ? shot.keyframe : null;
-            const frameName = preferredKeyframe || 
+            const frameName = preferredKeyframe ||
                 (shot.original_id ? frameMap.get(shot.original_id) : undefined) ||
                 frameMap.get(shotId) || null;
             return !!frameName;
         });
-        
+
         if (shotsWithFrames.length === 0) {
             showToast('没有可生成线稿的镜头（无原片首帧）', 'error');
             return;
         }
-        
+
         setBatchGeneratingOutlines(true);
         setOutlineProgress({ completed: 0, total: shotsWithFrames.length });
-        
+
         // 并发控制：最多 20 个并发
         const CONCURRENCY = 20;
         let completedCount = 0;
         let successCount = 0;
         let failedCount = 0;
-        
+
         const generateOne = async (shot: Round2Shot, idx: number) => {
             const shotId = shot.id ?? idx + 1;
-            
+
             // 获取原片首帧 URL
             const preferredKeyframe = shot.keyframe && frameNameSet.has(shot.keyframe) ? shot.keyframe : null;
-            const frameName = preferredKeyframe || 
+            const frameName = preferredKeyframe ||
                 (shot.original_id ? frameMap.get(shot.original_id) : undefined) ||
                 frameMap.get(shotId) || null;
-            
+
             if (!frameName) {
                 failedCount++;
                 return;
             }
-            
+
             const frameUrl = `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug!)}/assets/frames/${frameName}`;
-            
+
             setGeneratingOutlines((prev) => ({ ...prev, [shotId]: true }));
             // 记录 pending 状态
             const pending = readPendingOutlines();
             pending[shotId] = { startedAt: Date.now(), lastOutlineCount: generatedOutlines[shotId]?.length || 0 };
             writePendingOutlines(pending);
-            
+
             try {
                 const resp = await fetch(`${API_BASE}/api/generate-outline`, {
                     method: 'POST',
@@ -1826,7 +1833,7 @@ export default function Step3_DeconstructionReview({
                 setOutlineProgress((prev) => ({ ...prev, completed: completedCount }));
             }
         };
-        
+
         // 分批执行
         for (let i = 0; i < shotsWithFrames.length; i += CONCURRENCY) {
             const batch = shotsWithFrames.slice(i, i + CONCURRENCY);
@@ -1835,7 +1842,7 @@ export default function Step3_DeconstructionReview({
                 return generateOne(shot, idx);
             }));
         }
-        
+
         setBatchGeneratingOutlines(false);
         if (failedCount > 0) {
             showToast(`线稿生成完成：成功 ${successCount} 个，失败 ${failedCount} 个`, failedCount === shotsWithFrames.length ? 'error' : 'success');
@@ -1858,7 +1865,7 @@ export default function Step3_DeconstructionReview({
             showToast('请先生成图片', 'error');
             return;
         }
-        
+
         // 获取当前选中的图片
         const currentIndex = generatedIndexes[shotId] ?? imageUrls.length - 1;
         const imagePath = imageUrls[Math.min(currentIndex, imageUrls.length - 1)];
@@ -1866,45 +1873,45 @@ export default function Step3_DeconstructionReview({
             showToast('未找到图片', 'error');
             return;
         }
-        
+
         // 获取视频描述
         const prompt = shot.visual_changes || '让人物动起来';
-        
+
         setGeneratingVideoShots(prev => ({ ...prev, [shotId]: true }));
         setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'pending' }));
-        
+
         try {
             const timestamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14);
             const shotDirName = Number.isInteger(shotId) ? `${shotId}.0` : String(shotId);
-            
+
             // 使用云雾 API
             const apiBase = '/api/yunwu';
-            
+
             // 创建多个任务
             const taskIds: string[] = [];
             for (let v = 0; v < videoCount; v++) {
                 const outputPath = `${currentWorkspace.path}/${generatedDir}/shots/${shotDirName}/video_${timestamp}_v${v + 1}.mp4`;
-                
+
                 // 构建请求体（云雾 API）
                 const requestBody: Record<string, unknown> = {
                     image_path: imagePath,
                     prompt: prompt,
                     output_path: outputPath,
                 };
-                
+
                 // 添加云雾 API 参数
                 if (videoGenConfig) {
                     requestBody.model = videoGenConfig.model;
                     requestBody.size = videoGenConfig.size;
                     requestBody.aspect_ratio = videoGenConfig.aspectRatio;
                 }
-                
+
                 const resp = await fetch(`${API_BASE}${apiBase}/tasks`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestBody),
                 });
-                
+
                 if (resp.ok) {
                     const data = await resp.json();
                     if (data?.task?.task_id) {
@@ -1912,21 +1919,21 @@ export default function Step3_DeconstructionReview({
                     }
                 }
             }
-            
+
             if (taskIds.length === 0) {
                 throw new Error('创建任务失败');
             }
-            
+
             showToast(`已提交 ${taskIds.length} 个视频生成任务 (云雾 API)`, 'success');
             setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'processing' }));
-            
+
             // 初始化占位卡片状态（包含开始时间用于计时显示）
             const startTime = Date.now();
             setVideoTaskProgresses(prev => ({
                 ...prev,
                 [shotId]: taskIds.map(id => ({ taskId: id, progress: 0, status: 'processing', startTime }))
             }));
-            
+
             // 批量执行任务（并行）
             await fetch(`${API_BASE}${apiBase}/tasks/run-batch`, {
                 method: 'POST',
@@ -1937,14 +1944,14 @@ export default function Step3_DeconstructionReview({
                     max_workers: videoCount,
                 }),
             });
-            
+
             // 使用 SSE 订阅进度
             {
                 // SSE 进度订阅
                 const taskProgress: Record<string, number> = {};
                 const taskStatus: Record<string, string> = {};
                 taskIds.forEach(id => { taskStatus[id] = 'processing'; taskProgress[id] = 0; });
-                
+
                 // 更新占位卡片进度的函数
                 const updateTaskProgress = (taskId: string, progress: number, status: string) => {
                     setVideoTaskProgresses(prev => {
@@ -1955,10 +1962,10 @@ export default function Step3_DeconstructionReview({
                         };
                     });
                 };
-                
+
                 const subscribeSSE = (taskId: string) => {
                     const eventSource = new EventSource(`${API_BASE}/api/yunwu/tasks/${taskId}/progress`);
-                    
+
                     eventSource.onmessage = (event) => {
                         try {
                             const data = JSON.parse(event.data);
@@ -1996,7 +2003,7 @@ export default function Step3_DeconstructionReview({
                             // 忽略解析错误
                         }
                     };
-                    
+
                     eventSource.onerror = () => {
                         eventSource.close();
                         // 出错后回退到轮询检查一次
@@ -2014,7 +2021,7 @@ export default function Step3_DeconstructionReview({
                             .catch(() => checkAllDone());
                     };
                 };
-                
+
                 const checkAllDone = () => {
                     const completed = Object.values(taskStatus).filter(s => s === 'completed').length;
                     const failed = Object.values(taskStatus).filter(s => s === 'failed').length;
@@ -2029,11 +2036,11 @@ export default function Step3_DeconstructionReview({
                         showToast(`镜头 ${shotId}：${completed}/${taskIds.length} 个视频生成完成！`, completed > 0 ? 'success' : 'error');
                     }
                 };
-                
+
                 // 为每个任务订阅 SSE
                 taskIds.forEach(subscribeSSE);
             }
-            
+
         } catch (err) {
             const msg = err instanceof Error ? err.message : '视频生成失败';
             showToast(msg, 'error');
@@ -2052,7 +2059,7 @@ export default function Step3_DeconstructionReview({
             const resp = await fetch(`${API_BASE}/api/yunwu/tasks/stop-all`, {
                 method: 'POST',
             });
-            
+
             if (resp.ok) {
                 // 清除所有生成中状态
                 setGeneratingVideoShots({});
@@ -2073,45 +2080,45 @@ export default function Step3_DeconstructionReview({
             showToast('请先选择工作空间', 'error');
             return;
         }
-        
+
         const shots = round2Data.shots || [];
         const tasksToCreate: Array<{ shotId: number; imagePath: string; prompt: string; outputPath: string }> = [];
-        
+
         // 收集所有有图片的镜头
         for (let i = 0; i < shots.length; i++) {
             const shot = shots[i];
             const shotId = shot.id ?? i + 1;
             const imageUrls = generatedImages[shotId] || [];
-            
+
             if (imageUrls.length === 0) continue;
             if (generatingVideoShots[shotId]) continue; // 跳过正在生成的
-            
+
             const currentIndex = generatedIndexes[shotId] ?? 0;
             const imagePath = imageUrls[Math.min(currentIndex, imageUrls.length - 1)];
             if (!imagePath) continue;
-            
+
             const prompt = shot.visual_changes || '让人物动起来';
             const timestamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14);
             const shotDirName = Number.isInteger(shotId) ? `${shotId}.0` : String(shotId);
             const outputPath = `${currentWorkspace.path}/${generatedDir}/shots/${shotDirName}/video_${timestamp}_${i}.mp4`;
-            
+
             tasksToCreate.push({ shotId, imagePath, prompt, outputPath });
         }
-        
+
         if (tasksToCreate.length === 0) {
             showToast('没有可生成的镜头（请先生成图片）', 'error');
             return;
         }
-        
+
         showToast(`正在提交 ${tasksToCreate.length} 个视频生成任务...`, 'success');
-        
+
         // 批量创建任务
         const taskIds: string[] = [];
         for (const task of tasksToCreate) {
             try {
                 setGeneratingVideoShots(prev => ({ ...prev, [task.shotId]: true }));
                 setVideoTaskStatuses(prev => ({ ...prev, [task.shotId]: 'pending' }));
-                
+
                 const resp = await fetch(`${API_BASE}/api/yunwu/tasks`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2121,7 +2128,7 @@ export default function Step3_DeconstructionReview({
                         output_path: task.outputPath,
                     }),
                 });
-                
+
                 if (resp.ok) {
                     const data = await resp.json();
                     if (data?.task?.task_id) {
@@ -2133,12 +2140,12 @@ export default function Step3_DeconstructionReview({
                 console.error(`创建任务失败: shot ${task.shotId}`, err);
             }
         }
-        
+
         if (taskIds.length === 0) {
             showToast('任务创建失败', 'error');
             return;
         }
-        
+
         // 批量执行（并行）
         try {
             await fetch(`${API_BASE}/api/yunwu/tasks/run-batch`, {
@@ -2154,25 +2161,25 @@ export default function Step3_DeconstructionReview({
         } catch (err) {
             showToast('批量执行失败', 'error');
         }
-        
+
         // 启动轮询检查所有任务状态
         const pollAllTasks = async () => {
             const maxAttempts = 120; // 10分钟
             for (let attempt = 0; attempt < maxAttempts; attempt++) {
                 await new Promise(resolve => setTimeout(resolve, 5000));
-                
+
                 let allDone = true;
                 for (const taskId of taskIds) {
                     try {
                         const resp = await fetch(`${API_BASE}/api/yunwu/tasks/${taskId}`);
                         const data = await resp.json();
                         const status = data?.task?.status;
-                        
+
                         // 找到对应的 shotId
                         const taskIdx = taskIds.indexOf(taskId);
                         if (taskIdx >= 0 && taskIdx < tasksToCreate.length) {
                             const shotId = tasksToCreate[taskIdx].shotId;
-                            
+
                             if (status === 'completed') {
                                 setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'completed' }));
                                 setGeneratingVideoShots(prev => {
@@ -2196,14 +2203,14 @@ export default function Step3_DeconstructionReview({
                         // 忽略错误
                     }
                 }
-                
+
                 if (allDone) {
                     showToast('所有视频生成完成！', 'success');
                     break;
                 }
             }
         };
-        
+
         pollAllTasks();
     };
 
@@ -2216,7 +2223,7 @@ export default function Step3_DeconstructionReview({
             showToast('请先选择工作空间', 'error');
             return;
         }
-        
+
         setExporting(true);
         try {
             const resp = await fetch(`${API_BASE}/api/export-selected-videos`, {
@@ -2227,12 +2234,12 @@ export default function Step3_DeconstructionReview({
                     generated_dir: generatedDir,
                 }),
             });
-            
+
             if (!resp.ok) {
                 const err = await resp.json().catch(() => ({ detail: '导出失败' }));
                 throw new Error(err.detail || '导出失败');
             }
-            
+
             const result = await resp.json();
             showToast(`已导出 ${result.total} 个视频到 export 文件夹`, 'success');
         } catch (err) {
@@ -2531,18 +2538,18 @@ export default function Step3_DeconstructionReview({
     // 当保存的视频文件名加载完成后，通过文件名匹配到索引并应用到对应镜头
     useEffect(() => {
         if (!savedVideoIndexesLoaded || !Object.keys(generatedVideos).length) return;
-        
+
         // 从 window 获取原始的文件名映射（保留字符串 key 格式如 "1.0"）
         const rawSavedFilenames = (window as unknown as Record<string, unknown>).__savedVideoFilenames as Record<string, string | number> || {};
-        
+
         setSelectedVideoIndexes((prev) => {
             let changed = false;
             const next = { ...prev };
-            
+
             Object.entries(generatedVideos).forEach(([k, videos]) => {
                 const id = Number(k);
                 if (!videos || !videos.length) return;
-                
+
                 // 尝试多种 key 格式匹配（"1", "1.0", 整数形式）
                 const possibleKeys = [String(id), id.toFixed(1), String(Math.floor(id))];
                 let savedFilename: string | undefined;
@@ -2562,7 +2569,7 @@ export default function Step3_DeconstructionReview({
                     const fromState = savedVideoFilenames[id];
                     if (fromState && fromState.trim()) savedFilename = fromState;
                 }
-                
+
                 if (savedFilename) {
                     // 尝试通过文件名匹配（使用宽松匹配）
                     // 提取纯文件名部分用于匹配
@@ -2571,7 +2578,7 @@ export default function Step3_DeconstructionReview({
                         const urlFilename = url.split('/').pop() || url;
                         return urlFilename === pureFilename || url.endsWith(pureFilename) || url.includes(`/${pureFilename}`);
                     });
-                    
+
                     if (matchedIdx >= 0) {
                         if (next[id] !== matchedIdx) {
                             next[id] = matchedIdx;
@@ -2594,7 +2601,7 @@ export default function Step3_DeconstructionReview({
                 }
                 // 没有保存记录时不设置默认值，避免 API 还没返回时显示错误的选择
             });
-            
+
             return changed ? next : prev;
         });
     }, [savedVideoIndexesLoaded, savedVideoFilenames, generatedVideos]);
@@ -2604,23 +2611,23 @@ export default function Step3_DeconstructionReview({
     useEffect(() => {
         // 必须等 savedIndexes 加载完成且有图片列表才设置索引，避免闪烁
         if (!savedIndexesLoaded || !Object.keys(generatedImages).length) return;
-        
+
         // 【关键】从 window 读取原始的文件名映射（和视频一致，保留字符串 key 格式如 "1.0"）
         const rawSavedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string | number> || {};
-        
+
         // [调试] 记录每次尝试匹配的结果
         const debugLog: string[] = [];
         debugLog.push(`[开始匹配] rawSavedFilenames keys: ${Object.keys(rawSavedFilenames).join(', ')}`);
-        
+
         setGeneratedIndexes((prev) => {
             let changed = false;
             const next = { ...prev };
-            
+
             // 遍历所有有图片的 shot
             Object.entries(generatedImages).forEach(([k, imgs]) => {
                 const id = Number(k);
                 if (!imgs || !imgs.length) return;
-                
+
                 // 【关键】从 window 读取文件名（尝试多种 key 格式）
                 const possibleKeys = [String(id), id.toFixed(1), String(Math.floor(id))];
                 let filename: string | undefined;
@@ -2639,7 +2646,7 @@ export default function Step3_DeconstructionReview({
                         return;
                     }
                 }
-                
+
                 let targetIdx: number;
                 if (filename) {
                     const foundIdx = imgs.findIndex(url => url.endsWith(filename!) || url.includes(`/${filename}`));
@@ -2655,19 +2662,19 @@ export default function Step3_DeconstructionReview({
                     // 没有保存记录，不设置索引
                     return;
                 }
-                
+
                 if (prev[id] !== targetIdx) {
                     next[id] = targetIdx;
                     changed = true;
                     debugLog.push(`[Shot ${id}] 设置索引: ${prev[id]} → ${targetIdx}`);
                 }
             });
-            
+
             // 如果有调试信息，输出到控制台
             if (debugLog.length) {
                 console.log('[图片索引匹配]', debugLog.join('\n'));
             }
-            
+
             return changed ? next : prev;
         });
     }, [savedImageFilenames, generatedImages, savedIndexesLoaded]);
@@ -2746,10 +2753,10 @@ export default function Step3_DeconstructionReview({
         const workspacePath = currentWorkspace.path;
         const workbenchMatch = workspacePath.match(/AI_Shot_Workbench\/workspaces\/\d+/);
         const relativeWorkspace = workbenchMatch ? workbenchMatch[0] : `AI_Shot_Workbench/workspaces/${currentWorkspace.path.split('/').pop()}`;
-        
+
         // 生成简短指令
         const instruction = `请仔细阅读AI_Shot_Workbench/frontend/data/productionStoryboardPrompt.ts，该文件是最高命令，以后回答时都要先参考文件中的内容。当前工作空间为${relativeWorkspace}，阅读完后请等待用户的提问`;
-        
+
         try {
             await navigator.clipboard.writeText(instruction);
             setPromptCopyStatus('copied');
@@ -3384,12 +3391,12 @@ export default function Step3_DeconstructionReview({
             const fallbackRound2 = typeof round2Data === 'string' ? undefined : round2Data || undefined;
             const payload = JSON.stringify(
                 {
-                round1: parsed1.data ?? (typeof round1Data === 'string' ? undefined : round1Data || undefined),
-                round2: parsed2.data ?? fallbackRound2,
-            },
-            null,
-            2,
-        );
+                    round1: parsed1.data ?? (typeof round1Data === 'string' ? undefined : round1Data || undefined),
+                    round2: parsed2.data ?? fallbackRound2,
+                },
+                null,
+                2,
+            );
 
             updateDeconstruction(payload);
             try {
@@ -3475,620 +3482,637 @@ export default function Step3_DeconstructionReview({
 
     return (
         <>
-        <div className="space-y-12 pb-32">
-            {/* Header */}
-            <div className="glass-card p-5 space-y-3">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-bold text-[var(--color-text-primary)] flex items-center gap-2">
-                        <Film size={24} className="text-blue-400" />
-                        人工改写
-                    </h2>
-                    <button
-                        onClick={nextStep}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors font-medium text-sm shadow-lg shadow-blue-500/20"
-                    >
-                        下一步: 生产剧本 <ArrowRight size={16} />
-                    </button>
-                </div>
-                <div className="text-sm text-[var(--color-text-secondary)]">
-                    {modeSubtitleMap[mode]}
-                </div>
-                <div className="flex items-center gap-3 flex-wrap">
-                    {!hideModeSwitcher && modeOptions.map(({ key, label, helper }) => (
+            <div className="space-y-12 pb-32">
+                {/* Header */}
+                <div className="glass-card p-5 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-2xl font-bold text-[var(--color-text-primary)] flex items-center gap-2">
+                            <Film size={24} className="text-blue-400" />
+                            人工改写
+                        </h2>
                         <button
-                            key={key}
-                            onClick={() => setMode(key)}
-                            className={`
+                            onClick={nextStep}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors font-medium text-sm shadow-lg shadow-blue-500/20"
+                        >
+                            下一步: 生产剧本 <ArrowRight size={16} />
+                        </button>
+                    </div>
+                    <div className="text-sm text-[var(--color-text-secondary)]">
+                        {modeSubtitleMap[mode]}
+                    </div>
+                    <div className="flex items-center gap-3 flex-wrap">
+                        {!hideModeSwitcher && modeOptions.map(({ key, label, helper }) => (
+                            <button
+                                key={key}
+                                onClick={() => setMode(key)}
+                                className={`
                                 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
                                 ${mode === key
-                                    ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20 ring-2 ring-blue-400/50'
-                                    : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] hover:text-[var(--color-text-primary)] border border-[var(--glass-border)]'}
+                                        ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20 ring-2 ring-blue-400/50'
+                                        : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] hover:text-[var(--color-text-primary)] border border-[var(--glass-border)]'}
                             `}
-                        >
-                            <div className="flex flex-col items-start gap-0.5">
-                                <span>{label}</span>
-                                <span className="text-xs opacity-70">{helper}</span>
-                            </div>
-                        </button>
-                    ))}
-                    <div className="flex-1" />
-                    <button
-                        onClick={handleCopyPrompt}
-                        disabled={promptCopyStatus === 'loading'}
-                        className={`
+                            >
+                                <div className="flex flex-col items-start gap-0.5">
+                                    <span>{label}</span>
+                                    <span className="text-xs opacity-70">{helper}</span>
+                                </div>
+                            </button>
+                        ))}
+                        <div className="flex-1" />
+                        <button
+                            onClick={handleCopyPrompt}
+                            disabled={promptCopyStatus === 'loading'}
+                            className={`
                             flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
                             ${promptCopyStatus === 'copied'
-                                ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                                : promptCopyStatus === 'error'
-                                    ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                                : 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20'}
+                                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                                    : promptCopyStatus === 'error'
+                                        ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                        : 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20'}
                         `}
-                    >
-                        {promptCopyStatus === 'copied' ? <Check size={14} /> : <Copy size={14} />}
-                        <span>{promptCopyStatus === 'loading' ? '加载中...' : promptCopyStatus === 'copied' ? '已复制' : '复制剧本优化提示词'}</span>
-                    </button>
-                    <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                        <span className="hidden md:inline">剧本文件</span>
-                        <select
-                            value={selectedDeconstructionFile || 'deconstruction.json'}
-                            onChange={(e) => void switchDeconstructionFile(e.target.value)}
-                            className="px-3 py-2 rounded-lg border border-[var(--glass-border)] bg-[var(--color-bg-secondary)]/70 text-[var(--color-text-primary)] focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30"
                         >
-                            {deconstructionFiles.length === 0 && (
-                                <option value="deconstruction.json">deconstruction.json</option>
-                            )}
-                            {deconstructionFiles.map((f) => (
-                                <option key={f} value={f}>{f}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <button
-                        onClick={() => setShowPresetModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-blue-500 text-white hover:bg-blue-600 transition shadow-sm"
-                        type="button"
-                    >
-                        生图设定
-                    </button>
-                    <button
-                        onClick={() => setShowProviderModal(true)}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition border border-slate-200"
-                        type="button"
-                    >
-                        <Settings size={14} />
-                        生图供应商
-                    </button>
-                    <button
-                        onClick={() => setShowVideoConfigModal(true)}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-violet-100 text-violet-600 hover:bg-violet-200 transition border border-violet-200"
-                        type="button"
-                    >
-                        <Video size={14} />
-                        生视频配置
-                    </button>
-                    {!hideAnnotations && (
+                            {promptCopyStatus === 'copied' ? <Check size={14} /> : <Copy size={14} />}
+                            <span>{promptCopyStatus === 'loading' ? '加载中...' : promptCopyStatus === 'copied' ? '已复制' : '复制剧本优化提示词'}</span>
+                        </button>
+                        <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                            <span className="hidden md:inline">剧本文件</span>
+                            <select
+                                value={selectedDeconstructionFile || 'deconstruction.json'}
+                                onChange={(e) => void switchDeconstructionFile(e.target.value)}
+                                className="px-3 py-2 rounded-lg border border-[var(--glass-border)] bg-[var(--color-bg-secondary)]/70 text-[var(--color-text-primary)] focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30"
+                            >
+                                {deconstructionFiles.length === 0 && (
+                                    <option value="deconstruction.json">deconstruction.json</option>
+                                )}
+                                {deconstructionFiles.map((f) => (
+                                    <option key={f} value={f}>{f}</option>
+                                ))}
+                            </select>
+                        </div>
                         <button
-                            onClick={copyAllAnnotations}
-                            className={`
+                            onClick={() => setShowPresetModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-blue-500 text-white hover:bg-blue-600 transition shadow-sm"
+                            type="button"
+                        >
+                            生图设定
+                        </button>
+                        <button
+                            onClick={() => setShowProviderModal(true)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition border border-slate-200"
+                            type="button"
+                        >
+                            <Settings size={14} />
+                            生图供应商
+                        </button>
+                        <button
+                            onClick={() => setShowVideoConfigModal(true)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-violet-100 text-violet-600 hover:bg-violet-200 transition border border-violet-200"
+                            type="button"
+                        >
+                            <Video size={14} />
+                            生视频配置
+                        </button>
+                        {!hideAnnotations && (
+                            <button
+                                onClick={copyAllAnnotations}
+                                className={`
                                 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
                                 ${copyStatus === 'copied'
-                                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                                    : copyStatus === 'empty'
-                                        ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-                                        : copyStatus === 'error'
-                                            ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                                            : 'bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/20'}
+                                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                                        : copyStatus === 'empty'
+                                            ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                                            : copyStatus === 'error'
+                                                ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                                : 'bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/20'}
                             `}
-                        >
-                            {copyStatus === 'copied' ? <Check size={14} /> : <MessageSquare size={14} />}
-                            <span>
-                                {copyStatus === 'copied'
-                                    ? '已复制批注'
-                                    : copyStatus === 'empty'
-                                        ? '批注为空'
-                                        : copyStatus === 'error'
-                                            ? '复制失败'
-                                            : '复制批注'}
-                            </span>
-                        </button>
-                    )}
-                    {/* Compare JSON Button - Only in review mode */}
-                    {mode === 'review' && !hideCompare && (
-                        <button
-                            onClick={() => setShowComparePanel(!showComparePanel)}
-                            className={`
+                            >
+                                {copyStatus === 'copied' ? <Check size={14} /> : <MessageSquare size={14} />}
+                                <span>
+                                    {copyStatus === 'copied'
+                                        ? '已复制批注'
+                                        : copyStatus === 'empty'
+                                            ? '批注为空'
+                                            : copyStatus === 'error'
+                                                ? '复制失败'
+                                                : '复制批注'}
+                                </span>
+                            </button>
+                        )}
+                        {/* Compare JSON Button - Only in review mode */}
+                        {mode === 'review' && !hideCompare && (
+                            <button
+                                onClick={() => setShowComparePanel(!showComparePanel)}
+                                className={`
                                 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
                                 ${compareData
-                                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                                    : 'bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 border border-orange-500/20'}
+                                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                        : 'bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 border border-orange-500/20'}
                             `}
-                        >
-                            <ClipboardPaste size={14} />
-                            <span>{compareData ? `对比中 (${diffMap.size}处差异)` : '粘贴数据对比'}</span>
-                        </button>
-                    )}
-                </div>
+                            >
+                                <ClipboardPaste size={14} />
+                                <span>{compareData ? `对比中 (${diffMap.size}处差异)` : '粘贴数据对比'}</span>
+                            </button>
+                        )}
+                    </div>
 
-                {/* Compare Panel - Only visible when showComparePanel is true */}
-                {mode === 'review' && !hideCompare && showComparePanel && (
-                    <div className="p-4 rounded-xl bg-[var(--color-bg-secondary)]/50 border border-amber-500/30 space-y-3">
-                        <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-semibold text-amber-400 flex items-center gap-2">
-                                <ClipboardPaste size={16} />
-                                粘贴 Round 1 JSON / Round 2 Markdown 进行对比
-                            </h4>
-                            <div className="flex items-center gap-2">
-                                {compareData && (
-                                    <span className="text-xs px-2 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                                        {diffMap.size} 处差异
-                                    </span>
-                                )}
-                                <button
-                                    onClick={() => setShowComparePanel(false)}
-                                    className="p-1 hover:bg-[var(--color-bg-tertiary)] rounded text-[var(--color-text-tertiary)]"
-                                >
-                                    <X size={16} />
-                                </button>
+                    {/* Compare Panel - Only visible when showComparePanel is true */}
+                    {mode === 'review' && !hideCompare && showComparePanel && (
+                        <div className="p-4 rounded-xl bg-[var(--color-bg-secondary)]/50 border border-amber-500/30 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <h4 className="text-sm font-semibold text-amber-400 flex items-center gap-2">
+                                    <ClipboardPaste size={16} />
+                                    粘贴 Round 1 JSON / Round 2 Markdown 进行对比
+                                </h4>
+                                <div className="flex items-center gap-2">
+                                    {compareData && (
+                                        <span className="text-xs px-2 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                            {diffMap.size} 处差异
+                                        </span>
+                                    )}
+                                    <button
+                                        onClick={() => setShowComparePanel(false)}
+                                        className="p-1 hover:bg-[var(--color-bg-tertiary)] rounded text-[var(--color-text-tertiary)]"
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                        {/* Two separate inputs for Round 1 (JSON) and Round 2 (Markdown) */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Round 1 Input */}
-                            <div className="space-y-2">
-                                <label className="text-xs font-semibold text-blue-400">Round 1: 宏观骨架 + 钩子</label>
-                                <textarea
-                                    value={compareRound1Text}
-                                    onChange={(e) => setCompareRound1Text(e.target.value)}
-                                    placeholder="粘贴 Round 1 JSON（含 round1_skeleton 和 round1_hook）..."
-                                    className={`w-full h-28 bg-[var(--color-bg-primary)] border rounded-lg p-3 text-xs font-mono text-[var(--color-text-primary)] focus:outline-none focus:ring-1 resize-none ${compareRound1Error
+                            {/* Two separate inputs for Round 1 (JSON) and Round 2 (Markdown) */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Round 1 Input */}
+                                <div className="space-y-2">
+                                    <label className="text-xs font-semibold text-blue-400">Round 1: 宏观骨架 + 钩子</label>
+                                    <textarea
+                                        value={compareRound1Text}
+                                        onChange={(e) => setCompareRound1Text(e.target.value)}
+                                        placeholder="粘贴 Round 1 JSON（含 round1_skeleton 和 round1_hook）..."
+                                        className={`w-full h-28 bg-[var(--color-bg-primary)] border rounded-lg p-3 text-xs font-mono text-[var(--color-text-primary)] focus:outline-none focus:ring-1 resize-none ${compareRound1Error
                                             ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20'
                                             : 'border-[var(--glass-border)] focus:border-blue-500/50 focus:ring-blue-500/20'
-                                        }`}
-                                />
-                                {compareRound1Error && (
-                                    <div className="text-xs text-red-400 flex items-center gap-1">
-                                        <AlertCircle size={12} />
-                                        {compareRound1Error}
-                                    </div>
-                                )}
-                            </div>
-                            {/* Round 2 Input */}
-                            <div className="space-y-2">
-                                <label className="text-xs font-semibold text-purple-400">Round 2: 分镜头分析（Markdown）</label>
-                                <textarea
-                                    value={compareRound2Text}
-                                    onChange={(e) => setCompareRound2Text(e.target.value)}
-                                    placeholder="粘贴 Round 2 Markdown（含角色说明 + 分镜表格）..."
-                                    className={`w-full h-28 bg-[var(--color-bg-primary)] border rounded-lg p-3 text-xs font-mono text-[var(--color-text-primary)] focus:outline-none focus:ring-1 resize-none ${compareRound2Error
+                                            }`}
+                                    />
+                                    {compareRound1Error && (
+                                        <div className="text-xs text-red-400 flex items-center gap-1">
+                                            <AlertCircle size={12} />
+                                            {compareRound1Error}
+                                        </div>
+                                    )}
+                                </div>
+                                {/* Round 2 Input */}
+                                <div className="space-y-2">
+                                    <label className="text-xs font-semibold text-purple-400">Round 2: 分镜头分析（Markdown）</label>
+                                    <textarea
+                                        value={compareRound2Text}
+                                        onChange={(e) => setCompareRound2Text(e.target.value)}
+                                        placeholder="粘贴 Round 2 Markdown（含角色说明 + 分镜表格）..."
+                                        className={`w-full h-28 bg-[var(--color-bg-primary)] border rounded-lg p-3 text-xs font-mono text-[var(--color-text-primary)] focus:outline-none focus:ring-1 resize-none ${compareRound2Error
                                             ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20'
                                             : 'border-[var(--glass-border)] focus:border-purple-500/50 focus:ring-purple-500/20'
-                                        }`}
-                                />
-                                {compareRound2Error && (
-                                    <div className="text-xs text-red-400 flex items-center gap-1">
-                                        <AlertCircle size={12} />
-                                        {compareRound2Error}
-                                    </div>
+                                            }`}
+                                    />
+                                    {compareRound2Error && (
+                                        <div className="text-xs text-red-400 flex items-center gap-1">
+                                            <AlertCircle size={12} />
+                                            {compareRound2Error}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleParseCompareJson}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition font-medium text-sm"
+                                >
+                                    <RefreshCw size={14} />
+                                    解析并对比
+                                </button>
+                                {compareData && (
+                                    <button
+                                        onClick={clearCompareData}
+                                        className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--glass-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-red-500/50 transition font-medium text-sm"
+                                    >
+                                        <X size={14} />
+                                        清除对比
+                                    </button>
                                 )}
                             </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={handleParseCompareJson}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition font-medium text-sm"
-                            >
-                                <RefreshCw size={14} />
-                                解析并对比
-                            </button>
-                            {compareData && (
-                                <button
-                                    onClick={clearCompareData}
-                                    className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--glass-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-red-500/50 transition font-medium text-sm"
-                                >
-                                    <X size={14} />
-                                    清除对比
-                                </button>
+                            {compareData && diffMap.size > 0 && (
+                                <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+                                    <span className="text-amber-400 font-medium">提示:</span> 在下方字段旁边点击
+                                    <span className="mx-1 px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px]">核验</span>
+                                    按钮查看差异并选择是否采纳。
+                                </div>
                             )}
-                        </div>
-                        {compareData && diffMap.size > 0 && (
-                            <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
-                                <span className="text-amber-400 font-medium">提示:</span> 在下方字段旁边点击
-                                <span className="mx-1 px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px]">核验</span>
-                                按钮查看差异并选择是否采纳。
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Global Volume Control */}
-                <div className="flex items-center gap-4 p-3 rounded-lg bg-[var(--color-bg-secondary)]/50 border border-[var(--glass-border)]">
-                    <button
-                        onClick={toggleGlobalMute}
-                        className="p-1.5 hover:bg-[var(--color-bg-tertiary)] rounded text-[var(--color-text-primary)]"
-                    >
-                        {isGlobalMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-                    </button>
-                    <input
-                        type="range"
-                        min={0}
-                        max={1}
-                        step={0.01}
-                        value={isGlobalMuted ? 0 : globalVolume}
-                        onChange={handleGlobalVolumeChange}
-                        className="flex-1 h-1 bg-[var(--color-bg-secondary)] rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-500"
-                    />
-                    <span className="text-xs text-[var(--color-text-tertiary)] w-8 text-right">
-                        {Math.round((isGlobalMuted ? 0 : globalVolume) * 100)}%
-                    </span>
-                </div>
-            </div>
-
-            <div className="mx-auto px-8 py-6 space-y-8 relative">
-                {generateError && (
-                    <div className="p-3 rounded-lg border border-amber-500/40 bg-amber-500/10 text-sm text-amber-300">
-                        {generateError}
-                    </div>
-                )}
-                {/* Final Mode Metadata & Analysis */}
-                {(mode === 'final' || mode === 'revision') && (
-                    <div className="glass-card p-5 border border-purple-500/20 bg-[var(--glass-bg-light)] space-y-3">
-                        <div className="flex items-center gap-2 text-purple-300">
-                            <Zap size={16} />
-                            <span className="text-sm font-semibold">{mode === 'final' ? '优化摘要' : '修订摘要（对比终版）'}</span>
-                        </div>
-                        {optimizedMetadata && (
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-[var(--color-text-secondary)]">
-                                {Object.entries(optimizedMetadata).map(([k, v]) => (
-                                    <div key={k} className="p-3 rounded-lg bg-[var(--color-bg-secondary)]/50 border border-[var(--glass-border)]">
-                                        <div className="text-xs uppercase text-[var(--color-text-tertiary)]">{k}</div>
-                                        <div className="text-[var(--color-text-primary)] break-words">{String(v)}</div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                        {optimizedAnalysis?.summary && (
-                            <div className="text-sm text-[var(--color-text-primary)] leading-relaxed bg-[var(--glass-bg-light)]/70 p-3 rounded-lg border border-[var(--glass-border)]">
-                                {optimizedAnalysis.summary}
-                            </div>
-                        )}
-                        {optimizedAnalysis?.knowledge_base_applied && optimizedAnalysis.knowledge_base_applied.length > 0 && (
-                            <div className="flex flex-wrap gap-2">
-                                {optimizedAnalysis.knowledge_base_applied.map((k) => (
-                                    <span key={k} className="px-2 py-1 rounded-full text-xs bg-blue-500/10 text-blue-300 border border-blue-500/20">
-                                        {k}
-                                    </span>
-                                ))}
-                            </div>
-                        )}
-                        {optimizedAnalysis?.checkpoints && typeof optimizedAnalysis.checkpoints === 'object' && (
-                            <div className="space-y-2">
-                                <div className="text-xs font-semibold text-[var(--color-text-primary)]">Checkpoints</div>
-                                <div className="grid gap-2 md:grid-cols-2">
-                                    {Object.entries(optimizedAnalysis.checkpoints as Record<string, unknown>).map(([k, v]) => (
-                                        <div key={k} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--glass-bg-light)]/70 text-xs space-y-1">
-                                            <div className="uppercase text-[var(--color-text-tertiary)]">{k}</div>
-                                            <div className="text-[var(--color-text-primary)] whitespace-pre-wrap leading-relaxed">{String(v)}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        {!optimizedMetadata && !optimizedAnalysis?.summary && (
-                            <div className="text-xs text-[var(--color-text-tertiary)]">未提供优化元数据。</div>
-                        )}
-
-                        {deletedShots && deletedShots.length > 0 && (
-                            <div className="space-y-2">
-                                <div className="text-xs font-semibold text-red-300 flex items-center gap-2">
-                                    <Trash2 size={12} /> 已删除镜头
-                                </div>
-                                <div className="grid gap-2 md:grid-cols-2">
-                                    {deletedShots.map((d, idx) => (
-                                        <div key={`${d.original_id ?? idx}`} className="p-3 rounded-lg border border-red-500/20 bg-red-500/5 text-xs space-y-1">
-                                            <div className="font-semibold text-[var(--color-text-primary)]">Shot #{d.original_id ?? idx + 1}</div>
-                                            {d.reason && <div className="text-[var(--color-text-secondary)] leading-relaxed">{d.reason}</div>}
-                                            {d.type && <div className="text-xs uppercase text-red-300">类型: {d.type}</div>}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        {Array.isArray(modifiedAssets) && modifiedAssets.length > 0 && (
-                            <div className="space-y-2">
-                                <div className="text-xs font-semibold text-[var(--color-text-primary)]">元素替换</div>
-                                <div className="grid gap-2 md:grid-cols-2">
-                                    {modifiedAssets.map((m, idx) => (
-                                        <div key={`${m.original ?? idx}-${idx}`} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--glass-bg-light)]/70 text-xs space-y-1">
-                                            <div className="flex items-center gap-2 text-[var(--color-text-primary)]">
-                                                <span className="line-through text-[var(--color-text-tertiary)]">{m.original}</span>
-                                                <ArrowRight size={10} className="text-[var(--color-text-secondary)]" />
-                                                <span className="text-emerald-400 font-semibold">{m.replacement}</span>
-                                            </div>
-                                            {m.type && <div className={`text-xs uppercase ${modTypeClass(m.type)}`}>{m.type}</div>}
-                                            {m.element_type && <div className="text-xs text-amber-300 uppercase">{m.element_type}</div>}
-                                            {m.reason && <div className="text-[var(--color-text-secondary)] leading-relaxed">{m.reason}</div>}
-                                            {m.affected_shots && m.affected_shots.length > 0 && (
-                                                <div className="text-xs text-[var(--color-text-tertiary)]">影响镜头: {m.affected_shots.join(', ')}</div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        {optimizedAnalysis?.modified_assets_overview && Array.isArray(optimizedAnalysis.modified_assets_overview) && (
-                            <div className="space-y-2">
-                                <div className="text-xs font-semibold text-[var(--color-text-primary)]">Modified Assets 概览</div>
-                                <div className="grid gap-2 md:grid-cols-2">
-                                    {(optimizedAnalysis.modified_assets_overview as Array<Record<string, unknown>>).map((item, idx) => (
-                                        <div key={idx} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--glass-bg-light)]/70 text-xs space-y-1">
-                                            {item.shot_id && <div className="font-semibold text-[var(--color-text-primary)]">Shot {item.shot_id}</div>}
-                                            {item.field && <div className="text-[var(--color-text-secondary)]">字段: {String(item.field)}</div>}
-                                            {item.element_type && <div className="text-[var(--color-text-secondary)]">元素: {String(item.element_type)}</div>}
-                                            {item.reason && <div className="text-[var(--color-text-primary)] whitespace-pre-wrap leading-relaxed">{String(item.reason)}</div>}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )
-                }
-
-                {/* Round 1 Section - Bento Grid Layout */}
-                <div className="space-y-6">
-                    <div className="flex items-center justify-between px-2">
-                        <h3 className="text-xl font-bold text-slate-800 flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/30">
-                                <Box size={20} />
-                            </div>
-                            Round 1: 宏观骨架 & 钩子
-                        </h3>
-                        {round1Error && (
-                            <span className="text-xs text-amber-400 flex items-center gap-1.5 bg-amber-500/10 px-3 py-1.5 rounded-full border border-amber-500/20 backdrop-blur-md">
-                                <AlertCircle size={14} /> 解析错误
-                            </span>
-                        )}
-                    </div>
-
-                    {/* NEW: Macro Optimization Analysis for Round 1 */}
-                    {mode === 'revision' && (
-                        <div className="glass-card p-6 border-l-4 border-l-emerald-500 bg-emerald-500/5 space-y-4 rounded-2xl shadow-lg shadow-emerald-900/10">
-                            <div className="flex items-center gap-3 text-emerald-400">
-                                <div className="p-1.5 rounded-md bg-emerald-500/20">
-                                    <Zap size={18} />
-                                </div>
-                                <span className="font-bold text-lg tracking-tight">宏观优化分析 (Macro Analysis)</span>
-                            </div>
-                            {/* ... content ... */}
                         </div>
                     )}
 
-                    <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-                        {/* Left Column: Narrative Flow (7/12) */}
-                        <div className="xl:col-span-7 space-y-8">
-                            {/* Logic Chain */}
-                            <div className="glass-card p-6 rounded-2xl border border-white/10 bg-gradient-to-br from-blue-500/5 to-purple-500/5 backdrop-blur-xl shadow-xl">
-                                <div className="flex items-center gap-3 text-white/90 mb-4">
-                                    <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-300">
-                                        <GitBranch size={16} />
-                                    </div>
-                                    <span className="font-bold text-sm tracking-wide uppercase text-indigo-500/80">底层逻辑链</span>
-                                    {renderAnnotationControl('logic_chain', '底层逻辑链')}
+                    {/* Global Volume Control */}
+                    <div className="flex items-center gap-4 p-3 rounded-lg bg-[var(--color-bg-secondary)]/50 border border-[var(--glass-border)]">
+                        <button
+                            onClick={toggleGlobalMute}
+                            className="p-1.5 hover:bg-[var(--color-bg-tertiary)] rounded text-[var(--color-text-primary)]"
+                        >
+                            {isGlobalMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                        </button>
+                        <input
+                            type="range"
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            value={isGlobalMuted ? 0 : globalVolume}
+                            onChange={handleGlobalVolumeChange}
+                            className="flex-1 h-1 bg-[var(--color-bg-secondary)] rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-500"
+                        />
+                        <span className="text-xs text-[var(--color-text-tertiary)] w-8 text-right">
+                            {Math.round((isGlobalMuted ? 0 : globalVolume) * 100)}%
+                        </span>
+                    </div>
+                    {/* Theme Switcher - Temporary Debug Control */}
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-[var(--color-bg-secondary)]/50 border border-[var(--glass-border)] mt-2">
+                        <span className="text-xs font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider">Theme</span>
+                        <div className="flex bg-[var(--color-bg-tertiary)] p-0.5 rounded-lg">
+                            {(['glacier', 'midnight', 'obsidian'] as const).map(theme => (
+                                <button
+                                    key={theme}
+                                    onClick={() => setCurrentTheme(theme)}
+                                    className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${currentTheme === theme
+                                        ? 'bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] shadow-sm'
+                                        : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                                        }`}
+                                >
+                                    {theme.charAt(0).toUpperCase() + theme.slice(1)}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mx-auto px-8 py-6 space-y-8 relative">
+                    {generateError && (
+                        <div className="p-3 rounded-lg border border-amber-500/40 bg-amber-500/10 text-sm text-amber-300">
+                            {generateError}
+                        </div>
+                    )}
+                    {/* Final Mode Metadata & Analysis */}
+                    {(mode === 'final' || mode === 'revision') && (
+                        <div className="glass-card p-5 border border-purple-500/20 bg-[var(--glass-bg-light)] space-y-3">
+                            <div className="flex items-center gap-2 text-purple-300">
+                                <Zap size={16} />
+                                <span className="text-sm font-semibold">{mode === 'final' ? '优化摘要' : '修订摘要（对比终版）'}</span>
+                            </div>
+                            {optimizedMetadata && (
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-[var(--color-text-secondary)]">
+                                    {Object.entries(optimizedMetadata).map(([k, v]) => (
+                                        <div key={k} className="p-3 rounded-lg bg-[var(--color-bg-secondary)]/50 border border-[var(--glass-border)]">
+                                            <div className="text-xs uppercase text-[var(--color-text-tertiary)]">{k}</div>
+                                            <div className="text-[var(--color-text-primary)] break-words">{String(v)}</div>
+                                        </div>
+                                    ))}
                                 </div>
-                                <AutoTextArea
-                                    value={typeof round1Data !== 'string' ? round1Data?.round1_skeleton?.logic_chain || '' : ''}
-                                    onChange={(e) =>
-                                        mutateRound1((draft) => {
-                                            draft.round1_skeleton = { ...(draft.round1_skeleton || {}), logic_chain: e.target.value };
-                                        })
-                                    }
-                                    readOnly={!canEdit}
-                                    minRows={1}
-                                    maxRows={20}
-                                    className="w-full bg-black/5 border border-black/10 rounded-xl p-4 text-sm text-indigo-700 focus:outline-none focus:border-indigo-500/30 focus:ring-2 focus:ring-indigo-500/10 transition-all resize-none italic font-medium shadow-inner placeholder:text-indigo-400"
-                                    placeholder="输入逻辑链..."
-                                />
+                            )}
+                            {optimizedAnalysis?.summary && (
+                                <div className="text-sm text-[var(--color-text-primary)] leading-relaxed bg-[var(--glass-bg-light)]/70 p-3 rounded-lg border border-[var(--glass-border)]">
+                                    {optimizedAnalysis.summary}
+                                </div>
+                            )}
+                            {optimizedAnalysis?.knowledge_base_applied && optimizedAnalysis.knowledge_base_applied.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                    {optimizedAnalysis.knowledge_base_applied.map((k) => (
+                                        <span key={k} className="px-2 py-1 rounded-full text-xs bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                                            {k}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                            {optimizedAnalysis?.checkpoints && typeof optimizedAnalysis.checkpoints === 'object' && (
+                                <div className="space-y-2">
+                                    <div className="text-xs font-semibold text-[var(--color-text-primary)]">Checkpoints</div>
+                                    <div className="grid gap-2 md:grid-cols-2">
+                                        {Object.entries(optimizedAnalysis.checkpoints as Record<string, unknown>).map(([k, v]) => (
+                                            <div key={k} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--glass-bg-light)]/70 text-xs space-y-1">
+                                                <div className="uppercase text-[var(--color-text-tertiary)]">{k}</div>
+                                                <div className="text-[var(--color-text-primary)] whitespace-pre-wrap leading-relaxed">{String(v)}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {!optimizedMetadata && !optimizedAnalysis?.summary && (
+                                <div className="text-xs text-[var(--color-text-tertiary)]">未提供优化元数据。</div>
+                            )}
+
+                            {deletedShots && deletedShots.length > 0 && (
+                                <div className="space-y-2">
+                                    <div className="text-xs font-semibold text-red-300 flex items-center gap-2">
+                                        <Trash2 size={12} /> 已删除镜头
+                                    </div>
+                                    <div className="grid gap-2 md:grid-cols-2">
+                                        {deletedShots.map((d, idx) => (
+                                            <div key={`${d.original_id ?? idx}`} className="p-3 rounded-lg border border-red-500/20 bg-red-500/5 text-xs space-y-1">
+                                                <div className="font-semibold text-[var(--color-text-primary)]">Shot #{d.original_id ?? idx + 1}</div>
+                                                {d.reason && <div className="text-[var(--color-text-secondary)] leading-relaxed">{d.reason}</div>}
+                                                {d.type && <div className="text-xs uppercase text-red-300">类型: {d.type}</div>}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {Array.isArray(modifiedAssets) && modifiedAssets.length > 0 && (
+                                <div className="space-y-2">
+                                    <div className="text-xs font-semibold text-[var(--color-text-primary)]">元素替换</div>
+                                    <div className="grid gap-2 md:grid-cols-2">
+                                        {modifiedAssets.map((m, idx) => (
+                                            <div key={`${m.original ?? idx}-${idx}`} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--glass-bg-light)]/70 text-xs space-y-1">
+                                                <div className="flex items-center gap-2 text-[var(--color-text-primary)]">
+                                                    <span className="line-through text-[var(--color-text-tertiary)]">{m.original}</span>
+                                                    <ArrowRight size={10} className="text-[var(--color-text-secondary)]" />
+                                                    <span className="text-emerald-400 font-semibold">{m.replacement}</span>
+                                                </div>
+                                                {m.type && <div className={`text-xs uppercase ${modTypeClass(m.type)}`}>{m.type}</div>}
+                                                {m.element_type && <div className="text-xs text-amber-300 uppercase">{m.element_type}</div>}
+                                                {m.reason && <div className="text-[var(--color-text-secondary)] leading-relaxed">{m.reason}</div>}
+                                                {m.affected_shots && m.affected_shots.length > 0 && (
+                                                    <div className="text-xs text-[var(--color-text-tertiary)]">影响镜头: {m.affected_shots.join(', ')}</div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {optimizedAnalysis?.modified_assets_overview && Array.isArray(optimizedAnalysis.modified_assets_overview) && (
+                                <div className="space-y-2">
+                                    <div className="text-xs font-semibold text-[var(--color-text-primary)]">Modified Assets 概览</div>
+                                    <div className="grid gap-2 md:grid-cols-2">
+                                        {(optimizedAnalysis.modified_assets_overview as Array<Record<string, unknown>>).map((item, idx) => (
+                                            <div key={idx} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--glass-bg-light)]/70 text-xs space-y-1">
+                                                {!!item.shot_id && <div className="font-semibold text-[var(--color-text-primary)]">Shot {String(item.shot_id)}</div>}
+                                                {!!item.field && <div className="text-[var(--color-text-secondary)]">字段: {String(item.field)}</div>}
+                                                {!!item.element_type && <div className="text-[var(--color-text-secondary)]">元素: {String(item.element_type)}</div>}
+                                                {!!item.reason && <div className="text-[var(--color-text-primary)] whitespace-pre-wrap leading-relaxed">{String(item.reason)}</div>}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )
+                    }
+
+                    {/* Round 1 Section - Bento Grid Layout */}
+                    <div className="space-y-6">
+                        <div className="flex items-center justify-between px-2">
+                            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/30">
+                                    <Box size={20} />
+                                </div>
+                                Round 1: 宏观骨架 & 钩子
+                            </h3>
+                            {round1Error && (
+                                <span className="text-xs text-amber-400 flex items-center gap-1.5 bg-amber-500/10 px-3 py-1.5 rounded-full border border-amber-500/20 backdrop-blur-md">
+                                    <AlertCircle size={14} /> 解析错误
+                                </span>
+                            )}
+                        </div>
+
+                        {/* NEW: Macro Optimization Analysis for Round 1 */}
+                        {mode === 'revision' && (
+                            <div className="glass-card p-6 border-l-4 border-l-emerald-500 bg-emerald-500/5 space-y-4 rounded-2xl shadow-lg shadow-emerald-900/10">
+                                <div className="flex items-center gap-3 text-emerald-400">
+                                    <div className="p-1.5 rounded-md bg-emerald-500/20">
+                                        <Zap size={18} />
+                                    </div>
+                                    <span className="font-bold text-lg tracking-tight">宏观优化分析 (Macro Analysis)</span>
+                                </div>
+                                {/* ... content ... */}
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+                            {/* Left Column: Narrative Flow (7/12) */}
+                            <div className="xl:col-span-7 space-y-8">
+                                {/* Logic Chain */}
+                                <div className="glass-card p-6 space-y-4">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-500">
+                                            <GitBranch size={18} />
+                                        </div>
+                                        <h3 className="text-base font-semibold text-slate-800">底层逻辑链</h3>
+                                        {renderAnnotationControl('logic_chain', '底层逻辑链')}
+                                    </div>
+
+                                    <AutoTextArea
+                                        value={typeof round1Data !== 'string' ? round1Data?.round1_skeleton?.logic_chain || '' : ''}
+                                        onChange={(e) =>
+                                            mutateRound1((draft) => {
+                                                draft.round1_skeleton = { ...(draft.round1_skeleton || {}), logic_chain: e.target.value };
+                                            })
+                                        }
+                                        readOnly={!canEdit}
+                                        minRows={2}
+                                        maxRows={20}
+                                        className="w-full bg-slate-50/50 border border-slate-200/50 rounded-xl p-4 text-sm text-slate-700 focus:outline-none focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 transition-all resize-none shadow-sm placeholder:text-slate-400"
+                                        placeholder="输入逻辑链..."
+                                    />
+                                </div>
+
+                                <div className="glass-card p-6 space-y-6">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500">
+                                            <Layout size={18} />
+                                        </div>
+                                        <h3 className="text-base font-semibold text-slate-800">骨架节点 (Timeline)</h3>
+                                    </div>
+                                    <div className="space-y-0 relative pl-4">
+                                        {/* Timeline Line */}
+                                        <div className="absolute left-[29px] top-4 bottom-8 w-px bg-slate-200" />
+
+                                        {typeof round1Data !== 'string' && (round1Data?.round1_skeleton?.skeleton_nodes || []).map((node, idx) => (
+                                            <div key={idx} className="relative flex items-stretch gap-4 pb-8 last:pb-0 group">
+                                                {/* Timeline Dot */}
+                                                <div className="w-14 flex items-center justify-center z-10 pt-2">
+                                                    <div className="w-8 h-8 rounded-full bg-white border border-purple-200 text-purple-600 flex items-center justify-center text-sm font-semibold shadow-sm group-hover:scale-110 group-hover:border-purple-400 group-hover:shadow-md transition-all duration-300">
+                                                        {idx + 1}
+                                                    </div>
+                                                </div>
+
+                                                <AutoTextArea
+                                                    value={node || ''}
+                                                    onChange={(e) =>
+                                                        mutateRound1((draft) => {
+                                                            const list = [...(draft.round1_skeleton?.skeleton_nodes || [])];
+                                                            list[idx] = e.target.value;
+                                                            draft.round1_skeleton = { ...(draft.round1_skeleton || {}), skeleton_nodes: list };
+                                                        })
+                                                    }
+                                                    readOnly={!canEdit}
+                                                    minRows={1}
+                                                    maxRows={12}
+                                                    className="w-full bg-slate-50/50 border border-slate-200/50 rounded-xl p-4 text-sm text-slate-700 focus:outline-none focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 transition-all resize-none shadow-sm hover:bg-white"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
 
-                            {/* Skeleton Timeline */}
-                            <div className="glass-card p-8 rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl">
-                                <div className="flex items-center gap-3 text-purple-400 mb-8">
-                                    <div className="p-2 rounded-xl bg-purple-500/10 ring-1 ring-purple-500/20">
-                                        <Layout size={20} />
+                            {/* Right Column: Mechanics & Analysis (5/12) */}
+                            <div className="xl:col-span-5 space-y-8">
+                                {/* Hooks Analysis */}
+                                <div className="glass-card p-6 space-y-5">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="p-2 rounded-lg bg-pink-500/10 text-pink-500">
+                                            <Anchor size={18} />
+                                        </div>
+                                        <h3 className="text-base font-semibold text-slate-800">前3秒钩子分析</h3>
+                                        {renderAnnotationControl('hooks', '前3秒钩子分析')}
                                     </div>
-                                    <span className="font-bold text-lg text-slate-700">骨架节点 (Timeline)</span>
-                                </div>
-                                <div className="space-y-0 relative pl-4">
-                                    {/* Timeline Line */}
-                                    <div className="absolute left-[27px] top-4 bottom-8 w-0.5 bg-gradient-to-b from-purple-500/40 via-purple-500/20 to-transparent" />
-
-                                    {typeof round1Data !== 'string' && (round1Data?.round1_skeleton?.skeleton_nodes || []).map((node, idx) => (
-                                        <div key={idx} className="relative flex items-stretch gap-4 pb-8 last:pb-0 group">
-                                            {/* Timeline Dot */}
-                                            <div className="w-14 flex items-center justify-center z-10 pt-2">
-                                                <div className="w-10 h-10 rounded-full bg-[#1a1a2e] border-2 border-purple-500/40 text-purple-300 flex items-center justify-center text-sm font-bold shadow-[0_0_15px_rgba(168,85,247,0.2)] group-hover:scale-110 group-hover:border-purple-400 group-hover:text-white group-hover:shadow-[0_0_20px_rgba(168,85,247,0.4)] transition-all duration-300">
-                                                    {idx + 1}
-                                                </div>
-                                            </div>
-
+                                    <div className="space-y-5">
+                                        <div className="space-y-2">
+                                            <div className="text-xs font-bold text-pink-500/60 uppercase tracking-wider ml-1">视觉钩子</div>
                                             <AutoTextArea
-                                                value={node || ''}
+                                                value={typeof round1Data !== 'string' ? round1Data?.round1_hook?.visual_hook || '' : ''}
                                                 onChange={(e) =>
                                                     mutateRound1((draft) => {
-                                                        const list = [...(draft.round1_skeleton?.skeleton_nodes || [])];
-                                                        list[idx] = e.target.value;
-                                                        draft.round1_skeleton = { ...(draft.round1_skeleton || {}), skeleton_nodes: list };
+                                                        draft.round1_hook = { ...(draft.round1_hook || {}), visual_hook: e.target.value };
+                                                    })
+                                                }
+                                                readOnly={!canEdit}
+                                                minRows={2}
+                                                maxRows={12}
+                                                className="w-full bg-slate-50/50 border border-slate-200/50 rounded-xl px-4 py-3 text-sm text-slate-700 leading-relaxed focus:outline-none focus:border-pink-500/50 focus:ring-4 focus:ring-pink-500/10 transition-all resize-none shadow-sm"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="text-xs font-bold text-pink-500/60 uppercase tracking-wider ml-1">音频钩子</div>
+                                            <AutoTextArea
+                                                value={typeof round1Data !== 'string' ? round1Data?.round1_hook?.audio_hook || '' : ''}
+                                                onChange={(e) =>
+                                                    mutateRound1((draft) => {
+                                                        draft.round1_hook = { ...(draft.round1_hook || {}), audio_hook: e.target.value };
                                                     })
                                                 }
                                                 readOnly={!canEdit}
                                                 minRows={1}
                                                 maxRows={12}
-                                                className="w-full bg-black/5 border border-black/10 rounded-xl p-4 text-sm text-slate-700 focus:outline-none focus:border-purple-500/30 focus:ring-2 focus:ring-purple-500/10 transition-all resize-none shadow-sm hover:bg-black/10 leading-relaxed"
+                                                className="w-full bg-slate-50/50 border border-slate-200/50 rounded-xl px-4 py-3 text-sm text-slate-700 leading-relaxed focus:outline-none focus:border-pink-500/50 focus:ring-4 focus:ring-pink-500/10 transition-all resize-none shadow-sm"
                                             />
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Right Column: Mechanics & Analysis (5/12) */}
-                        <div className="xl:col-span-5 space-y-8">
-                            {/* Hooks Analysis */}
-                            <div className="glass-card p-6 rounded-2xl border border-white/10 bg-gradient-to-b from-pink-500/5 to-transparent backdrop-blur-xl shadow-xl">
-                                <div className="flex items-center gap-3 text-pink-400 mb-6">
-                                    <div className="p-1.5 rounded-lg bg-pink-500/20">
-                                        <Anchor size={18} />
-                                    </div>
-                                    <span className="font-bold text-base text-slate-700">前3秒钩子分析</span>
-                                    {renderAnnotationControl('hooks', '前3秒钩子分析')}
-                                </div>
-                                <div className="space-y-5">
-                                    <div className="space-y-2">
-                                        <div className="text-xs font-bold text-pink-500/60 uppercase tracking-wider ml-1">视觉钩子</div>
-                                        <AutoTextArea
-                                            value={typeof round1Data !== 'string' ? round1Data?.round1_hook?.visual_hook || '' : ''}
-                                            onChange={(e) =>
-                                                mutateRound1((draft) => {
-                                                    draft.round1_hook = { ...(draft.round1_hook || {}), visual_hook: e.target.value };
-                                                })
-                                            }
-                                            readOnly={!canEdit}
-                                            minRows={2}
-                                            maxRows={12}
-                                            className="w-full bg-black/5 border border-black/10 rounded-xl px-4 py-3 text-sm text-slate-700 leading-relaxed focus:outline-none focus:border-pink-500/30 focus:ring-2 focus:ring-pink-500/10 transition-all resize-none"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <div className="text-xs font-bold text-pink-500/60 uppercase tracking-wider ml-1">音频钩子</div>
-                                        <AutoTextArea
-                                            value={typeof round1Data !== 'string' ? round1Data?.round1_hook?.audio_hook || '' : ''}
-                                            onChange={(e) =>
-                                                mutateRound1((draft) => {
-                                                    draft.round1_hook = { ...(draft.round1_hook || {}), audio_hook: e.target.value };
-                                                })
-                                            }
-                                            readOnly={!canEdit}
-                                            minRows={1}
-                                            maxRows={12}
-                                            className="w-full bg-black/5 border border-black/10 rounded-xl px-4 py-3 text-sm text-slate-700 leading-relaxed focus:outline-none focus:border-pink-500/30 focus:ring-2 focus:ring-pink-500/10 transition-all resize-none"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <div className="text-xs font-bold text-pink-500/60 uppercase tracking-wider ml-1">留存策略</div>
-                                        <AutoTextArea
-                                            value={typeof round1Data !== 'string' ? round1Data?.round1_hook?.retention_strategy || '' : ''}
-                                            onChange={(e) =>
-                                                mutateRound1((draft) => {
-                                                    draft.round1_hook = { ...(draft.round1_hook || {}), retention_strategy: e.target.value };
-                                                })
-                                            }
-                                            readOnly={!canEdit}
-                                            minRows={2}
-                                            maxRows={12}
-                                            className="w-full bg-black/5 border border-black/10 rounded-xl px-4 py-3 text-sm text-slate-700 leading-relaxed focus:outline-none focus:border-pink-500/30 focus:ring-2 focus:ring-pink-500/10 transition-all resize-none"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Viral Elements */}
-                            <div className="glass-card p-6 rounded-2xl border border-white/10 bg-gradient-to-b from-amber-500/5 to-transparent backdrop-blur-xl shadow-xl">
-                                <div className="flex items-center gap-3 text-amber-400 mb-6">
-                                    <div className="p-1.5 rounded-lg bg-amber-500/20">
-                                        <Zap size={18} />
-                                    </div>
-                                    <span className="font-bold text-base text-slate-700">爆款元素</span>
-                                    {renderAnnotationControl('viral', '爆款元素')}
-                                </div>
-                                <div className="space-y-4">
-                                    {typeof round1Data !== 'string' && (round1Data?.round1_skeleton?.viral_elements_found || []).map((v, idx) => (
-                                        <div key={idx} className="bg-black/5 p-4 rounded-xl border border-black/10 space-y-3 hover:border-amber-500/20 hover:bg-black/10 transition-all duration-300 group">
-                                            <div className="flex gap-3 border-b border-black/5 pb-2">
-                                                <AutoTextArea
-                                                    value={v.category || ''}
-                                                    onChange={(e) =>
-                                                        mutateRound1((draft) => {
-                                                            const list = [...(draft.round1_skeleton?.viral_elements_found || [])];
-                                                            list[idx] = { ...(list[idx] || {}), category: e.target.value };
-                                                            draft.round1_skeleton = { ...(draft.round1_skeleton || {}), viral_elements_found: list };
-                                                        })
-                                                    }
-                                                    readOnly={!canEdit}
-                                                    minRows={1}
-                                                    maxRows={4}
-                                                    className="w-1/3 text-xs font-bold text-amber-400 bg-transparent border-none focus:ring-0 px-0 resize-none leading-relaxed placeholder:text-amber-400/30"
-                                                    placeholder="类别"
-                                                />
-                                                <div className="w-px bg-black/10" />
-                                                <AutoTextArea
-                                                    value={v.element || ''}
-                                                    onChange={(e) =>
-                                                        mutateRound1((draft) => {
-                                                            const list = [...(draft.round1_skeleton?.viral_elements_found || [])];
-                                                            list[idx] = { ...(list[idx] || {}), element: e.target.value };
-                                                            draft.round1_skeleton = { ...(draft.round1_skeleton || {}), viral_elements_found: list };
-                                                        })
-                                                    }
-                                                    readOnly={!canEdit}
-                                                    minRows={1}
-                                                    maxRows={6}
-                                                    className="flex-1 text-sm font-bold text-slate-700 bg-transparent border-none focus:ring-0 px-0 resize-none leading-relaxed placeholder:text-slate-400"
-                                                    placeholder="元素"
-                                                />
-                                            </div>
+                                        <div className="space-y-2">
+                                            <div className="text-xs font-bold text-pink-500/60 uppercase tracking-wider ml-1">留存策略</div>
                                             <AutoTextArea
-                                                value={v.description || ''}
+                                                value={typeof round1Data !== 'string' ? round1Data?.round1_hook?.retention_strategy || '' : ''}
                                                 onChange={(e) =>
                                                     mutateRound1((draft) => {
-                                                        const list = [...(draft.round1_skeleton?.viral_elements_found || [])];
-                                                        list[idx] = { ...(list[idx] || {}), description: e.target.value };
-                                                        draft.round1_skeleton = { ...(draft.round1_skeleton || {}), viral_elements_found: list };
+                                                        draft.round1_hook = { ...(draft.round1_hook || {}), retention_strategy: e.target.value };
                                                     })
                                                 }
                                                 readOnly={!canEdit}
-                                                minRows={1}
-                                                maxRows={10}
-                                                className="w-full text-sm text-slate-600 bg-transparent border-none focus:ring-0 p-0 resize-none leading-relaxed placeholder:text-slate-400"
-                                                placeholder="详细描述..."
+                                                minRows={2}
+                                                maxRows={12}
+                                                className="w-full bg-slate-50/50 border border-slate-200/50 rounded-xl px-4 py-3 text-sm text-slate-700 leading-relaxed focus:outline-none focus:border-pink-500/50 focus:ring-4 focus:ring-pink-500/10 transition-all resize-none shadow-sm"
                                             />
                                         </div>
-                                    ))}
-                                    {(typeof round1Data === 'string' || !round1Data?.round1_skeleton?.viral_elements_found?.length) && (
-                                        <span className="text-xs text-white/20 italic pl-2">暂无数据</span>
-                                    )}
+                                    </div>
+                                </div>
+
+                                {/* Viral Elements */}
+                                <div className="glass-card p-6 space-y-4">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
+                                            <Zap size={18} />
+                                        </div>
+                                        <h3 className="text-base font-semibold text-slate-800">爆款元素</h3>
+                                        {renderAnnotationControl('viral', '爆款元素')}
+                                    </div>
+                                    <div className="space-y-4">
+                                        {typeof round1Data !== 'string' && (round1Data?.round1_skeleton?.viral_elements_found || []).map((v, idx) => (
+                                            <div key={idx} className="bg-slate-50/50 p-4 rounded-xl border border-slate-200/50 space-y-3 hover:border-amber-400/50 hover:shadow-md transition-all duration-300 group">
+                                                <div className="flex gap-3 border-b border-slate-200/50 pb-2">
+                                                    <AutoTextArea
+                                                        value={v.category || ''}
+                                                        onChange={(e) =>
+                                                            mutateRound1((draft) => {
+                                                                const list = [...(draft.round1_skeleton?.viral_elements_found || [])];
+                                                                list[idx] = { ...(list[idx] || {}), category: e.target.value };
+                                                                draft.round1_skeleton = { ...(draft.round1_skeleton || {}), viral_elements_found: list };
+                                                            })
+                                                        }
+                                                        readOnly={!canEdit}
+                                                        minRows={1}
+                                                        maxRows={4}
+                                                        className="w-1/3 text-xs font-bold text-amber-400 bg-transparent border-none focus:ring-0 px-0 resize-none leading-relaxed placeholder:text-amber-400/30"
+                                                        placeholder="类别"
+                                                    />
+                                                    <div className="w-px bg-black/10" />
+                                                    <AutoTextArea
+                                                        value={v.element || ''}
+                                                        onChange={(e) =>
+                                                            mutateRound1((draft) => {
+                                                                const list = [...(draft.round1_skeleton?.viral_elements_found || [])];
+                                                                list[idx] = { ...(list[idx] || {}), element: e.target.value };
+                                                                draft.round1_skeleton = { ...(draft.round1_skeleton || {}), viral_elements_found: list };
+                                                            })
+                                                        }
+                                                        readOnly={!canEdit}
+                                                        minRows={1}
+                                                        maxRows={6}
+                                                        className="flex-1 text-sm font-bold text-slate-700 bg-transparent border-none focus:ring-0 px-0 resize-none leading-relaxed placeholder:text-slate-400"
+                                                        placeholder="元素"
+                                                    />
+                                                </div>
+                                                <AutoTextArea
+                                                    value={v.description || ''}
+                                                    onChange={(e) =>
+                                                        mutateRound1((draft) => {
+                                                            const list = [...(draft.round1_skeleton?.viral_elements_found || [])];
+                                                            list[idx] = { ...(list[idx] || {}), description: e.target.value };
+                                                            draft.round1_skeleton = { ...(draft.round1_skeleton || {}), viral_elements_found: list };
+                                                        })
+                                                    }
+                                                    readOnly={!canEdit}
+                                                    minRows={1}
+                                                    maxRows={10}
+                                                    className="w-full text-sm text-slate-600 bg-transparent border-none focus:ring-0 p-0 resize-none leading-relaxed placeholder:text-slate-400"
+                                                    placeholder="详细描述..."
+                                                />
+                                            </div>
+                                        ))}
+                                        {(typeof round1Data === 'string' || !round1Data?.round1_skeleton?.viral_elements_found?.length) && (
+                                            <span className="text-xs text-white/20 italic pl-2">暂无数据</span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                {/* Round 2 Section */}
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between px-1">
-                        <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-                            <Film className="w-5 h-5 text-purple-500" />
-                            Round 2: 分镜头分析
-                        </h3>
-                        {round2Error && (
-                            <span className="text-xs text-amber-500 flex items-center gap-1 bg-amber-500/10 px-2 py-1 rounded-full border border-amber-500/20">
-                                <AlertCircle size={12} /> 解析错误
-                            </span>
-                        )}
-                    </div>
+                    {/* Round 2 Section */}
+                    <div className="space-y-6">
+                        <div className="flex items-center justify-between px-1">
+                            <h3 className="apple-headline flex items-center gap-2 text-slate-800">
+                                <Film className="w-5 h-5 text-purple-600" />
+                                Round 2: 分镜头分析
+                            </h3>
+                            {round2Error && (
+                                <span className="text-xs text-amber-500 flex items-center gap-1 bg-amber-500/10 px-2 py-1 rounded-full border border-amber-500/20">
+                                    <AlertCircle size={12} /> 解析错误
+                                </span>
+                            )}
+                        </div>
 
-                    {/* Characters */}
-                    {typeof round2Data !== 'string' && (
-                        <div className="space-y-6">
-                            {/* Enhanced Title Section */}
-                            <div className="relative">
-                                <div className="flex items-center gap-3 px-2">
-                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                                        <Users size={20} className="text-white" />
+                        {/* Characters */}
+                        {typeof round2Data !== 'string' && (
+                            <div className="space-y-6">
+                                {/* Enhanced Title Section */}
+                                <div className="flex items-center gap-4 px-2 mb-2">
+                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                                        <Users size={24} className="text-white" />
                                     </div>
                                     <div className="flex-1">
-                                        <h3 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-slate-800 to-slate-600">
+                                        <h3 className="text-2xl font-bold tracking-tight text-slate-900">
                                             角色库
                                         </h3>
-                                        <p className="text-sm text-slate-500 mt-0.5">
+                                        <p className="text-sm text-slate-500 mt-0.5 font-medium">
                                             Character Library · {round2Data?.characters ? Object.keys(round2Data.characters).length : 0} 位角色
                                         </p>
                                     </div>
@@ -4098,429 +4122,266 @@ export default function Step3_DeconstructionReview({
                                                 setActiveCharacterForPick(null);
                                                 setShowGalleryModal(true);
                                             }}
-                                            className="px-3 py-1.5 rounded-lg text-sm bg-blue-500/10 text-blue-500 border border-blue-500/30 hover:bg-blue-500/20 transition"
+                                            className="apple-button apple-button-secondary py-1.5 px-3 text-sm"
                                         >
                                             参考图库
                                         </button>
                                         {renderAnnotationControl('characters', '角色库')}
                                     </div>
                                 </div>
-                                <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
-                            </div>
+                                <div className="h-px bg-slate-200 mx-2" />
 
-                            {/* Add Character */}
-                            {canEdit && (
-                                <div className="glass-card p-4 rounded-2xl border border-slate-200/70 bg-white/70">
-                                    <div className="flex flex-col md:flex-row gap-3 items-start md:items-end">
-                                        <div className="flex-1 flex flex-col gap-2 w-full">
-                                            <div className="flex flex-col gap-1">
-                                                <label className="text-xs text-slate-500">角色名称</label>
-                                                <input
-                                                    value={newCharacterName}
-                                                    onChange={(e) => setNewCharacterName(e.target.value)}
-                                                    placeholder="如：格子衬衫男主"
-                                                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
-                                                />
+                                {/* Add Character */}
+                                {canEdit && (
+                                    <div className="glass-card p-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                                        <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
+                                            <div className="flex-1 flex flex-col gap-3 w-full">
+                                                <div className="flex flex-col gap-1.5">
+                                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">角色名称</label>
+                                                    <input
+                                                        value={newCharacterName}
+                                                        onChange={(e) => setNewCharacterName(e.target.value)}
+                                                        placeholder="如：格子衬衫男主"
+                                                        className="apple-input bg-white text-sm"
+                                                    />
+                                                </div>
+                                                <div className="flex flex-col gap-1.5">
+                                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">角色描述</label>
+                                                    <AutoTextArea
+                                                        value={newCharacterDesc}
+                                                        onChange={(e) => setNewCharacterDesc(e.target.value)}
+                                                        minRows={2}
+                                                        maxRows={6}
+                                                        placeholder="外观、妆造、性格、标志物..."
+                                                        className="w-full px-4 py-3 rounded-lg border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none transition-all"
+                                                    />
+                                                </div>
                                             </div>
-                                            <div className="flex flex-col gap-1">
-                                                <label className="text-xs text-slate-500">角色描述</label>
-                                                <AutoTextArea
-                                                    value={newCharacterDesc}
-                                                    onChange={(e) => setNewCharacterDesc(e.target.value)}
-                                                    minRows={2}
-                                                    maxRows={6}
-                                                    placeholder="外观、妆造、性格、标志物..."
-                                                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none"
-                                                />
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={handleAddCharacter}
-                                            className="whitespace-nowrap px-4 py-2.5 rounded-xl bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 transition disabled:opacity-60"
-                                            disabled={!newCharacterName.trim()}
-                                        >
-                                            添加角色
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Enhanced Character Grid */}
-                            {round2Data?.characters && Object.keys(round2Data.characters).length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                    {Object.entries(round2Data.characters).map(([name, desc], index) => {
-                                        const refId = characterRefs[name];
-                                        const refImage = referenceGallery.find((item) => item.id === refId);
-                                        return (
-                                            <div
-                                                key={index}
-                                                className="group relative overflow-hidden rounded-2xl border border-slate-200/60 bg-gradient-to-br from-white to-slate-50/30 backdrop-blur-sm transition-all duration-500 hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1 hover:border-blue-300/50"
+                                            <button
+                                                onClick={handleAddCharacter}
+                                                className="whitespace-nowrap px-6 py-3 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                                disabled={!newCharacterName.trim()}
                                             >
-                                                {/* Gradient Overlay on Hover */}
-                                                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                                添加角色
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
 
-                                                {/* Shine Effect */}
-                                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                                {/* Enhanced Character Grid */}
+                                {round2Data?.characters && Object.keys(round2Data.characters).length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                        {Object.entries(round2Data.characters).map(([name, desc], index) => {
+                                            const refId = characterRefs[name];
+                                            const refImage = referenceGallery.find((item) => item.id === refId);
+                                            return (
+                                                <div
+                                                    key={index}
+                                                    className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white/50 backdrop-blur-xl transition-all duration-300 hover:shadow-xl hover:shadow-black/5 hover:-translate-y-1 hover:border-slate-300"
+                                                >
 
-                                                <div className="relative z-10 p-5">
-                                                    <div className="flex gap-4">
-                                                        {/* Left: Reference image (9:16) or Avatar placeholder */}
-                                                        <div className="flex-shrink-0 w-24">
-                                                            {refImage ? (
-                                                                <div
-                                                                    className="relative aspect-[9/16] rounded-xl overflow-hidden border border-blue-200/60 bg-slate-900 shadow-lg cursor-zoom-in"
-                                                                    onClick={() => setPreviewImage({ url: refImage.url, name: refImage.name })}
-                                                                >
-                                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                                    <img src={refImage.url} alt={refImage.name} className="w-full h-full object-cover" />
-                                                                </div>
-                                                            ) : (
-                                                                <div className="relative aspect-[9/16] rounded-xl bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 border border-slate-200/60 flex items-center justify-center">
-                                                                    <span className="text-4xl font-bold text-slate-400">{name[0]}</span>
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                                    <div className="relative z-10 p-5">
+                                                        <div className="flex gap-4">
+                                                            {/* Left: Reference image (9:16) or Avatar placeholder */}
+                                                            <div className="flex-shrink-0 w-24">
+                                                                {refImage ? (
+                                                                    <div
+                                                                        className="relative aspect-[9/16] rounded-xl overflow-hidden border border-blue-200/60 bg-slate-900 shadow-lg cursor-zoom-in"
+                                                                        onClick={() => setPreviewImage({ url: refImage.url, name: refImage.name })}
+                                                                    >
+                                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                        <img src={refImage.url} alt={refImage.name} className="w-full h-full object-cover" />
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="relative aspect-[9/16] rounded-xl bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 border border-slate-200/60 flex items-center justify-center">
+                                                                        <span className="text-4xl font-bold text-slate-400">{name[0]}</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
 
-                                                        {/* Right: Character info */}
-                                                        <div className="flex-1 flex flex-col min-w-0">
-                                                            {/* Header: Name & Actions */}
-                                                            <div className="flex items-start justify-between gap-2 mb-2">
-                                                                <div className="flex-1 min-w-0">
-                                                                    {renamingCharacter === name ? (
-                                                                        <div className="flex items-center gap-2">
-                                                                            <input
-                                                                                value={renamingCharacterValue}
-                                                                                onChange={(e) => setRenamingCharacterValue(e.target.value)}
-                                                                                onKeyDown={(e) => {
-                                                                                    if (e.key === 'Enter') handleRenameCharacter(name, renamingCharacterValue);
-                                                                                    if (e.key === 'Escape') {
+                                                            {/* Right: Character info */}
+                                                            <div className="flex-1 flex flex-col min-w-0">
+                                                                {/* Header: Name & Actions */}
+                                                                <div className="flex items-start justify-between gap-2 mb-2">
+                                                                    <div className="flex-1 min-w-0">
+                                                                        {renamingCharacter === name ? (
+                                                                            <div className="flex items-center gap-2">
+                                                                                <input
+                                                                                    value={renamingCharacterValue}
+                                                                                    onChange={(e) => setRenamingCharacterValue(e.target.value)}
+                                                                                    onKeyDown={(e) => {
+                                                                                        if (e.key === 'Enter') handleRenameCharacter(name, renamingCharacterValue);
+                                                                                        if (e.key === 'Escape') {
+                                                                                            setRenamingCharacter(null);
+                                                                                            setRenamingCharacterValue('');
+                                                                                        }
+                                                                                    }}
+                                                                                    autoFocus
+                                                                                    className="flex-1 px-2 py-1 rounded-md border border-slate-200 text-sm focus:ring-1 focus:ring-blue-500/40 focus:border-blue-400"
+                                                                                    placeholder="新的角色名"
+                                                                                />
+                                                                                <button
+                                                                                    className="px-2 py-1 rounded-md bg-blue-500 text-white text-xs"
+                                                                                    onClick={() => handleRenameCharacter(name, renamingCharacterValue)}
+                                                                                >
+                                                                                    确认
+                                                                                </button>
+                                                                                <button
+                                                                                    className="px-2 py-1 rounded-md bg-slate-200 text-xs"
+                                                                                    onClick={() => {
                                                                                         setRenamingCharacter(null);
                                                                                         setRenamingCharacterValue('');
-                                                                                    }
-                                                                                }}
-                                                                                autoFocus
-                                                                                className="flex-1 px-2 py-1 rounded-md border border-slate-200 text-sm focus:ring-1 focus:ring-blue-500/40 focus:border-blue-400"
-                                                                                placeholder="新的角色名"
-                                                                            />
+                                                                                    }}
+                                                                                >
+                                                                                    取消
+                                                                                </button>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="flex items-center gap-2">
+                                                                                <div>
+                                                                                    <h4 className="text-lg font-bold text-slate-800 tracking-tight group-hover:text-blue-600 transition-colors duration-300 truncate">
+                                                                                        {name}
+                                                                                    </h4>
+                                                                                    <div className="h-0.5 w-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mt-1 group-hover:w-16 transition-all duration-500" />
+                                                                                </div>
+                                                                                <button
+                                                                                    onClick={() => {
+                                                                                        setRenamingCharacter(name);
+                                                                                        setRenamingCharacterValue(name);
+                                                                                    }}
+                                                                                    className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition"
+                                                                                    title="修改角色名"
+                                                                                >
+                                                                                    <Pencil size={14} />
+                                                                                </button>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setActiveCharacterForPick(name);
+                                                                                setShowGalleryModal(true);
+                                                                            }}
+                                                                            className="px-2 py-1 rounded-md text-[11px] bg-blue-500/10 text-blue-600 border border-blue-500/30 hover:bg-blue-500/20 transition whitespace-nowrap"
+                                                                        >
+                                                                            {refImage ? '更换' : '选图'}
+                                                                        </button>
+                                                                        {refImage && (
                                                                             <button
-                                                                                className="px-2 py-1 rounded-md bg-blue-500 text-white text-xs"
-                                                                                onClick={() => handleRenameCharacter(name, renamingCharacterValue)}
-                                                                            >
-                                                                                确认
-                                                                            </button>
-                                                                            <button
-                                                                                className="px-2 py-1 rounded-md bg-slate-200 text-xs"
-                                                                                onClick={() => {
-                                                                                    setRenamingCharacter(null);
-                                                                                    setRenamingCharacterValue('');
-                                                                                }}
+                                                                                onClick={() => handleDetachReference(name)}
+                                                                                className="px-2 py-0.5 rounded-md text-[10px] text-slate-400 hover:text-red-500 transition"
                                                                             >
                                                                                 取消
                                                                             </button>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className="flex items-center gap-2">
-                                                                            <div>
-                                                                                <h4 className="text-lg font-bold text-slate-800 tracking-tight group-hover:text-blue-600 transition-colors duration-300 truncate">
-                                                                                    {name}
-                                                                                </h4>
-                                                                                <div className="h-0.5 w-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mt-1 group-hover:w-16 transition-all duration-500" />
-                                                                            </div>
-                                                                            <button
-                                                                                onClick={() => {
-                                                                                    setRenamingCharacter(name);
-                                                                                    setRenamingCharacterValue(name);
-                                                                                }}
-                                                                                className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition"
-                                                                                title="修改角色名"
-                                                                            >
-                                                                                <Pencil size={14} />
-                                                                            </button>
-                                                                        </div>
-                                                                    )}
+                                                                        )}
+                                                                    </div>
                                                                 </div>
-                                                                <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setActiveCharacterForPick(name);
-                                                                            setShowGalleryModal(true);
-                                                                        }}
-                                                                        className="px-2 py-1 rounded-md text-[11px] bg-blue-500/10 text-blue-600 border border-blue-500/30 hover:bg-blue-500/20 transition whitespace-nowrap"
-                                                                    >
-                                                                        {refImage ? '更换' : '选图'}
-                                                                    </button>
-                                                                    {refImage && (
-                                                                        <button
-                                                                            onClick={() => handleDetachReference(name)}
-                                                                            className="px-2 py-0.5 rounded-md text-[10px] text-slate-400 hover:text-red-500 transition"
-                                                                        >
-                                                                            取消
-                                                                        </button>
-                                                                    )}
-                                                                </div>
-                                                            </div>
 
-                                                            {/* Character Description */}
-                                                            <textarea
-                                                                value={typeof desc === 'string' ? desc : JSON.stringify(desc)}
-                                                                onChange={(e) =>
-                                                                    mutateRound2((draft) => {
-                                                                        if (!draft.characters) draft.characters = {};
-                                                                        draft.characters[name] = e.target.value;
-                                                                    })
-                                                                }
-                                                                readOnly={!canEdit}
-                                                                className="flex-1 w-full bg-slate-50/50 border border-slate-200/60 rounded-lg p-2 text-xs text-slate-600 leading-relaxed group-hover:text-slate-800 transition-colors focus:ring-1 focus:ring-blue-500/30 focus:outline-none focus:border-blue-300 resize-none"
-                                                                placeholder="输入角色描述..."
-                                                            />
+                                                                {/* Character Description */}
+                                                                <textarea
+                                                                    value={typeof desc === 'string' ? desc : JSON.stringify(desc)}
+                                                                    onChange={(e) =>
+                                                                        mutateRound2((draft) => {
+                                                                            if (!draft.characters) draft.characters = {};
+                                                                            draft.characters[name] = e.target.value;
+                                                                        })
+                                                                    }
+                                                                    readOnly={!canEdit}
+                                                                    className="flex-1 w-full bg-slate-50/50 border border-slate-200/60 rounded-lg p-2 text-xs text-slate-600 leading-relaxed group-hover:text-slate-800 transition-colors focus:ring-1 focus:ring-blue-500/30 focus:outline-none focus:border-blue-300 resize-none"
+                                                                    placeholder="输入角色描述..."
+                                                                />
+                                                            </div>
                                                         </div>
                                                     </div>
+
+                                                    {/* Bottom Accent Bar */}
+                                                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
                                                 </div>
-
-                                                {/* Bottom Gradient Bar */}
-                                                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                <div className="glass-card p-6 rounded-2xl border border-dashed border-slate-200 text-sm text-slate-500">
-                                    暂无角色，请添加角色信息。
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Shot List - Apple Glass Style */}
-                    {/* 全局素材流切换按钮 + 导出按钮 */}
-                    {typeof round2Data !== 'string' && round2Data?.shots && round2Data.shots.length > 0 && (
-                        <div className="flex items-center justify-end gap-3 mb-4">
-                            {/* 三选一切换按钮组：线稿/图片/视频 */}
-                            <div className="flex items-center gap-1 p-1 rounded-xl bg-white/70 border border-slate-200/50">
-                                <button
-                                    onClick={() => setDefaultStream('outline')}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                                        defaultStream === 'outline'
-                                            ? 'bg-[#6B7280] text-white shadow-sm'
-                                            : 'text-slate-500 hover:text-[#6B7280] hover:bg-[#6B7280]/10'
-                                    }`}
-                                >
-                                    <Pencil size={14} />
-                                    线稿
-                                </button>
-                                <button
-                                    onClick={() => setDefaultStream('image')}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                                        defaultStream === 'image'
-                                            ? 'bg-[#6366F1] text-white shadow-sm'
-                                            : 'text-slate-500 hover:text-[#6366F1] hover:bg-[#6366F1]/10'
-                                    }`}
-                                >
-                                    <ImageIcon size={14} />
-                                    图片
-                                </button>
-                                <button
-                                    onClick={() => setDefaultStream('video')}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                                        defaultStream === 'video'
-                                            ? 'bg-[#EC4899] text-white shadow-sm'
-                                            : 'text-slate-500 hover:text-[#EC4899] hover:bg-[#EC4899]/10'
-                                    }`}
-                                >
-                                    <Video size={14} />
-                                    视频
-                                </button>
-                            </div>
-                            {/* 批量生成线稿按钮 */}
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={handleBatchGenerateOutlines}
-                                    disabled={batchGeneratingOutlines}
-                                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 active:scale-95 bg-gradient-to-r from-[#6B7280] to-[#5B6370] text-white shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {batchGeneratingOutlines ? <Loader2 size={16} className="animate-spin" /> : <Pencil size={16} />}
-                                    {batchGeneratingOutlines ? '生成中...' : '批量生成线稿'}
-                                </button>
-                                {(batchGeneratingOutlines || outlineProgress.total > 0) && (
-                                    <span className="text-sm text-slate-500">
-                                        {outlineProgress.completed}/{outlineProgress.total}
-                                        {outlineProgress.completed === outlineProgress.total && outlineProgress.total > 0 && ' ✓'}
-                                    </span>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div className="glass-card p-6 rounded-2xl border border-dashed border-slate-200 text-sm text-slate-500">
+                                        暂无角色，请添加角色信息。
+                                    </div>
                                 )}
                             </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={handleExportVideos}
-                                    disabled={exporting || Object.keys(savedVideoFilenames).length === 0}
-                                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 active:scale-95 bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {exporting ? <Loader2 size={16} className="animate-spin" /> : <FolderOutput size={16} />}
-                                    {exporting ? '导出中...' : '导出选中视频'}
-                                </button>
-                                <span className="text-sm text-slate-500">
-                                    已选中 <span className="font-semibold text-emerald-600">{Object.keys(savedVideoFilenames).length}</span>
-                                    /{round2Data.shots.filter(s => !s.discarded).length}
-                                </span>
+                        )}
+
+                        {/* Shot List - Apple Glass Style */}
+                        {/* 全局素材流切换按钮 + 导出按钮 */}
+                        {typeof round2Data !== 'string' && round2Data?.shots && round2Data.shots.length > 0 && (
+                            <div className="flex items-center justify-end gap-3 mb-4">
+                                {/* 三选一切换按钮组：线稿/图片/视频 */}
+                                <div className="flex items-center gap-1 p-1 rounded-xl bg-white/70 border border-slate-200/50">
+                                    <button
+                                        onClick={() => setDefaultStream('outline')}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${defaultStream === 'outline'
+                                            ? 'bg-[#6B7280] text-white shadow-sm'
+                                            : 'text-slate-500 hover:text-[#6B7280] hover:bg-[#6B7280]/10'
+                                            }`}
+                                    >
+                                        <Pencil size={14} />
+                                        线稿
+                                    </button>
+                                    <button
+                                        onClick={() => setDefaultStream('image')}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${defaultStream === 'image'
+                                            ? 'bg-[#6366F1] text-white shadow-sm'
+                                            : 'text-slate-500 hover:text-[#6366F1] hover:bg-[#6366F1]/10'
+                                            }`}
+                                    >
+                                        <ImageIcon size={14} />
+                                        图片
+                                    </button>
+                                    <button
+                                        onClick={() => setDefaultStream('video')}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${defaultStream === 'video'
+                                            ? 'bg-[#EC4899] text-white shadow-sm'
+                                            : 'text-slate-500 hover:text-[#EC4899] hover:bg-[#EC4899]/10'
+                                            }`}
+                                    >
+                                        <Video size={14} />
+                                        视频
+                                    </button>
+                                </div>
+                                {/* 批量生成线稿按钮 */}
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={handleBatchGenerateOutlines}
+                                        disabled={batchGeneratingOutlines}
+                                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 active:scale-95 bg-gradient-to-r from-[#6B7280] to-[#5B6370] text-white shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {batchGeneratingOutlines ? <Loader2 size={16} className="animate-spin" /> : <Pencil size={16} />}
+                                        {batchGeneratingOutlines ? '生成中...' : '批量生成线稿'}
+                                    </button>
+                                    {(batchGeneratingOutlines || outlineProgress.total > 0) && (
+                                        <span className="text-sm text-slate-500">
+                                            {outlineProgress.completed}/{outlineProgress.total}
+                                            {outlineProgress.completed === outlineProgress.total && outlineProgress.total > 0 && ' ✓'}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={handleExportVideos}
+                                        disabled={exporting || Object.keys(savedVideoFilenames).length === 0}
+                                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 active:scale-95 bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {exporting ? <Loader2 size={16} className="animate-spin" /> : <FolderOutput size={16} />}
+                                        {exporting ? '导出中...' : '导出选中视频'}
+                                    </button>
+                                    <span className="text-sm text-slate-500">
+                                        已选中 <span className="font-semibold text-emerald-600">{Object.keys(savedVideoFilenames).length}</span>
+                                        /{round2Data.shots.filter(s => !s.discarded).length}
+                                    </span>
+                                </div>
                             </div>
-                        </div>
-                    )}
-                    {/* Top Pagination Controls */}
-                    {typeof round2Data !== 'string' && round2Data?.shots && round2Data.shots.length > shotsPerPage && (
-                        <div className="flex items-center justify-center gap-4 py-4 mb-6">
-                            <button
-                                onClick={() => setShotPage((p) => Math.max(0, p - 1))}
-                                disabled={shotPage === 0}
-                                className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                                <ChevronLeft size={16} /> 上一页
-                            </button>
-                            <span className="text-sm text-slate-500">
-                                第 {shotPage + 1} / {Math.ceil(round2Data.shots.length / shotsPerPage)} 页
-                                <span className="ml-2 text-slate-400">（共 {round2Data.shots.length} 个镜头）</span>
-                            </span>
-                            <button
-                                onClick={() => setShotPage((p) => Math.min(Math.ceil((round2Data.shots?.length || 0) / shotsPerPage) - 1, p + 1))}
-                                disabled={shotPage >= Math.ceil((round2Data.shots?.length || 0) / shotsPerPage) - 1}
-                                className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                                下一页 <ChevronRight size={16} />
-                            </button>
-                        </div>
-                    )}
-                    <div className="space-y-12">
-                        {typeof round2Data !== 'string' && round2Data?.shots && (() => {
-                            const allShots = round2Data.shots;
-                            const totalPages = Math.ceil(allShots.length / shotsPerPage);
-                            const startIdx = shotPage * shotsPerPage;
-                            const endIdx = startIdx + shotsPerPage;
-                            const currentShots = allShots.slice(startIdx, endIdx);
-                            return currentShots.map((shot: Round2Shot, localIdx: number) => {
-                            const index = startIdx + localIdx;
-                            const optimizedShot = getOptimizedShot(shot, index);
-
-                            const preferredKeyframe = shot.keyframe && frameNameSet.has(shot.keyframe) ? shot.keyframe : null;
-                            const frameName =
-                                preferredKeyframe ||
-                                (shot.original_id ? frameMap.get(shot.original_id) : undefined) ||
-                                frameMap.get(shot.id ?? index + 1) ||
-                                null;
-                            const frameUrl =
-                                workspaceSlug && frameName
-                                    ? `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/assets/frames/${frameName}`
-                                    : null;
-
-                            const clipFromAssets =
-                                workspaceSlug &&
-                                ((shot.keyframe ? clipMap.get(shot.keyframe) : undefined) ||
-                                    (shot.original_id ? clipMap.get(`ordinal-${shot.original_id}`) : undefined) ||
-                                    clipMap.get(`ordinal-${shot.id ?? index + 1}`));
-                            const clipUrl =
-                                workspaceSlug && clipFromAssets
-                                    ? `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/assets/videos/${clipFromAssets}`
-                                    : null;
-
-                            return (
-                                <ShotCard
-                                    key={index}
-                                    shot={shot}
-                                    index={index}
-                                    mode={mode}
-                                    optimizedShot={optimizedShot}
-                                    onUpdate={(updatedShot) => {
-                                        mutateRound2((draft) => {
-                                            if (draft.shots) {
-                                                draft.shots[index] = updatedShot;
-                                            }
-                                        });
-                                    }}
-                                    renderAnnotationControl={renderAnnotationControl}
-                                    globalVolume={globalVolume}
-                                    isGlobalMuted={isGlobalMuted}
-                                    clipUrl={clipUrl}
-                                    frameUrl={frameUrl}
-                                    diffMap={diffMap}
-                                    onAcceptDiff={handleAcceptDiff}
-                                    characterLibrary={typeof round2Data !== 'string' ? round2Data?.characters : undefined}
-                                    generatedImageUrls={generatedImages[shot.id ?? index + 1] || []}
-                                    generatedImageIndex={generatedIndexes[shot.id ?? index + 1]}
-                                    onPrevGenerated={handlePrevImage}
-                                    onNextGenerated={handleNextImage}
-                                    isGenerating={!!generatingShots[shot.id ?? index + 1]}
-                                    providers={providers}
-                                    selectedProviderId={shotProviders[shot.id ?? index + 1]}
-                                    onProviderChange={handleProviderChange}
-                                    onGenerateImage={handleGenerateImage}
-                                    highlightGenerated={!!(newlyGenerated[shot.id ?? index + 1]?.length)}
-                                    newImages={newlyGenerated[shot.id ?? index + 1] || []}
-                                    onImageSeen={handleImageSeen}
-                                    onClearNewImages={handleClearNewImages}
-                                    generateError={generateErrors[shot.id ?? index + 1]}
-                                    canPrevGenerated={(generatedIndexes[shot.id ?? index + 1] ?? 0) > 0}
-                                    canNextGenerated={
-                                        (() => {
-                                            const list = generatedImages[shot.id ?? index + 1] || [];
-                                            const current = generatedIndexes[shot.id ?? index + 1] ?? Math.max(0, list.length - 1);
-                                            return current < list.length - 1;
-                                        })()
-                                    }
-                                    onSelectGeneratedIndex={handleSelectImageIndex}
-                                    workspacePath={currentWorkspace?.path}
-                                    generatedDir={generatedDir}
-                                    onGenerateVideo={handleGenerateVideo}
-                                    isGeneratingVideo={!!generatingVideoShots[shot.id ?? index + 1]}
-                                    videoTaskStatus={videoTaskStatuses[shot.id ?? index + 1]}
-                                    videoProgress={videoProgress[shot.id ?? index + 1] ?? 0}
-                                    videoTaskProgresses={videoTaskProgresses[shot.id ?? index + 1] || []}
-                                    generatedVideoUrls={generatedVideos[shot.id ?? index + 1] || []}
-                                    selectedVideoIndex={selectedVideoIndexes[shot.id ?? index + 1]}
-                                    onSelectVideoIndex={(idx: number) => handleSelectVideoIndex(shot.id ?? index + 1, idx)}
-                                    newVideos={newlyGeneratedVideos[shot.id ?? index + 1] || []}
-                                    onVideoSeen={(url: string) => handleVideoSeen(shot.id ?? index + 1, url)}
-                                    onStopVideoGeneration={handleStopSingleVideoGeneration}
-                                    defaultStream={defaultStream}
-                                    // 线稿模式相关
-                                    globalOutlineMode={globalOutlineMode}
-                                    globalOutlinePrompt={globalOutlinePrompt}
-                                    outlineMode={outlineModes[shot.id ?? index + 1]}
-                                    onToggleOutlineMode={handleToggleOutlineMode}
-                                    outlinePrompt={outlinePrompts[shot.id ?? index + 1]}
-                                    onOutlinePromptChange={handleOutlinePromptChange}
-                                    outlineUrls={generatedOutlines[shot.id ?? index + 1] || []}
-                                    activeOutlineUrl={activeOutlineUrls[shot.id ?? index + 1] || ''}
-                                    onSelectOutline={handleSelectOutline}
-                                    onGenerateOutline={handleGenerateOutline}
-                                    isGeneratingOutline={generatingOutlines[shot.id ?? index + 1] || false}
-                                    onDeleteOutline={handleDeleteOutline}
-                                    // 定稿相关
-                                    onFinalizeOutline={(s, idx, filename) => {
-                                        mutateRound2((draft) => {
-                                            if (draft.shots?.[idx]) {
-                                                draft.shots[idx].finalizedOutline = filename || undefined;
-                                            }
-                                        });
-                                    }}
-                                    onFinalizeImage={(s, idx, filename) => {
-                                        mutateRound2((draft) => {
-                                            if (draft.shots?.[idx]) {
-                                                draft.shots[idx].finalizedImage = filename || undefined;
-                                            }
-                                        });
-                                    }}
-                                    onFinalizeVideo={(s, idx, filename) => {
-                                        mutateRound2((draft) => {
-                                            if (draft.shots?.[idx]) {
-                                                draft.shots[idx].finalizedVideo = filename || undefined;
-                                            }
-                                        });
-                                    }}
-                                />
-                            );
-                        });
-                        })()}
-
-                        {/* Pagination Controls */}
+                        )}
+                        {/* Top Pagination Controls */}
                         {typeof round2Data !== 'string' && round2Data?.shots && round2Data.shots.length > shotsPerPage && (
-                            <div className="flex items-center justify-center gap-4 py-6">
+                            <div className="flex items-center justify-center gap-4 py-4 mb-6">
                                 <button
                                     onClick={() => setShotPage((p) => Math.max(0, p - 1))}
                                     disabled={shotPage === 0}
@@ -4541,691 +4402,842 @@ export default function Step3_DeconstructionReview({
                                 </button>
                             </div>
                         )}
+                        <div className="space-y-12">
+                            {typeof round2Data !== 'string' && round2Data?.shots && (() => {
+                                const allShots = round2Data.shots;
+                                const totalPages = Math.ceil(allShots.length / shotsPerPage);
+                                const startIdx = shotPage * shotsPerPage;
+                                const endIdx = startIdx + shotsPerPage;
+                                const currentShots = allShots.slice(startIdx, endIdx);
+                                return currentShots.map((shot: Round2Shot, localIdx: number) => {
+                                    const index = startIdx + localIdx;
+                                    const optimizedShot = getOptimizedShot(shot, index);
 
-                        {typeof round2Data === 'string' && (
-                            <div className="glass-card p-6 border-amber-500/30 bg-amber-500/5">
-                                <div className="text-amber-400 text-base font-medium mb-3 flex items-center gap-2">
-                                    <AlertCircle size={20} /> Markdown 解析失败
+                                    const preferredKeyframe = shot.keyframe && frameNameSet.has(shot.keyframe) ? shot.keyframe : null;
+                                    const frameName =
+                                        preferredKeyframe ||
+                                        (shot.original_id ? frameMap.get(shot.original_id) : undefined) ||
+                                        frameMap.get(shot.id ?? index + 1) ||
+                                        null;
+                                    const frameUrl =
+                                        workspaceSlug && frameName
+                                            ? `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/assets/frames/${frameName}`
+                                            : null;
+
+                                    const clipFromAssets =
+                                        workspaceSlug &&
+                                        ((shot.keyframe ? clipMap.get(shot.keyframe) : undefined) ||
+                                            (shot.original_id ? clipMap.get(`ordinal-${shot.original_id}`) : undefined) ||
+                                            clipMap.get(`ordinal-${shot.id ?? index + 1}`));
+                                    const clipUrl =
+                                        workspaceSlug && clipFromAssets
+                                            ? `${API_BASE}/workspaces/${encodeURIComponent(workspaceSlug)}/assets/videos/${clipFromAssets}`
+                                            : null;
+
+                                    return (
+                                        <ShotCard
+                                            key={index}
+                                            shot={shot}
+                                            index={index}
+                                            mode={mode}
+                                            optimizedShot={optimizedShot}
+                                            onUpdate={(updatedShot) => {
+                                                mutateRound2((draft) => {
+                                                    if (draft.shots) {
+                                                        draft.shots[index] = updatedShot;
+                                                    }
+                                                });
+                                            }}
+                                            renderAnnotationControl={renderAnnotationControl}
+                                            globalVolume={globalVolume}
+                                            isGlobalMuted={isGlobalMuted}
+                                            clipUrl={clipUrl}
+                                            frameUrl={frameUrl}
+                                            diffMap={diffMap}
+                                            onAcceptDiff={handleAcceptDiff}
+                                            characterLibrary={typeof round2Data !== 'string' ? round2Data?.characters : undefined}
+                                            generatedImageUrls={generatedImages[shot.id ?? index + 1] || []}
+                                            generatedImageIndex={generatedIndexes[shot.id ?? index + 1]}
+                                            onPrevGenerated={handlePrevImage}
+                                            onNextGenerated={handleNextImage}
+                                            isGenerating={!!generatingShots[shot.id ?? index + 1]}
+                                            providers={providers}
+                                            selectedProviderId={shotProviders[shot.id ?? index + 1]}
+                                            onProviderChange={handleProviderChange}
+                                            onGenerateImage={handleGenerateImage}
+                                            highlightGenerated={!!(newlyGenerated[shot.id ?? index + 1]?.length)}
+                                            newImages={newlyGenerated[shot.id ?? index + 1] || []}
+                                            onImageSeen={handleImageSeen}
+                                            onClearNewImages={handleClearNewImages}
+                                            generateError={generateErrors[shot.id ?? index + 1]}
+                                            canPrevGenerated={(generatedIndexes[shot.id ?? index + 1] ?? 0) > 0}
+                                            canNextGenerated={
+                                                (() => {
+                                                    const list = generatedImages[shot.id ?? index + 1] || [];
+                                                    const current = generatedIndexes[shot.id ?? index + 1] ?? Math.max(0, list.length - 1);
+                                                    return current < list.length - 1;
+                                                })()
+                                            }
+                                            onSelectGeneratedIndex={handleSelectImageIndex}
+                                            workspacePath={currentWorkspace?.path}
+                                            generatedDir={generatedDir}
+                                            onGenerateVideo={handleGenerateVideo}
+                                            isGeneratingVideo={!!generatingVideoShots[shot.id ?? index + 1]}
+                                            videoTaskStatus={videoTaskStatuses[shot.id ?? index + 1]}
+                                            videoProgress={videoProgress[shot.id ?? index + 1] ?? 0}
+                                            videoTaskProgresses={videoTaskProgresses[shot.id ?? index + 1] || []}
+                                            generatedVideoUrls={generatedVideos[shot.id ?? index + 1] || []}
+                                            selectedVideoIndex={selectedVideoIndexes[shot.id ?? index + 1]}
+                                            onSelectVideoIndex={(idx: number) => handleSelectVideoIndex(shot.id ?? index + 1, idx)}
+                                            newVideos={newlyGeneratedVideos[shot.id ?? index + 1] || []}
+                                            onVideoSeen={(url: string) => handleVideoSeen(shot.id ?? index + 1, url)}
+                                            onStopVideoGeneration={handleStopSingleVideoGeneration}
+                                            defaultStream={defaultStream}
+                                            // 线稿模式相关
+                                            globalOutlineMode={globalOutlineMode}
+                                            globalOutlinePrompt={globalOutlinePrompt}
+                                            outlineMode={outlineModes[shot.id ?? index + 1]}
+                                            onToggleOutlineMode={handleToggleOutlineMode}
+                                            outlinePrompt={outlinePrompts[shot.id ?? index + 1]}
+                                            onOutlinePromptChange={handleOutlinePromptChange}
+                                            outlineUrls={generatedOutlines[shot.id ?? index + 1] || []}
+                                            activeOutlineUrl={activeOutlineUrls[shot.id ?? index + 1] || ''}
+                                            onSelectOutline={handleSelectOutline}
+                                            onGenerateOutline={handleGenerateOutline}
+                                            isGeneratingOutline={generatingOutlines[shot.id ?? index + 1] || false}
+                                            onDeleteOutline={handleDeleteOutline}
+                                            // 定稿相关
+                                            onFinalizeOutline={(s, idx, filename) => {
+                                                mutateRound2((draft) => {
+                                                    if (draft.shots?.[idx]) {
+                                                        draft.shots[idx].finalizedOutline = filename || undefined;
+                                                    }
+                                                });
+                                            }}
+                                            onFinalizeImage={(s, idx, filename) => {
+                                                mutateRound2((draft) => {
+                                                    if (draft.shots?.[idx]) {
+                                                        draft.shots[idx].finalizedImage = filename || undefined;
+                                                    }
+                                                });
+                                            }}
+                                            onFinalizeVideo={(s, idx, filename) => {
+                                                mutateRound2((draft) => {
+                                                    if (draft.shots?.[idx]) {
+                                                        draft.shots[idx].finalizedVideo = filename || undefined;
+                                                    }
+                                                });
+                                            }}
+                                        />
+                                    );
+                                });
+                            })()}
+
+                            {/* Pagination Controls */}
+                            {typeof round2Data !== 'string' && round2Data?.shots && round2Data.shots.length > shotsPerPage && (
+                                <div className="flex items-center justify-center gap-4 py-6">
+                                    <button
+                                        onClick={() => setShotPage((p) => Math.max(0, p - 1))}
+                                        disabled={shotPage === 0}
+                                        className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        <ChevronLeft size={16} /> 上一页
+                                    </button>
+                                    <span className="text-sm text-slate-500">
+                                        第 {shotPage + 1} / {Math.ceil(round2Data.shots.length / shotsPerPage)} 页
+                                        <span className="ml-2 text-slate-400">（共 {round2Data.shots.length} 个镜头）</span>
+                                    </span>
+                                    <button
+                                        onClick={() => setShotPage((p) => Math.min(Math.ceil((round2Data.shots?.length || 0) / shotsPerPage) - 1, p + 1))}
+                                        disabled={shotPage >= Math.ceil((round2Data.shots?.length || 0) / shotsPerPage) - 1}
+                                        className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        下一页 <ChevronRight size={16} />
+                                    </button>
                                 </div>
-                                <pre className="text-sm text-amber-200/70 whitespace-pre-wrap font-mono overflow-x-auto">
-                                    {round2Data}
-                                </pre>
-                            </div>
-                        )}
-                        {mode === 'revision' && missingModifiedShots.length > 0 && (
-                            <div className="glass-card p-5 border border-purple-500/20 bg-[var(--glass-bg-light)]/80 space-y-3">
-                                <div className="text-sm font-semibold text-[var(--color-text-primary)]">修订日志中的其他镜头</div>
-                                <div className="grid gap-3 md:grid-cols-2">
-                                    {missingModifiedShots.map((m, idx) => (
-                                        <div key={`missing-${m.id}-${idx}`} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--color-bg-secondary)]/50 space-y-2">
-                                            <div className="flex items-center justify-between">
-                                                <div className="text-sm font-semibold text-[var(--color-text-primary)]">Shot #{m.id}</div>
-                                                <span className="text-xs px-2 py-1 rounded-full border border-purple-500/30 text-purple-300 bg-purple-500/10 uppercase">
-                                                    {m.action || 'CHANGE'}
-                                                </span>
+                            )}
+
+                            {typeof round2Data === 'string' && (
+                                <div className="glass-card p-6 border-amber-500/30 bg-amber-500/5">
+                                    <div className="text-amber-400 text-base font-medium mb-3 flex items-center gap-2">
+                                        <AlertCircle size={20} /> Markdown 解析失败
+                                    </div>
+                                    <pre className="text-sm text-amber-200/70 whitespace-pre-wrap font-mono overflow-x-auto">
+                                        {round2Data}
+                                    </pre>
+                                </div>
+                            )}
+                            {mode === 'revision' && missingModifiedShots.length > 0 && (
+                                <div className="glass-card p-5 border border-purple-500/20 bg-[var(--glass-bg-light)]/80 space-y-3">
+                                    <div className="text-sm font-semibold text-[var(--color-text-primary)]">修订日志中的其他镜头</div>
+                                    <div className="grid gap-3 md:grid-cols-2">
+                                        {missingModifiedShots.map((m, idx) => (
+                                            <div key={`missing-${m.id}-${idx}`} className="p-3 rounded-lg border border-[var(--glass-border)] bg-[var(--color-bg-secondary)]/50 space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="text-sm font-semibold text-[var(--color-text-primary)]">Shot #{String(m.id)}</div>
+                                                    <span className="text-xs px-2 py-1 rounded-full border border-purple-500/30 text-purple-300 bg-purple-500/10 uppercase">
+                                                        {String(m.action || 'CHANGE')}
+                                                    </span>
+                                                </div>
+                                                {m.reason && <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed">{String(m.reason)}</div>}
+                                                {!!m.changes && Object.keys(m.changes).length > 0 && (
+                                                    <div className="text-xs text-[var(--color-text-tertiary)]">变更字段: {Object.keys(m.changes).join(', ')}</div>
+                                                )}
+                                                {!!m.backup && (
+                                                    <pre className="text-[11px] whitespace-pre-wrap bg-[var(--glass-bg-light)]/60 p-2 rounded border border-[var(--glass-border)]">
+                                                        {JSON.stringify(m.backup, null, 2)}
+                                                    </pre>
+                                                )}
                                             </div>
-                                            {m.reason && <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed">{m.reason}</div>}
-                                            {m.changes && Object.keys(m.changes).length > 0 && (
-                                                <div className="text-xs text-[var(--color-text-tertiary)]">变更字段: {Object.keys(m.changes).join(', ')}</div>
-                                            )}
-                                            {m.backup && (
-                                                <pre className="text-[11px] whitespace-pre-wrap bg-[var(--glass-bg-light)]/60 p-2 rounded border border-[var(--glass-border)]">
-                                                    {JSON.stringify(m.backup, null, 2)}
-                                                </pre>
-                                            )}
-                                        </div>
-                                    ))}
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </div >
-        {toast && (
-            <div
-                className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 rounded-xl shadow-lg text-sm font-medium border backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-300"
-                style={{
-                    background: toast.type === 'success' ? 'rgba(16,185,129,0.95)' : 'rgba(248,113,113,0.95)',
-                    borderColor: toast.type === 'success' ? 'rgba(16,185,129,0.6)' : 'rgba(248,113,113,0.6)',
-                    color: '#fff',
-                }}
-            >
-                {toast.message}
-            </div>
-        )}
-        {previewImage && (
-            <div
-                className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 md:p-8"
-                onClick={() => setPreviewImage(null)}
-            >
-                <div
-                    className="relative w-full max-w-6xl max-h-[90vh] flex flex-col gap-4 rounded-3xl border border-white/10 bg-black/80 shadow-2xl p-4 md:p-6"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <div className="flex items-center justify-between text-white text-sm">
-                        <span className="truncate">{previewImage.name || '参考图预览'}</span>
-                        <button
-                            onClick={() => setPreviewImage(null)}
-                            className="px-3 py-1 rounded bg-white/10 hover:bg-white/20 transition text-xs"
-                        >
-                            关闭
-                        </button>
-                    </div>
-                    <div className="relative w-full flex-1 overflow-hidden rounded-2xl bg-black/70 border border-white/10 flex items-center justify-center p-2">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                            src={previewImage.url}
-                            alt={previewImage.name || ''}
-                            className="max-h-[80vh] max-w-full object-contain rounded-xl"
-                        />
-                    </div>
-                </div>
-            </div>
-        )}
-        {showGalleryModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
-                <div className="glass-card w-full max-w-5xl max-h-[85vh] overflow-hidden border border-[var(--glass-border)] shadow-2xl rounded-3xl">
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--glass-border)] bg-gradient-to-r from-blue-500/5 to-purple-500/5">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                                <Layout size={24} className="text-white" />
-                            </div>
-                            <div>
-                                <h2 className="text-xl font-bold text-[var(--color-text-primary)]">参考图库</h2>
-                                <p className="text-sm text-[var(--color-text-secondary)]">
-                                    {activeCharacterForPick ? `为「${activeCharacterForPick}」选择参考图` : '管理全局参考图库 · 所有工作空间可见'}
-                                </p>
-                            </div>
+                            )}
                         </div>
-                        <div className="flex items-center gap-3">
-                            {refsSaving && <span className="text-xs text-blue-400 animate-pulse">保存中...</span>}
+                    </div>
+                </div>
+            </div >
+            {toast && (
+                <div
+                    className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 rounded-xl shadow-lg text-sm font-medium border backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-300"
+                    style={{
+                        background: toast.type === 'success' ? 'rgba(16,185,129,0.95)' : 'rgba(248,113,113,0.95)',
+                        borderColor: toast.type === 'success' ? 'rgba(16,185,129,0.6)' : 'rgba(248,113,113,0.6)',
+                        color: '#fff',
+                    }}
+                >
+                    {toast.message}
+                </div>
+            )}
+            {previewImage && (
+                <div
+                    className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 md:p-8"
+                    onClick={() => setPreviewImage(null)}
+                >
+                    <div
+                        className="relative w-full max-w-6xl max-h-[90vh] flex flex-col gap-4 rounded-3xl border border-white/10 bg-black/80 shadow-2xl p-4 md:p-6"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between text-white text-sm">
+                            <span className="truncate">{previewImage.name || '参考图预览'}</span>
                             <button
-                                onClick={() => {
-                                    setShowGalleryModal(false);
-                                    setActiveCharacterForPick(null);
-                                }}
-                                className="p-2.5 rounded-xl hover:bg-slate-200/60 transition-all duration-200"
+                                onClick={() => setPreviewImage(null)}
+                                className="px-3 py-1 rounded bg-white/10 hover:bg-white/20 transition text-xs"
                             >
-                                <X size={20} className="text-slate-500" />
+                                关闭
                             </button>
                         </div>
+                        <div className="relative w-full flex-1 overflow-hidden rounded-2xl bg-black/70 border border-white/10 flex items-center justify-center p-2">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                src={previewImage.url}
+                                alt={previewImage.name || ''}
+                                className="max-h-[80vh] max-w-full object-contain rounded-xl"
+                            />
+                        </div>
                     </div>
-                    <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
-                        {/* Category Tabs */}
-                        <div className="flex flex-wrap items-center gap-2 px-1">
-                            {(['all', ...categoryOptions] as string[]).map((cat) => {
-                                const label = cat === 'all' ? '全部' : cat === '' ? '未分类' : cat;
-                                const active = activeCategoryTab === cat;
-                                return (
-                                    <button
-                                        key={cat || 'uncategorized'}
-                                        onClick={() => {
-                                            setActiveCategoryTab(cat);
-                                            setRenamingCategoryName('');
-                                        }}
-                                        className={`px-3 py-1.5 rounded-xl text-sm border transition ${
-                                            active
-                                                ? 'bg-blue-500 text-white border-blue-500 shadow-sm'
-                                                : 'bg-white text-slate-600 border-slate-200 hover:border-blue-200 hover:text-blue-600'
-                                        }`}
-                                    >
-                                        {label}
-                                    </button>
-                                );
-                            })}
-                            {/* New category */}
-                            <div className="flex items-center gap-2 ml-auto">
-                                <input
-                                    type="text"
-                                    value={newCategoryName}
-                                    onChange={(e) => setNewCategoryName(e.target.value)}
-                                    placeholder="新建分类"
-                                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-sm w-36 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition"
-                                />
+                </div>
+            )}
+            {showGalleryModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
+                    <div className="glass-card w-full max-w-5xl max-h-[85vh] overflow-hidden border border-[var(--glass-border)] shadow-2xl rounded-3xl">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--glass-border)] bg-gradient-to-r from-blue-500/5 to-purple-500/5">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                                    <Layout size={24} className="text-white" />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-[var(--color-text-primary)]">参考图库</h2>
+                                    <p className="text-sm text-[var(--color-text-secondary)]">
+                                        {activeCharacterForPick ? `为「${activeCharacterForPick}」选择参考图` : '管理全局参考图库 · 所有工作空间可见'}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                {refsSaving && <span className="text-xs text-blue-400 animate-pulse">保存中...</span>}
                                 <button
-                                    onClick={() => void handleCreateCategory()}
-                                    className="px-3 py-1.5 rounded-xl bg-emerald-500 text-white text-sm hover:bg-emerald-600 transition disabled:opacity-60"
-                                    disabled={categorySaving || !newCategoryName.trim()}
+                                    onClick={() => {
+                                        setShowGalleryModal(false);
+                                        setActiveCharacterForPick(null);
+                                    }}
+                                    className="p-2.5 rounded-xl hover:bg-slate-200/60 transition-all duration-200"
                                 >
-                                    新建
+                                    <X size={20} className="text-slate-500" />
                                 </button>
                             </div>
                         </div>
-
-                        {/* Category management + prompt */}
-                        {activeCategoryTab !== 'all' && (
-                            <div className="mt-3 px-1 flex flex-col gap-3">
-                                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                                    <div className="flex items-center gap-2">
-                                        <span>当前分类：{activeCategoryTab === '' ? '未分类' : activeCategoryTab}</span>
+                        <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
+                            {/* Category Tabs */}
+                            <div className="flex flex-wrap items-center gap-2 px-1">
+                                {(['all', ...categoryOptions] as string[]).map((cat) => {
+                                    const label = cat === 'all' ? '全部' : cat === '' ? '未分类' : cat;
+                                    const active = activeCategoryTab === cat;
+                                    return (
                                         <button
+                                            key={cat || 'uncategorized'}
                                             onClick={() => {
-                                                if (activeCategoryTab === '') return;
-                                                setRenamingCategoryName(activeCategoryTab);
+                                                setActiveCategoryTab(cat);
+                                                setRenamingCategoryName('');
                                             }}
-                                            className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-600 transition text-[11px]"
-                                            disabled={categorySaving || activeCategoryTab === ''}
+                                            className={`px-3 py-1.5 rounded-xl text-sm border transition ${active
+                                                ? 'bg-blue-500 text-white border-blue-500 shadow-sm'
+                                                : 'bg-white text-slate-600 border-slate-200 hover:border-blue-200 hover:text-blue-600'
+                                                }`}
                                         >
-                                            重命名
+                                            {label}
                                         </button>
-                                        <button
-                                            onClick={() => {
-                                                if (activeCategoryTab === '') return;
-                                                setShowDeleteCategoryConfirm(true);
-                                            }}
-                                            className="px-2 py-1 rounded-lg border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 transition text-[11px]"
-                                            disabled={categorySaving || activeCategoryTab === ''}
-                                        >
-                                            删除
-                                        </button>
-                                    </div>
-                                    {categoryPromptSaving && <span className="text-blue-500 animate-pulse">保存中...</span>}
+                                    );
+                                })}
+                                {/* New category */}
+                                <div className="flex items-center gap-2 ml-auto">
+                                    <input
+                                        type="text"
+                                        value={newCategoryName}
+                                        onChange={(e) => setNewCategoryName(e.target.value)}
+                                        placeholder="新建分类"
+                                        className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-sm w-36 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition"
+                                    />
+                                    <button
+                                        onClick={() => void handleCreateCategory()}
+                                        className="px-3 py-1.5 rounded-xl bg-emerald-500 text-white text-sm hover:bg-emerald-600 transition disabled:opacity-60"
+                                        disabled={categorySaving || !newCategoryName.trim()}
+                                    >
+                                        新建
+                                    </button>
                                 </div>
-                                {renamingCategoryName && (
-                                    <div className="flex items-center gap-2">
-                                        <input
-                                            value={renamingCategoryName}
-                                            onChange={(e) => setRenamingCategoryName(e.target.value)}
-                                            className="flex-1 text-sm px-3 py-2 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
-                                            placeholder="新的分类名称"
-                                            autoFocus
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') void handleRenameCategoryAction();
-                                                if (e.key === 'Escape') setRenamingCategoryName('');
-                                            }}
+                            </div>
+
+                            {/* Category management + prompt */}
+                            {activeCategoryTab !== 'all' && (
+                                <div className="mt-3 px-1 flex flex-col gap-3">
+                                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                                        <div className="flex items-center gap-2">
+                                            <span>当前分类：{activeCategoryTab === '' ? '未分类' : activeCategoryTab}</span>
+                                            <button
+                                                onClick={() => {
+                                                    if (activeCategoryTab === '') return;
+                                                    setRenamingCategoryName(activeCategoryTab);
+                                                }}
+                                                className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-600 transition text-[11px]"
+                                                disabled={categorySaving || activeCategoryTab === ''}
+                                            >
+                                                重命名
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    if (activeCategoryTab === '') return;
+                                                    setShowDeleteCategoryConfirm(true);
+                                                }}
+                                                className="px-2 py-1 rounded-lg border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 transition text-[11px]"
+                                                disabled={categorySaving || activeCategoryTab === ''}
+                                            >
+                                                删除
+                                            </button>
+                                        </div>
+                                        {categoryPromptSaving && <span className="text-blue-500 animate-pulse">保存中...</span>}
+                                    </div>
+                                    {renamingCategoryName && (
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                value={renamingCategoryName}
+                                                onChange={(e) => setRenamingCategoryName(e.target.value)}
+                                                className="flex-1 text-sm px-3 py-2 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+                                                placeholder="新的分类名称"
+                                                autoFocus
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') void handleRenameCategoryAction();
+                                                    if (e.key === 'Escape') setRenamingCategoryName('');
+                                                }}
+                                            />
+                                            <button
+                                                onClick={() => void handleRenameCategoryAction()}
+                                                className="px-3 py-2 rounded-xl bg-blue-500 text-white text-sm hover:bg-blue-600 transition disabled:opacity-60"
+                                                disabled={categorySaving || !renamingCategoryName.trim()}
+                                            >
+                                                保存
+                                            </button>
+                                            <button
+                                                onClick={() => setRenamingCategoryName('')}
+                                                className="px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:border-slate-300 transition"
+                                            >
+                                                取消
+                                            </button>
+                                        </div>
+                                    )}
+                                    <div className="flex items-center justify-between text-xs text-slate-500">
+                                        <span>分类提示词（仅记录，不参与生成）</span>
+                                        {categoryPromptSaving && <span className="text-blue-500 animate-pulse">保存中...</span>}
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                        <AutoTextArea
+                                            value={categoryPromptInput}
+                                            onChange={(e) => setCategoryPromptInput(e.target.value)}
+                                            minRows={2}
+                                            maxRows={4}
+                                            className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none max-h-48 overflow-y-auto"
+                                            placeholder="为该分类记录一段提示词..."
                                         />
                                         <button
-                                            onClick={() => void handleRenameCategoryAction()}
-                                            className="px-3 py-2 rounded-xl bg-blue-500 text-white text-sm hover:bg-blue-600 transition disabled:opacity-60"
-                                            disabled={categorySaving || !renamingCategoryName.trim()}
+                                            onClick={() => void handleSaveCategoryPrompt()}
+                                            className="px-3 py-2 rounded-xl bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 transition disabled:opacity-60"
+                                            disabled={categoryPromptSaving}
                                         >
                                             保存
                                         </button>
-                                        <button
-                                            onClick={() => setRenamingCategoryName('')}
-                                            className="px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:border-slate-300 transition"
-                                        >
-                                            取消
-                                        </button>
                                     </div>
-                                )}
-                                <div className="flex items-center justify-between text-xs text-slate-500">
-                                    <span>分类提示词（仅记录，不参与生成）</span>
-                                    {categoryPromptSaving && <span className="text-blue-500 animate-pulse">保存中...</span>}
                                 </div>
-                                <div className="flex items-start gap-2">
-                                    <AutoTextArea
-                                        value={categoryPromptInput}
-                                        onChange={(e) => setCategoryPromptInput(e.target.value)}
-                                        minRows={2}
-                                        maxRows={4}
-                                        className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none max-h-48 overflow-y-auto"
-                                        placeholder="为该分类记录一段提示词..."
+                            )}
+
+                            {/* Upload Section (simplified) */}
+                            <div className="flex flex-wrap items-center gap-4 p-4 rounded-2xl bg-slate-50/80 border border-slate-200/60">
+                                <label className="relative cursor-pointer group">
+                                    <div className={`px-5 py-2.5 rounded-xl text-sm font-medium shadow-md transition-all duration-200 ${uploading ? 'bg-slate-400 text-white' : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-lg hover:shadow-blue-500/40'}`}>
+                                        {uploading ? '上传中...' : '上传图片'}
+                                    </div>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) void handleUploadReference(file);
+                                            e.target.value = '';
+                                        }}
+                                        disabled={uploading}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                     />
-                                    <button
-                                        onClick={() => void handleSaveCategoryPrompt()}
-                                        className="px-3 py-2 rounded-xl bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 transition disabled:opacity-60"
-                                        disabled={categoryPromptSaving}
-                                    >
-                                        保存
-                                    </button>
-                                </div>
+                                </label>
+                                <span className="text-xs text-slate-400">支持 PNG / JPG / WebP，默认归入当前标签</span>
+                                {galleryError && <span className="text-xs text-amber-500 font-medium">{galleryError}</span>}
                             </div>
-                        )}
 
-                        {/* Upload Section (simplified) */}
-                        <div className="flex flex-wrap items-center gap-4 p-4 rounded-2xl bg-slate-50/80 border border-slate-200/60">
-                            <label className="relative cursor-pointer group">
-                                <div className={`px-5 py-2.5 rounded-xl text-sm font-medium shadow-md transition-all duration-200 ${uploading ? 'bg-slate-400 text-white' : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-lg hover:shadow-blue-500/40'}`}>
-                                    {uploading ? '上传中...' : '上传图片'}
+                            {/* Gallery Grid */}
+                            {galleryLoading ? (
+                                <div className="flex items-center justify-center py-12 text-slate-400">
+                                    <RefreshCw size={20} className="animate-spin mr-2" />
+                                    加载中...
                                 </div>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) void handleUploadReference(file);
-                                        e.target.value = '';
-                                    }}
-                                    disabled={uploading}
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                />
-                            </label>
-                            <span className="text-xs text-slate-400">支持 PNG / JPG / WebP，默认归入当前标签</span>
-                            {galleryError && <span className="text-xs text-amber-500 font-medium">{galleryError}</span>}
-                        </div>
-
-                        {/* Gallery Grid */}
-                        {galleryLoading ? (
-                            <div className="flex items-center justify-center py-12 text-slate-400">
-                                <RefreshCw size={20} className="animate-spin mr-2" />
-                                加载中...
-                            </div>
-                        ) : referenceGallery.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-                                <Layout size={48} className="mb-4 opacity-30" />
-                                <p className="text-sm">暂无参考图片</p>
-                                <p className="text-xs mt-1">点击上方按钮上传图片</p>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                                {referenceGallery
-                                    .filter((item) => activeCategoryTab === 'all' || (item.category || '') === activeCategoryTab)
-                                    .map((item) => (
-                                    <div key={item.id} className="group relative rounded-2xl overflow-hidden border border-slate-200/60 bg-white shadow-sm hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1 transition-all duration-300">
-                                        {/* 9:16 Image */}
-                                        <div
-                                            className="relative aspect-[9/16] bg-slate-900 cursor-zoom-in"
-                                            onClick={(e) => {
-                                                // avoid opening preview when editing name or clicking action buttons
-                                                if (renamingId === item.id) return;
-                                                if ((e.target as HTMLElement)?.closest('[data-stop-preview]')) return;
-                                                setPreviewImage({ url: item.url, name: item.name });
-                                            }}
-                                        >
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
-                                            {/* Hover Overlay */}
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                                            {/* Select Button (when picking for character) */}
-                                            {activeCharacterForPick && (
-                                                <button
-                                                    data-stop-preview
+                            ) : referenceGallery.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                                    <Layout size={48} className="mb-4 opacity-30" />
+                                    <p className="text-sm">暂无参考图片</p>
+                                    <p className="text-xs mt-1">点击上方按钮上传图片</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                    {referenceGallery
+                                        .filter((item) => activeCategoryTab === 'all' || (item.category || '') === activeCategoryTab)
+                                        .map((item) => (
+                                            <div key={item.id} className="group relative rounded-2xl overflow-hidden border border-slate-200/60 bg-white shadow-sm hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1 transition-all duration-300">
+                                                {/* 9:16 Image */}
+                                                <div
+                                                    className="relative aspect-[9/16] bg-slate-900 cursor-zoom-in"
                                                     onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        void handleSelectReference(activeCharacterForPick, item.id);
+                                                        // avoid opening preview when editing name or clicking action buttons
+                                                        if (renamingId === item.id) return;
+                                                        if ((e.target as HTMLElement)?.closest('[data-stop-preview]')) return;
+                                                        setPreviewImage({ url: item.url, name: item.name });
                                                     }}
-                                                    className="absolute top-2 right-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-500 text-white shadow-lg opacity-0 group-hover:opacity-100 hover:bg-blue-600 transition-all duration-200"
                                                 >
-                                                    选择此图
-                                                </button>
-                                            )}
-                                            {/* Action Buttons */}
-                                            <div
-                                                className="absolute bottom-2 left-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                                                data-stop-preview
-                                            >
-                                                {renamingId === item.id ? (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            void handleRenameReference(item.id, renameValue || item.name, renameCategoryInput);
-                                                        }}
-                                                        className="flex-1 px-2 py-1.5 rounded-lg text-xs font-medium bg-emerald-500 text-white hover:bg-emerald-600 transition"
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
+                                                    {/* Hover Overlay */}
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                                    {/* Select Button (when picking for character) */}
+                                                    {activeCharacterForPick && (
+                                                        <button
+                                                            data-stop-preview
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                void handleSelectReference(activeCharacterForPick, item.id);
+                                                            }}
+                                                            className="absolute top-2 right-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-500 text-white shadow-lg opacity-0 group-hover:opacity-100 hover:bg-blue-600 transition-all duration-200"
+                                                        >
+                                                            选择此图
+                                                        </button>
+                                                    )}
+                                                    {/* Action Buttons */}
+                                                    <div
+                                                        className="absolute bottom-2 left-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                                                        data-stop-preview
                                                     >
-                                                        确认
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setRenamingId(item.id);
-                                                            setRenameValue(item.name);
-                                                            setRenameCategory(item.category || '');
-                                                        }}
-                                                        className="flex-1 px-2 py-1.5 rounded-lg text-xs font-medium bg-white/90 text-slate-700 hover:bg-white transition"
-                                                    >
-                                                        重命名
-                                                    </button>
-                                                )}
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        void handleDeleteReference(item.id);
-                                                    }}
-                                                    className="px-2 py-1.5 rounded-lg text-xs font-medium bg-red-500/90 text-white hover:bg-red-600 transition"
-                                                >
-                                                    删除
-                                                </button>
+                                                        {renamingId === item.id ? (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    void handleRenameReference(item.id, renameValue || item.name, renameCategoryInput);
+                                                                }}
+                                                                className="flex-1 px-2 py-1.5 rounded-lg text-xs font-medium bg-emerald-500 text-white hover:bg-emerald-600 transition"
+                                                            >
+                                                                确认
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setRenamingId(item.id);
+                                                                    setRenameValue(item.name);
+                                                                    setRenameCategoryInput(item.category || '');
+                                                                }}
+                                                                className="flex-1 px-2 py-1.5 rounded-lg text-xs font-medium bg-white/90 text-slate-700 hover:bg-white transition"
+                                                            >
+                                                                重命名
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                void handleDeleteReference(item.id);
+                                                            }}
+                                                            className="px-2 py-1.5 rounded-lg text-xs font-medium bg-red-500/90 text-white hover:bg-red-600 transition"
+                                                        >
+                                                            删除
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                {/* Name & Category */}
+                                                <div className="p-2.5 space-y-2">
+                                                    {renamingId === item.id ? (
+                                                        <div className="space-y-2">
+                                                            <input
+                                                                value={renameValue}
+                                                                onChange={(e) => setRenameValue(e.target.value)}
+                                                                className="w-full text-xs px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                                                                autoFocus
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter') void handleRenameReference(item.id, renameValue || item.name, renameCategoryInput);
+                                                                    if (e.key === 'Escape') {
+                                                                        setRenamingId(null);
+                                                                        setRenameCategoryInput('');
+                                                                    }
+                                                                }}
+                                                                placeholder="名称"
+                                                            />
+                                                            <input
+                                                                value={renameCategoryInput}
+                                                                onChange={(e) => setRenameCategoryInput(e.target.value)}
+                                                                className="w-full text-xs px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter') void handleRenameReference(item.id, renameValue || item.name, renameCategoryInput);
+                                                                    if (e.key === 'Escape') {
+                                                                        setRenamingId(null);
+                                                                        setRenameCategoryInput('');
+                                                                    }
+                                                                }}
+                                                                placeholder="分类（可选）"
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-xs font-medium text-slate-700 truncate" title={item.name}>
+                                                            {item.name}
+                                                        </p>
+                                                    )}
+                                                    {/* Quick category change */}
+                                                    {!renamingId && (
+                                                        <div className="flex items-center gap-2">
+                                                            <select
+                                                                value={item.category || ''}
+                                                                onChange={(e) => void handleUpdateImageCategory(item.id, e.target.value)}
+                                                                className="flex-1 text-xs px-2 py-1.5 rounded-lg border border-slate-200 bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+                                                            >
+                                                                <option value="">未分类</option>
+                                                                {categoryOptions
+                                                                    .filter((c) => c !== 'all' && c !== '')
+                                                                    .map((c) => (
+                                                                        <option key={c} value={c}>
+                                                                            {c}
+                                                                        </option>
+                                                                    ))}
+                                                            </select>
+                                                            <span className="text-[11px] text-slate-400 whitespace-nowrap">切换分类</span>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
-                                        {/* Name & Category */}
-                                        <div className="p-2.5 space-y-2">
-                                            {renamingId === item.id ? (
-                                                <div className="space-y-2">
-                                                    <input
-                                                        value={renameValue}
-                                                        onChange={(e) => setRenameValue(e.target.value)}
-                                                        className="w-full text-xs px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
-                                                        autoFocus
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') void handleRenameReference(item.id, renameValue || item.name, renameCategoryInput);
-                                                            if (e.key === 'Escape') {
-                                                                setRenamingId(null);
-                                                                setRenameCategory('');
-                                                            }
-                                                        }}
-                                                        placeholder="名称"
-                                                    />
-                                                    <input
-                                                        value={renameCategoryInput}
-                                                        onChange={(e) => setRenameCategoryInput(e.target.value)}
-                                                        className="w-full text-xs px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') void handleRenameReference(item.id, renameValue || item.name, renameCategoryInput);
-                                                            if (e.key === 'Escape') {
-                                                                setRenamingId(null);
-                                                                setRenameCategoryInput('');
-                                                            }
-                                                        }}
-                                                        placeholder="分类（可选）"
-                                                    />
-                                                </div>
-                                            ) : (
-                                                <p className="text-xs font-medium text-slate-700 truncate" title={item.name}>
-                                                    {item.name}
-                                                </p>
-                                            )}
-                                            {/* Quick category change */}
-                                            {!renamingId && (
-                                                <div className="flex items-center gap-2">
-                                                    <select
-                                                        value={item.category || ''}
-                                                        onChange={(e) => void handleUpdateImageCategory(item.id, e.target.value)}
-                                                        className="flex-1 text-xs px-2 py-1.5 rounded-lg border border-slate-200 bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
-                                                    >
-                                                        <option value="">未分类</option>
-                                                        {categoryOptions
-                                                            .filter((c) => c !== 'all' && c !== '')
-                                                            .map((c) => (
-                                                                <option key={c} value={c}>
-                                                                    {c}
-                                                                </option>
-                                                            ))}
-                                                    </select>
-                                                    <span className="text-[11px] text-slate-400 whitespace-nowrap">切换分类</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                                        ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
-            </div>
-        )}
-        {showPresetModal && (
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
-                <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                        <div>
-                            <h3 className="text-lg font-semibold text-slate-900">生图设定库（全局复用）</h3>
-                            <p className="text-xs text-slate-500">选择一条设定即可应用，或新增设定</p>
+            )}
+            {showPresetModal && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
+                    <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                            <div>
+                                <h3 className="text-lg font-semibold text-slate-900">生图设定库（全局复用）</h3>
+                                <p className="text-xs text-slate-500">选择一条设定即可应用，或新增设定</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                {imagePresetLoading && <span className="text-xs text-blue-500 animate-pulse">加载中...</span>}
+                                <button
+                                    onClick={() => setShowPresetModal(false)}
+                                    className="p-2 rounded-full hover:bg-slate-100 transition text-slate-500"
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                            {imagePresetLoading && <span className="text-xs text-blue-500 animate-pulse">加载中...</span>}
+                        <div className="p-6 space-y-4">
+                            {imagePresetError && (
+                                <div className="text-xs text-amber-500 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                    {imagePresetError}
+                                </div>
+                            )}
+
+                            {/* 生图模式切换 */}
+                            <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <ArrowLeftRight size={16} className="text-slate-500" />
+                                    <span className="text-sm font-semibold text-slate-700">Generation Mode</span>
+                                </div>
+                                <div className="flex gap-3 mb-3">
+                                    <button
+                                        onClick={() => handleSetGlobalOutlineMode(false)}
+                                        className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all ${!globalOutlineMode
+                                            ? 'bg-blue-500 text-white shadow-md'
+                                            : 'bg-white border border-slate-200 text-slate-600 hover:border-blue-300'
+                                            }`}
+                                    >
+                                        标准模式
+                                    </button>
+                                    <button
+                                        onClick={() => handleSetGlobalOutlineMode(true)}
+                                        className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all ${globalOutlineMode
+                                            ? 'bg-[#6B7280] text-white shadow-md'
+                                            : 'bg-white border border-slate-200 text-slate-600 hover:border-[#6B7280]'
+                                            }`}
+                                    >
+                                        Outline Mode
+                                    </button>
+                                </div>
+                                <div className="text-xs text-slate-500 space-y-1">
+                                    <div><strong>标准模式：</strong>首帧描述 + 角色参考图 + 生图设定</div>
+                                    <div><strong>线稿模式：</strong>线稿图 + 首帧描述 + 角色参考图 + 生图设定</div>
+                                </div>
+                            </div>
+
+                            {/* 线稿提取设定（线稿模式专用） */}
+                            {globalOutlineMode && (
+                                <div className="p-4 rounded-xl border border-[#6B7280]/30 bg-[#6B7280]/5 space-y-4">
+                                    <div className="flex items-center gap-2">
+                                        <Pencil size={16} className="text-[#6B7280]" />
+                                        <span className="text-sm font-semibold text-[#6B7280]">线稿提取设定（线稿模式专用）</span>
+                                    </div>
+
+                                    {/* 线稿提示词 */}
+                                    <div>
+                                        <label className="text-xs text-slate-600">线稿提示词：</label>
+                                        <textarea
+                                            value={globalOutlinePrompt}
+                                            onChange={(e) => setGlobalOutlinePrompt(e.target.value)}
+                                            onBlur={(e) => saveOutlineConfig({ prompt: e.target.value })}
+                                            className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-[#6B7280]/20 bg-white/80 focus:outline-none focus:ring-2 focus:ring-[#6B7280]/30 resize-none"
+                                            rows={2}
+                                            placeholder="描述线稿提取风格..."
+                                        />
+                                    </div>
+
+                                    {/* 📐 参考图指引模板 */}
+                                    <div className="space-y-2 p-3 rounded-lg border border-[#6B7280]/20 bg-white/50">
+                                        <div className="flex items-center gap-1.5 text-xs font-medium text-[#6B7280]"><Ruler size={12} /> Reference Template (leave empty for default)</div>
+                                        <div>
+                                            <label className="text-xs text-slate-500">角色参考：</label>
+                                            <input
+                                                type="text"
+                                                value={globalCharRefTemplate}
+                                                onChange={(e) => setGlobalCharRefTemplate(e.target.value)}
+                                                onBlur={(e) => saveOutlineConfig({ charRefTemplate: e.target.value })}
+                                                className="w-full mt-1 px-3 py-1.5 rounded-lg border border-[#6B7280]/20 bg-white text-sm focus:ring-2 focus:ring-[#6B7280]/20"
+                                                placeholder="角色【{name}】的形象、服装、发型严格参考图{image}。"
+                                            />
+                                            <div className="mt-0.5 text-[10px] text-slate-400">占位符：{'{name}'} = 角色名，{'{image}'} = 参考图编号</div>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-slate-500">场景参考：</label>
+                                            <input
+                                                type="text"
+                                                value={globalSceneRefTemplate}
+                                                onChange={(e) => setGlobalSceneRefTemplate(e.target.value)}
+                                                onBlur={(e) => saveOutlineConfig({ sceneRefTemplate: e.target.value })}
+                                                className="w-full mt-1 px-3 py-1.5 rounded-lg border border-[#6B7280]/20 bg-white text-sm focus:ring-2 focus:ring-[#6B7280]/20"
+                                                placeholder="画面的景别、人物姿势和动作严格参考图{image}。"
+                                            />
+                                            <div className="mt-0.5 text-[10px] text-slate-400">占位符：{'{image}'} = 线稿图编号</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="text-xs text-slate-500">
+                                        <AlertTriangle size={12} className="inline mr-1" />In outline mode, if no outline exists, one will be auto-generated when clicking generate
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="border-t border-slate-200 pt-4">
+                                <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3"><Palette size={16} className="text-slate-500" />Image Presets</div>
+                            </div>
+                            <div className="space-y-3 max-h-[35vh] overflow-y-auto pr-1">
+                                <label className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-blue-300 cursor-pointer transition">
+                                    <input
+                                        type="radio"
+                                        checked={!selectedImagePresetId}
+                                        onChange={() => void handleBindPreset(null)}
+                                        className="mt-1"
+                                    />
+                                    <div className="space-y-1">
+                                        <div className="text-sm font-semibold text-slate-800">不使用生图设定</div>
+                                        <div className="text-xs text-slate-500">直接使用首帧描述生成</div>
+                                    </div>
+                                </label>
+                                {imagePresets.map((p) => (
+                                    <label
+                                        key={p.id}
+                                        className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-blue-300 cursor-pointer transition"
+                                    >
+                                        <input
+                                            type="radio"
+                                            checked={selectedImagePresetId === p.id}
+                                            onChange={() => void handleBindPreset(p.id)}
+                                            className="mt-1"
+                                        />
+                                        <div className="space-y-1 flex-1">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="text-sm font-semibold text-slate-800 truncate">{presetLabel(p)}</div>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleEditPreset(p);
+                                                        }}
+                                                        className="text-[11px] px-2 py-1 rounded-lg border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600 transition"
+                                                    >
+                                                        编辑
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            void handleDeletePresetById(p.id);
+                                                        }}
+                                                        className="text-[11px] px-2 py-1 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition"
+                                                    >
+                                                        删除
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">
+                                                {p.content}
+                                            </div>
+                                        </div>
+                                    </label>
+                                ))}
+                                {!imagePresets.length && (
+                                    <div className="text-xs text-slate-400">暂无设定，请在下方新增。</div>
+                                )}
+                            </div>
+                            <div className="p-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 space-y-3">
+                                <div className="text-sm font-semibold text-slate-800">{editingPresetId ? '编辑设定' : '新增设定'}</div>
+                                <AutoTextArea
+                                    value={presetForm.content}
+                                    onChange={(e) => setPresetForm((prev) => ({ ...prev, content: e.target.value }))}
+                                    minRows={3}
+                                    maxRows={8}
+                                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none"
+                                    placeholder="描述画风、用词模板、比例等，将在生成时拼接到首帧描述后"
+                                />
+                                <div className="flex gap-2 justify-end">
+                                    <button
+                                        onClick={() => void handleSavePreset()}
+                                        className="px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition disabled:opacity-60"
+                                        disabled={presetSaving}
+                                    >
+                                        {editingPresetId ? '保存修改' : '新增设定'}
+                                    </button>
+                                    {editingPresetId && (
+                                        <button
+                                            onClick={handleResetPresetForm}
+                                            className="px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:border-slate-300 transition"
+                                        >
+                                            取消编辑
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {showGalleryModal && showDeleteCategoryConfirm && (
+                <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                    <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 border border-slate-200 space-y-4">
+                        <div className="flex items-center gap-2">
+                            <div className="p-2 rounded-lg bg-red-50 border border-red-100">
+                                <Trash2 size={18} className="text-red-500" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-slate-800">删除分类</h3>
+                                <p className="text-sm text-slate-500 mt-0.5">当前分类：{activeCategoryTab === '' ? '未分类' : activeCategoryTab}</p>
+                            </div>
+                        </div>
+                        <div className="space-y-2 text-sm text-slate-600">
+                            <label className="flex items-start gap-2 p-3 rounded-xl border border-slate-200 hover:border-blue-300 transition cursor-pointer">
+                                <input
+                                    type="radio"
+                                    name="delete-category-mode"
+                                    value="move"
+                                    checked={deleteCategoryMode === 'move'}
+                                    onChange={() => setDeleteCategoryMode('move')}
+                                    className="mt-1"
+                                />
+                                <div>
+                                    <div className="font-medium text-slate-800">同时移动到未分类</div>
+                                    <div className="text-xs text-slate-500">该分类下的图片将归入“未分类”，分类提示词一并删除。</div>
+                                </div>
+                            </label>
+                            <label className="flex items-start gap-2 p-3 rounded-xl border border-slate-200 hover:border-blue-300 transition cursor-pointer">
+                                <input
+                                    type="radio"
+                                    name="delete-category-mode"
+                                    value="clear"
+                                    checked={deleteCategoryMode === 'clear'}
+                                    onChange={() => setDeleteCategoryMode('clear')}
+                                    className="mt-1"
+                                />
+                                <div>
+                                    <div className="font-medium text-slate-800">删除分类及提示词，但保留图片分类为空</div>
+                                    <div className="text-xs text-slate-500">分类字段将被清空（无分类），不移动到“未分类”标签。</div>
+                                </div>
+                            </label>
+                        </div>
+                        <div className="flex items-center justify-end gap-3">
                             <button
-                                onClick={() => setShowPresetModal(false)}
-                                className="p-2 rounded-full hover:bg-slate-100 transition text-slate-500"
+                                onClick={() => setShowDeleteCategoryConfirm(false)}
+                                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:border-slate-300 transition"
                             >
-                                <X size={18} />
+                                取消
+                            </button>
+                            <button
+                                onClick={() => void handleDeleteCategoryAction()}
+                                className="px-4 py-2 rounded-xl bg-red-500 text-white hover:bg-red-600 transition disabled:opacity-60"
+                                disabled={categorySaving}
+                            >
+                                确认删除
                             </button>
                         </div>
                     </div>
-                    <div className="p-6 space-y-4">
-                        {imagePresetError && (
-                            <div className="text-xs text-amber-500 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                                {imagePresetError}
-                            </div>
-                        )}
-                        
-                        {/* 生图模式切换 */}
-                        <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50">
-                            <div className="flex items-center gap-2 mb-3">
-                                <ArrowLeftRight size={16} className="text-slate-500" />
-                                <span className="text-sm font-semibold text-slate-700">Generation Mode</span>
-                            </div>
-                            <div className="flex gap-3 mb-3">
-                                <button
-                                    onClick={() => handleSetGlobalOutlineMode(false)}
-                                    className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all ${
-                                        !globalOutlineMode
-                                            ? 'bg-blue-500 text-white shadow-md'
-                                            : 'bg-white border border-slate-200 text-slate-600 hover:border-blue-300'
-                                    }`}
-                                >
-                                    标准模式
-                                </button>
-                                <button
-                                    onClick={() => handleSetGlobalOutlineMode(true)}
-                                    className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all ${
-                                        globalOutlineMode
-                                            ? 'bg-[#6B7280] text-white shadow-md'
-                                            : 'bg-white border border-slate-200 text-slate-600 hover:border-[#6B7280]'
-                                    }`}
-                                >
-                                    Outline Mode
-                                </button>
-                            </div>
-                            <div className="text-xs text-slate-500 space-y-1">
-                                <div><strong>标准模式：</strong>首帧描述 + 角色参考图 + 生图设定</div>
-                                <div><strong>线稿模式：</strong>线稿图 + 首帧描述 + 角色参考图 + 生图设定</div>
-                            </div>
-                        </div>
-
-                        {/* 线稿提取设定（线稿模式专用） */}
-                        {globalOutlineMode && (
-                            <div className="p-4 rounded-xl border border-[#6B7280]/30 bg-[#6B7280]/5 space-y-4">
-                                <div className="flex items-center gap-2">
-                                    <Pencil size={16} className="text-[#6B7280]" />
-                                    <span className="text-sm font-semibold text-[#6B7280]">线稿提取设定（线稿模式专用）</span>
-                                </div>
-                                
-                                {/* 线稿提示词 */}
-                                <div>
-                                    <label className="text-xs text-slate-600">线稿提示词：</label>
-                                    <textarea
-                                        value={globalOutlinePrompt}
-                                        onChange={(e) => setGlobalOutlinePrompt(e.target.value)}
-                                        onBlur={(e) => saveOutlineConfig({ prompt: e.target.value })}
-                                        className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-[#6B7280]/20 bg-white/80 focus:outline-none focus:ring-2 focus:ring-[#6B7280]/30 resize-none"
-                                        rows={2}
-                                        placeholder="描述线稿提取风格..."
-                                    />
-                                </div>
-                                
-                                {/* 📐 参考图指引模板 */}
-                                <div className="space-y-2 p-3 rounded-lg border border-[#6B7280]/20 bg-white/50">
-                                    <div className="flex items-center gap-1.5 text-xs font-medium text-[#6B7280]"><Ruler size={12} /> Reference Template (leave empty for default)</div>
-                                    <div>
-                                        <label className="text-xs text-slate-500">角色参考：</label>
-                                        <input
-                                            type="text"
-                                            value={globalCharRefTemplate}
-                                            onChange={(e) => setGlobalCharRefTemplate(e.target.value)}
-                                            onBlur={(e) => saveOutlineConfig({ charRefTemplate: e.target.value })}
-                                            className="w-full mt-1 px-3 py-1.5 rounded-lg border border-[#6B7280]/20 bg-white text-sm focus:ring-2 focus:ring-[#6B7280]/20"
-                                            placeholder="角色【{name}】的形象、服装、发型严格参考图{image}。"
-                                        />
-                                        <div className="mt-0.5 text-[10px] text-slate-400">占位符：{'{name}'} = 角色名，{'{image}'} = 参考图编号</div>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-slate-500">场景参考：</label>
-                                        <input
-                                            type="text"
-                                            value={globalSceneRefTemplate}
-                                            onChange={(e) => setGlobalSceneRefTemplate(e.target.value)}
-                                            onBlur={(e) => saveOutlineConfig({ sceneRefTemplate: e.target.value })}
-                                            className="w-full mt-1 px-3 py-1.5 rounded-lg border border-[#6B7280]/20 bg-white text-sm focus:ring-2 focus:ring-[#6B7280]/20"
-                                            placeholder="画面的景别、人物姿势和动作严格参考图{image}。"
-                                        />
-                                        <div className="mt-0.5 text-[10px] text-slate-400">占位符：{'{image}'} = 线稿图编号</div>
-                                    </div>
-                                </div>
-                                
-                                <div className="text-xs text-slate-500">
-                                    <AlertTriangle size={12} className="inline mr-1" />In outline mode, if no outline exists, one will be auto-generated when clicking generate
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="border-t border-slate-200 pt-4">
-                            <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3"><Palette size={16} className="text-slate-500" />Image Presets</div>
-                        </div>
-                        <div className="space-y-3 max-h-[35vh] overflow-y-auto pr-1">
-                            <label className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-blue-300 cursor-pointer transition">
-                                <input
-                                    type="radio"
-                                    checked={!selectedImagePresetId}
-                                    onChange={() => void handleBindPreset(null)}
-                                    className="mt-1"
-                                />
-                                <div className="space-y-1">
-                                    <div className="text-sm font-semibold text-slate-800">不使用生图设定</div>
-                                    <div className="text-xs text-slate-500">直接使用首帧描述生成</div>
-                                </div>
-                            </label>
-                            {imagePresets.map((p) => (
-                                <label
-                                    key={p.id}
-                                    className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-blue-300 cursor-pointer transition"
-                                >
-                                    <input
-                                    type="radio"
-                                    checked={selectedImagePresetId === p.id}
-                                    onChange={() => void handleBindPreset(p.id)}
-                                    className="mt-1"
-                                    />
-                                    <div className="space-y-1 flex-1">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <div className="text-sm font-semibold text-slate-800 truncate">{presetLabel(p)}</div>
-                                            <div className="flex gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleEditPreset(p);
-                                                    }}
-                                                    className="text-[11px] px-2 py-1 rounded-lg border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600 transition"
-                                                >
-                                                    编辑
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        void handleDeletePresetById(p.id);
-                                                    }}
-                                                    className="text-[11px] px-2 py-1 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition"
-                                                >
-                                                    删除
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div className="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">
-                                            {p.content}
-                                        </div>
-                                    </div>
-                                </label>
-                            ))}
-                            {!imagePresets.length && (
-                                <div className="text-xs text-slate-400">暂无设定，请在下方新增。</div>
-                            )}
-                        </div>
-                        <div className="p-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 space-y-3">
-                            <div className="text-sm font-semibold text-slate-800">{editingPresetId ? '编辑设定' : '新增设定'}</div>
-                            <AutoTextArea
-                                value={presetForm.content}
-                                onChange={(e) => setPresetForm((prev) => ({ ...prev, content: e.target.value }))}
-                                minRows={3}
-                                maxRows={8}
-                                className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none"
-                                placeholder="描述画风、用词模板、比例等，将在生成时拼接到首帧描述后"
-                            />
-                            <div className="flex gap-2 justify-end">
-                                <button
-                                    onClick={() => void handleSavePreset()}
-                                    className="px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition disabled:opacity-60"
-                                    disabled={presetSaving}
-                                >
-                                    {editingPresetId ? '保存修改' : '新增设定'}
-                                </button>
-                                {editingPresetId && (
-                                    <button
-                                        onClick={handleResetPresetForm}
-                                        className="px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:border-slate-300 transition"
-                                    >
-                                        取消编辑
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
                 </div>
-            </div>
-        )}
-        {showGalleryModal && showDeleteCategoryConfirm && (
-            <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 border border-slate-200 space-y-4">
-                    <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-lg bg-red-50 border border-red-100">
-                            <Trash2 size={18} className="text-red-500" />
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-semibold text-slate-800">删除分类</h3>
-                            <p className="text-sm text-slate-500 mt-0.5">当前分类：{activeCategoryTab === '' ? '未分类' : activeCategoryTab}</p>
-                        </div>
-                    </div>
-                    <div className="space-y-2 text-sm text-slate-600">
-                        <label className="flex items-start gap-2 p-3 rounded-xl border border-slate-200 hover:border-blue-300 transition cursor-pointer">
-                            <input
-                                type="radio"
-                                name="delete-category-mode"
-                                value="move"
-                                checked={deleteCategoryMode === 'move'}
-                                onChange={() => setDeleteCategoryMode('move')}
-                                className="mt-1"
-                            />
-                            <div>
-                                <div className="font-medium text-slate-800">同时移动到未分类</div>
-                                <div className="text-xs text-slate-500">该分类下的图片将归入“未分类”，分类提示词一并删除。</div>
-                            </div>
-                        </label>
-                        <label className="flex items-start gap-2 p-3 rounded-xl border border-slate-200 hover:border-blue-300 transition cursor-pointer">
-                            <input
-                                type="radio"
-                                name="delete-category-mode"
-                                value="clear"
-                                checked={deleteCategoryMode === 'clear'}
-                                onChange={() => setDeleteCategoryMode('clear')}
-                                className="mt-1"
-                            />
-                            <div>
-                                <div className="font-medium text-slate-800">删除分类及提示词，但保留图片分类为空</div>
-                                <div className="text-xs text-slate-500">分类字段将被清空（无分类），不移动到“未分类”标签。</div>
-                            </div>
-                        </label>
-                    </div>
-                    <div className="flex items-center justify-end gap-3">
-                        <button
-                            onClick={() => setShowDeleteCategoryConfirm(false)}
-                            className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:border-slate-300 transition"
-                        >
-                            取消
-                        </button>
-                        <button
-                            onClick={() => void handleDeleteCategoryAction()}
-                            className="px-4 py-2 rounded-xl bg-red-500 text-white hover:bg-red-600 transition disabled:opacity-60"
-                            disabled={categorySaving}
-                        >
-                            确认删除
-                        </button>
-                    </div>
-                </div>
-            </div>
-        )}
-        <ProviderConfigModal
-            isOpen={showProviderModal}
-            onClose={() => setShowProviderModal(false)}
-        />
-        <VideoConfigModal
-            isOpen={showVideoConfigModal}
-            onClose={() => setShowVideoConfigModal(false)}
-            onSave={(config) => setVideoGenConfig(config)}
-        />
+            )}
+            <ProviderConfigModal
+                isOpen={showProviderModal}
+                onClose={() => setShowProviderModal(false)}
+            />
+            <VideoConfigModal
+                isOpen={showVideoConfigModal}
+                onClose={() => setShowVideoConfigModal(false)}
+                onSave={(config) => setVideoGenConfig(config)}
+            />
         </>
     );
 }
