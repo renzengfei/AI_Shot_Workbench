@@ -100,24 +100,25 @@ export default function LiquidGlassDesignSystem() {
                 
                 html { scroll-behavior: smooth; }
                 
-                /* 回到顶部按钮 */
+                /* 回到顶部按钮 - 克制的样式 */
                 .back-to-top {
                     position: fixed;
                     bottom: 32px;
                     right: 32px;
-                    width: 48px;
-                    height: 48px;
-                    border-radius: 50%;
-                    background: rgba(0, 122, 255, 0.9);
-                    color: #fff;
-                    border: none;
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 12px;
+                    background: rgba(255, 255, 255, 0.8);
+                    backdrop-filter: blur(20px);
+                    color: var(--text-primary);
+                    border: 1px solid rgba(0, 0, 0, 0.08);
                     cursor: pointer;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    font-size: 18px;
-                    box-shadow: 0 4px 20px rgba(0, 122, 255, 0.4);
-                    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+                    font-size: 16px;
+                    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+                    transition: all 0.2s ease;
                     z-index: 100;
                     opacity: 0;
                     transform: translateY(20px);
@@ -129,8 +130,8 @@ export default function LiquidGlassDesignSystem() {
                     pointer-events: auto;
                 }
                 .back-to-top:hover {
-                    transform: translateY(-4px) scale(1.1);
-                    box-shadow: 0 8px 32px rgba(0, 122, 255, 0.5);
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
                 }
                 
                 /* 代码块增强 */
@@ -210,16 +211,16 @@ export default function LiquidGlassDesignSystem() {
                         0 8px 40px rgba(0, 0, 0, 0.12);
                 }
                 
-                /* 渐变文字 */
+                /* 渐变文字 - 克制的单色渐变 */
                 .gradient-text {
-                    background: linear-gradient(135deg, #007AFF 0%, #5AC8FA 25%, #34C759 50%, #FF9500 75%, #FF2D55 100%);
+                    background: linear-gradient(135deg, #1D1D1F 0%, #48484A 100%);
                     -webkit-background-clip: text;
                     -webkit-text-fill-color: transparent;
                     background-clip: text;
                 }
-                .gradient-blue { background: linear-gradient(135deg, #007AFF 0%, #5AC8FA 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-                .gradient-purple { background: linear-gradient(135deg, #AF52DE 0%, #BF5AF2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-                .gradient-green { background: linear-gradient(135deg, #30D158 0%, #34C759 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+                .gradient-blue { color: #007AFF; }
+                .gradient-purple { color: #AF52DE; }
+                .gradient-green { color: #34C759; }
 
                 /* Liquid Glass 容器 */
                 .glass-card {
@@ -574,10 +575,9 @@ export default function LiquidGlassDesignSystem() {
                 overflow: 'hidden',
                 transition: 'background 0.3s, color 0.3s',
             }}>
-                {/* 底层模糊图案 */}
-                <div className="blur-orb" style={{ position: 'fixed', top: '-200px', right: '-100px', width: '800px', height: '800px', borderRadius: '50%', background: 'linear-gradient(135deg, #FF9500, #FF2D55)', filter: 'blur(150px)', opacity: 0.25, pointerEvents: 'none' }} />
-                <div className="blur-orb" style={{ position: 'fixed', bottom: '-200px', left: '-100px', width: '700px', height: '700px', borderRadius: '50%', background: 'linear-gradient(135deg, #5AC8FA, #007AFF)', filter: 'blur(150px)', opacity: 0.25, pointerEvents: 'none', animationDelay: '-3s' }} />
-                <div className="blur-orb" style={{ position: 'fixed', top: '40%', left: '50%', width: '600px', height: '600px', borderRadius: '50%', background: 'linear-gradient(135deg, #34C759, #30D158)', filter: 'blur(150px)', opacity: 0.2, pointerEvents: 'none', animationDelay: '-6s' }} />
+                {/* 底层模糊图案 - 降低饱和度，更柔和 */}
+                <div className="blur-orb" style={{ position: 'fixed', top: '-300px', right: '-200px', width: '800px', height: '800px', borderRadius: '50%', background: 'linear-gradient(135deg, #E8E8ED, #D1D1D6)', filter: 'blur(120px)', opacity: 0.6, pointerEvents: 'none' }} />
+                <div className="blur-orb" style={{ position: 'fixed', bottom: '-300px', left: '-200px', width: '700px', height: '700px', borderRadius: '50%', background: 'linear-gradient(135deg, #B8D4E8, #C7D2E8)', filter: 'blur(120px)', opacity: 0.5, pointerEvents: 'none' }} />
 
                 {/* 顶部导航 */}
                 <nav className="glass-card" style={{ 
@@ -625,8 +625,8 @@ export default function LiquidGlassDesignSystem() {
                     <section id="philosophy" style={{ marginBottom: '80px' }}>
                         <div style={{ textAlign: 'center', marginBottom: '48px' }}>
                             <p className="section-title">Philosophy</p>
-                            <h1 style={{ fontSize: '56px', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: '16px' }}>
-                                <span className="gradient-text">Liquid Glass</span>
+                            <h1 style={{ fontSize: '48px', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: '16px', color: 'var(--text-primary)' }}>
+                                Liquid Glass
                             </h1>
                             <p style={{ fontSize: '21px', color: 'var(--text-secondary)', maxWidth: '600px', margin: '0 auto' }}>
                                 一种全新的动态材质，让界面如同真实的玻璃一般，透明、流动、富有深度。
@@ -636,22 +636,22 @@ export default function LiquidGlassDesignSystem() {
                         <div className="glass-card" style={{ padding: '40px', marginBottom: '24px' }}>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '32px' }}>
                                 <div>
-                                    <div style={{ fontSize: '48px', fontWeight: 800, marginBottom: '8px' }} className="gradient-blue">透明</div>
-                                    <p style={{ fontSize: '15px', color: 'var(--text-secondary)' }}>Transparent</p>
+                                    <div style={{ fontSize: '28px', fontWeight: 700, marginBottom: '8px', color: '#007AFF' }}>透明</div>
+                                    <p style={{ fontSize: '14px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Transparent</p>
                                     <p style={{ fontSize: '15px', color: 'var(--text-tertiary)', marginTop: '12px', lineHeight: 1.6 }}>
                                         让内容透过界面自然呈现，创造层次分明的视觉体验。
                                     </p>
                                 </div>
                                 <div>
-                                    <div style={{ fontSize: '48px', fontWeight: 800, marginBottom: '8px' }} className="gradient-purple">流动</div>
-                                    <p style={{ fontSize: '15px', color: 'var(--text-secondary)' }}>Flowing</p>
+                                    <div style={{ fontSize: '28px', fontWeight: 700, marginBottom: '8px', color: '#AF52DE' }}>流动</div>
+                                    <p style={{ fontSize: '14px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Flowing</p>
                                     <p style={{ fontSize: '15px', color: 'var(--text-tertiary)', marginTop: '12px', lineHeight: 1.6 }}>
                                         界面随交互自然流动，响应用户的每一次触碰。
                                     </p>
                                 </div>
                                 <div>
-                                    <div style={{ fontSize: '48px', fontWeight: 800, marginBottom: '8px' }} className="gradient-green">深度</div>
-                                    <p style={{ fontSize: '15px', color: 'var(--text-secondary)' }}>Depth</p>
+                                    <div style={{ fontSize: '28px', fontWeight: 700, marginBottom: '8px', color: '#34C759' }}>深度</div>
+                                    <p style={{ fontSize: '14px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Depth</p>
                                     <p style={{ fontSize: '15px', color: 'var(--text-tertiary)', marginTop: '12px', lineHeight: 1.6 }}>
                                         通过光影和层叠创造真实的空间感知。
                                     </p>
@@ -706,7 +706,7 @@ export default function LiquidGlassDesignSystem() {
                                     { name: 'Teal', hex: '#5AC8FA', desc: '信息' },
                                 ].map(c => (
                                     <div key={c.name}>
-                                        <div className="color-swatch" style={{ background: c.hex, marginBottom: '12px', boxShadow: `0 4px 16px ${c.hex}30` }} />
+                                        <div className="color-swatch" style={{ background: c.hex, marginBottom: '12px' }} />
                                         <p style={{ fontSize: '14px', fontWeight: 600, marginBottom: '2px' }}>{c.name}</p>
                                         <p style={{ fontSize: '12px', color: 'rgba(0,0,0,0.5)' }}>{c.hex}</p>
                                         <p style={{ fontSize: '11px', color: 'rgba(0,0,0,0.4)', marginTop: '4px' }}>{c.desc}</p>
