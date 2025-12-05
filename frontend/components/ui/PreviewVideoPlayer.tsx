@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, type ChangeEvent, type ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, Maximize, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Maximize, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface PreviewVideoPlayerProps {
     src: string;
@@ -38,6 +38,9 @@ export const PreviewVideoPlayer = ({
         return typeof IntersectionObserver === 'undefined' ? true : false;
     });
     const [isLoading, setIsLoading] = useState(true);
+    const [hasError, setHasError] = useState(false);
+    const [retryCount, setRetryCount] = useState(0);
+    const MAX_RETRIES = 3;
 
     useEffect(() => {
         if (videoRef.current) {
@@ -60,6 +63,9 @@ export const PreviewVideoPlayer = ({
         setPlaying(false);
         setCurrentTime(0);
         setDuration(0);
+        setHasError(false);
+        setRetryCount(0);
+        setIsLoading(true);
 
         // 重新加载视频
         if (shouldLoad && src) {
@@ -93,8 +99,24 @@ export const PreviewVideoPlayer = ({
             video.playbackRate = rate;  // 视频加载后应用默认倍速
             setIsLoading(false);  // 视频元数据加载完成
         };
-        const onCanPlay = () => setIsLoading(false);
+        const onCanPlay = () => {
+            setIsLoading(false);
+            setHasError(false);  // 加载成功，清除错误状态
+        };
         const onWaiting = () => setIsLoading(true);
+        const onError = () => {
+            console.warn('Video load error, retry count:', retryCount);
+            if (retryCount < MAX_RETRIES) {
+                // 自动重试
+                setTimeout(() => {
+                    setRetryCount(c => c + 1);
+                    video.load();
+                }, 1000 * (retryCount + 1));  // 递增延迟
+            } else {
+                setHasError(true);
+                setIsLoading(false);
+            }
+        };
         const onPlayEvent = () => {
             setPlaying(true);
             onPlay?.();  // 调用外部回调
@@ -106,6 +128,7 @@ export const PreviewVideoPlayer = ({
         video.addEventListener('loadedmetadata', onLoadedMetadata);
         video.addEventListener('canplay', onCanPlay);
         video.addEventListener('waiting', onWaiting);
+        video.addEventListener('error', onError);
         video.addEventListener('play', onPlayEvent);
         video.addEventListener('pause', onPause);
         video.addEventListener('ended', onEnded);
@@ -115,6 +138,7 @@ export const PreviewVideoPlayer = ({
             video.removeEventListener('loadedmetadata', onLoadedMetadata);
             video.removeEventListener('canplay', onCanPlay);
             video.removeEventListener('waiting', onWaiting);
+            video.removeEventListener('error', onError);
             video.removeEventListener('play', onPlayEvent);
             video.removeEventListener('pause', onPause);
             video.removeEventListener('ended', onEnded);
@@ -192,9 +216,29 @@ export const PreviewVideoPlayer = ({
                     poster={poster}
                 />
                 {/* 加载指示器 */}
-                {isLoading && shouldLoad && (
+                {isLoading && shouldLoad && !hasError && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm">
                         <Loader2 size={32} className="text-white animate-spin" />
+                    </div>
+                )}
+                {/* 错误状态 */}
+                {hasError && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/40 backdrop-blur-sm">
+                        <AlertCircle size={32} className="text-red-400" />
+                        <span className="text-sm text-white/80">视频加载失败</span>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setRetryCount(0);
+                                setHasError(false);
+                                setIsLoading(true);
+                                videoRef.current?.load();
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm transition-colors"
+                        >
+                            <RefreshCw size={14} />
+                            重试
+                        </button>
                     </div>
                 )}
             </div>

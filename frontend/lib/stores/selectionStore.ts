@@ -187,43 +187,65 @@ export const useSelectionStore = create<SelectionState>()(
           
           const data = await resp.json();
           
-          // 合并后端数据（后端优先）
+          // 合并后端数据（本地优先，只填充缺失数据，避免覆盖用户正在编辑的内容）
           if (type === 'images') {
             const indexes = data.indexes || {};
-            set((state) => ({
-              imageSelections: {
-                ...state.imageSelections,
-                [key]: { ...state.imageSelections[key], ...indexes },
-              },
-              loadedWorkspaces: {
-                ...state.loadedWorkspaces,
-                [key]: { ...state.loadedWorkspaces[key], images: true },
-              },
-            }));
+            set((state) => {
+              const existing = state.imageSelections[key] || {};
+              // 只填充本地不存在的条目
+              const merged = { ...indexes };
+              for (const [shotId, filename] of Object.entries(existing)) {
+                if (filename) merged[shotId] = filename;  // 本地有值则保留
+              }
+              return {
+                imageSelections: {
+                  ...state.imageSelections,
+                  [key]: merged,
+                },
+                loadedWorkspaces: {
+                  ...state.loadedWorkspaces,
+                  [key]: { ...state.loadedWorkspaces[key], images: true },
+                },
+              };
+            });
           } else if (type === 'videos') {
             const indexes = data.indexes || {};
-            set((state) => ({
-              videoSelections: {
-                ...state.videoSelections,
-                [key]: { ...state.videoSelections[key], ...indexes },
-              },
-              loadedWorkspaces: {
-                ...state.loadedWorkspaces,
-                [key]: { ...state.loadedWorkspaces[key], videos: true },
-              },
-            }));
+            set((state) => {
+              const existing = state.videoSelections[key] || {};
+              const merged = { ...indexes };
+              for (const [shotId, filenames] of Object.entries(existing)) {
+                if (filenames && filenames.length > 0) merged[shotId] = filenames;
+              }
+              return {
+                videoSelections: {
+                  ...state.videoSelections,
+                  [key]: merged,
+                },
+                loadedWorkspaces: {
+                  ...state.loadedWorkspaces,
+                  [key]: { ...state.loadedWorkspaces[key], videos: true },
+                },
+              };
+            });
           } else if (type === 'outlines') {
             const urls = data.urls || {};
-            set((state) => ({
-              outlineSelections: {
-                ...state.outlineSelections,
-                [key]: { ...state.outlineSelections[key], ...urls },
-              },
-              loadedWorkspaces: {
-                ...state.loadedWorkspaces,
-                [key]: { ...state.loadedWorkspaces[key], outlines: true },
-              },
-            }));
+            set((state) => {
+              const existing = state.outlineSelections[key] || {};
+              const merged = { ...urls };
+              for (const [shotId, url] of Object.entries(existing)) {
+                if (url) merged[shotId] = url;
+              }
+              return {
+                outlineSelections: {
+                  ...state.outlineSelections,
+                  [key]: merged,
+                },
+                loadedWorkspaces: {
+                  ...state.loadedWorkspaces,
+                  [key]: { ...state.loadedWorkspaces[key], outlines: true },
+                },
+              };
+            });
           }
         } catch (err) {
           console.error(`加载 ${type} 选择数据失败:`, err);
