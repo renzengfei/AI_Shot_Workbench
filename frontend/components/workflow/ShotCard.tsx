@@ -1576,7 +1576,12 @@ export const ShotCard = ({
                                                     <div className={mediaTitleClass}>{genTime || ' '}</div>
                                                     <div
                                                         className={`${mediaBaseClass} border border-white/10 shadow-inner cursor-pointer`}
-                                                        onClick={() => setLightboxIndex(idx)}
+                                                        onClick={() => {
+                                                            setLightboxIndex(idx);
+                                                            if (isNew) {
+                                                                onImageSeen?.(shot, index, url);
+                                                            }
+                                                        }}
                                                     >
                                                         {/* 右上角：生成时间 */}
                                                         {genTime && (
