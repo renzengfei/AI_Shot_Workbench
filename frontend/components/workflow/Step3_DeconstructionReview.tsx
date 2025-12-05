@@ -323,9 +323,13 @@ export default function Step3_DeconstructionReview({
         : null;
     const pendingGenKey = workspaceSlug ? `pendingGenerations:${workspaceSlug}:${generatedDir}` : null;
     const pendingOutlineKey = workspaceSlug ? `pendingOutlineGenerations:${workspaceSlug}` : null;
+    const pendingVideoKey = workspaceSlug ? `pendingVideoGenerations:${workspaceSlug}:${generatedDir}` : null;
 
     // 线稿生成持久化类型
     type PendingOutline = { startedAt: number; lastOutlineCount: number };
+
+    // 视频生成持久化类型
+    type PendingVideo = { taskIds: string[]; startedAt: number };
 
     // 读取 pending outline generations
     const readPendingOutlines = useCallback((): Record<number, PendingOutline> => {
@@ -352,6 +356,45 @@ export default function Step3_DeconstructionReview({
         delete pending[shotId];
         writePendingOutlines(pending);
     }, [readPendingOutlines, writePendingOutlines]);
+
+    // 读取 pending video generations
+    const readPendingVideos = useCallback((): Record<number, PendingVideo> => {
+        if (!pendingVideoKey) return {};
+        try {
+            const raw = localStorage.getItem(pendingVideoKey);
+            if (!raw) return {};
+            const parsed = JSON.parse(raw) as Record<number, PendingVideo>;
+            // 过滤超时的任务（超过 30 分钟）
+            const now = Date.now();
+            const fresh: Record<number, PendingVideo> = {};
+            Object.entries(parsed).forEach(([id, v]) => {
+                if (now - v.startedAt < 30 * 60 * 1000) {
+                    fresh[Number(id)] = v;
+                }
+            });
+            if (Object.keys(fresh).length !== Object.keys(parsed).length) {
+                localStorage.setItem(pendingVideoKey, JSON.stringify(fresh));
+            }
+            return fresh;
+        } catch {
+            return {};
+        }
+    }, [pendingVideoKey]);
+
+    // 写入 pending video generations
+    const writePendingVideos = useCallback((pending: Record<number, PendingVideo>) => {
+        if (!pendingVideoKey) return;
+        try {
+            localStorage.setItem(pendingVideoKey, JSON.stringify(pending));
+        } catch { /* ignore */ }
+    }, [pendingVideoKey]);
+
+    // 清除单个 pending video
+    const clearPendingVideo = useCallback((shotId: number) => {
+        const pending = readPendingVideos();
+        delete pending[shotId];
+        writePendingVideos(pending);
+    }, [readPendingVideos, writePendingVideos]);
 
     // newlyGeneratedVideos 的 localStorage key
     const newVideosStorageKey = workspaceSlug
@@ -1967,6 +2010,11 @@ export default function Step3_DeconstructionReview({
                 [shotId]: taskIds.map(id => ({ taskId: id, progress: 0, status: 'processing', startTime }))
             }));
 
+            // 写入 pending 状态到 localStorage（用于页面刷新后恢复）
+            const pendingVideos = readPendingVideos();
+            pendingVideos[shotId] = { taskIds, startedAt: startTime };
+            writePendingVideos(pendingVideos);
+
             // 批量执行任务（并行）
             await fetch(`${API_BASE}${apiBase}/tasks/run-batch`, {
                 method: 'POST',
@@ -2064,6 +2112,10 @@ export default function Step3_DeconstructionReview({
                         setGeneratingVideoShots(prev => { const next = { ...prev }; delete next[shotId]; return next; });
                         // 清理占位卡片状态
                         setVideoTaskProgresses(prev => { const next = { ...prev }; delete next[shotId]; return next; });
+                        // 清除 pending 状态（只在组件挂载时）
+                        if (isMountedRef.current) {
+                            clearPendingVideo(shotId);
+                        }
                         // 最终刷新视频列表
                         void loadVideosForShot(shotId, true);
                         showToast(`镜头 ${shotId}：${completed}/${taskIds.length} 个视频生成完成！`, completed > 0 ? 'success' : 'error');
@@ -2492,6 +2544,75 @@ export default function Step3_DeconstructionReview({
             void loadVideosForShot(id);  // 同时加载视频列表
         });
     }, [workspaceSlug, round2Data, loadExistingImagesForShot, loadVideosForShot, savedIndexesLoaded, savedVideoIndexesLoaded]);
+
+    // 恢复 pending 视频生成状态（页面刷新后）
+    useEffect(() => {
+        if (!pendingVideoKey) return;
+        const pending = readPendingVideos();
+        if (Object.keys(pending).length === 0) return;
+
+        // 恢复 UI 状态
+        const active: Record<number, boolean> = {};
+        Object.keys(pending).forEach(k => { active[Number(k)] = true; });
+        setGeneratingVideoShots(active);
+
+        // 为每个 pending 任务轮询检查状态
+        const apiBase = '/api/yunwu';
+        Object.entries(pending).forEach(([shotIdStr, { taskIds, startedAt }]) => {
+            const shotId = Number(shotIdStr);
+            const taskStatus: Record<string, string> = {};
+            taskIds.forEach(id => { taskStatus[id] = 'processing'; });
+
+            // 初始化占位卡片
+            setVideoTaskProgresses(prev => ({
+                ...prev,
+                [shotId]: taskIds.map(id => ({ taskId: id, progress: 0, status: 'processing', startTime: startedAt }))
+            }));
+            setVideoTaskStatuses(prev => ({ ...prev, [shotId]: 'processing' }));
+
+            // 轮询检查每个任务状态
+            const checkTask = async (taskId: string) => {
+                try {
+                    const resp = await fetch(`${API_BASE}${apiBase}/tasks/${taskId}`);
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        if (data?.task?.status === 'completed') {
+                            taskStatus[taskId] = 'completed';
+                            setVideoTaskProgresses(prev => {
+                                const tasks = (prev[shotId] || []).filter(t => t.taskId !== taskId);
+                                if (tasks.length === 0) {
+                                    const next = { ...prev };
+                                    delete next[shotId];
+                                    return next;
+                                }
+                                return { ...prev, [shotId]: tasks };
+                            });
+                        } else if (data?.task?.status === 'failed') {
+                            taskStatus[taskId] = 'failed';
+                        }
+                    }
+                } catch { /* ignore */ }
+            };
+
+            // 检查所有任务
+            Promise.all(taskIds.map(checkTask)).then(() => {
+                const completed = Object.values(taskStatus).filter(s => s === 'completed').length;
+                const failed = Object.values(taskStatus).filter(s => s === 'failed').length;
+                if (completed + failed === taskIds.length) {
+                    // 所有任务完成
+                    setGeneratingVideoShots(prev => { const next = { ...prev }; delete next[shotId]; return next; });
+                    setVideoTaskStatuses(prev => ({ ...prev, [shotId]: failed < taskIds.length ? 'completed' : 'failed' }));
+                    setVideoTaskProgresses(prev => { const next = { ...prev }; delete next[shotId]; return next; });
+                    clearPendingVideo(shotId);
+                    void loadVideosForShot(shotId, true);
+                    if (completed > 0) {
+                        showToast(`镜头 ${shotId}：${completed}/${taskIds.length} 个视频已完成`, 'success');
+                    }
+                }
+            });
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pendingVideoKey]);
 
     // 拉取已保存的选中图片（支持新格式文件名和旧格式索引）
     useEffect(() => {
