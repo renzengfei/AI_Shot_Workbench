@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function LiquidGlassDesignSystem() {
     const [activeTab, setActiveTab] = useState('home');
@@ -13,6 +13,35 @@ export default function LiquidGlassDesignSystem() {
     const [radioValue, setRadioValue] = useState('option1');
     const [inputValue, setInputValue] = useState('');
     const [switchOn, setSwitchOn] = useState(true);
+    const [darkMode, setDarkMode] = useState(false);
+    const [showBackToTop, setShowBackToTop] = useState(false);
+    const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+    // 监听滚动显示回到顶部按钮
+    useEffect(() => {
+        const handleScroll = () => {
+            setShowBackToTop(window.scrollY > 400);
+            // 更新当前章节
+            const sectionElements = sections.map(s => document.getElementById(s.id));
+            const current = sectionElements.findIndex((el, i) => {
+                if (!el) return false;
+                const next = sectionElements[i + 1];
+                const top = el.getBoundingClientRect().top;
+                const nextTop = next?.getBoundingClientRect().top ?? Infinity;
+                return top <= 100 && nextTop > 100;
+            });
+            if (current !== -1) setActiveSection(sections[current].id);
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    // 复制代码功能
+    const copyCode = (code: string, id: string) => {
+        navigator.clipboard.writeText(code);
+        setCopiedCode(id);
+        setTimeout(() => setCopiedCode(null), 2000);
+    };
 
     const sections = [
         { id: 'philosophy', label: '设计理念' },
@@ -34,18 +63,152 @@ export default function LiquidGlassDesignSystem() {
 
     return (
         <>
-            <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.11.2/css/all.css" />
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
             <link rel="preconnect" href="https://fonts.googleapis.com" />
             <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
             <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet" />
 
             <style>{`
+                :root {
+                    --bg-primary: #F5F5F7;
+                    --bg-secondary: #FFFFFF;
+                    --text-primary: #1D1D1F;
+                    --text-secondary: rgba(0, 0, 0, 0.65);
+                    --text-tertiary: rgba(0, 0, 0, 0.45);
+                    --glass-bg: rgba(255, 255, 255, 0.25);
+                    --glass-border: rgba(255, 255, 255, 0.3);
+                    --glass-shadow-inset: rgba(255, 255, 255, 0.5);
+                    --code-bg: rgba(0, 0, 0, 0.05);
+                }
+                
+                .dark-mode {
+                    --bg-primary: #000000;
+                    --bg-secondary: #1C1C1E;
+                    --text-primary: #F5F5F7;
+                    --text-secondary: rgba(255, 255, 255, 0.7);
+                    --text-tertiary: rgba(255, 255, 255, 0.5);
+                    --glass-bg: rgba(30, 30, 30, 0.6);
+                    --glass-border: rgba(255, 255, 255, 0.1);
+                    --glass-shadow-inset: rgba(255, 255, 255, 0.1);
+                    --code-bg: rgba(255, 255, 255, 0.08);
+                }
+                
                 * { 
                     font-family: 'Noto Sans SC', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
                     box-sizing: border-box;
                 }
                 
                 html { scroll-behavior: smooth; }
+                
+                /* 回到顶部按钮 */
+                .back-to-top {
+                    position: fixed;
+                    bottom: 32px;
+                    right: 32px;
+                    width: 48px;
+                    height: 48px;
+                    border-radius: 50%;
+                    background: rgba(0, 122, 255, 0.9);
+                    color: #fff;
+                    border: none;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 18px;
+                    box-shadow: 0 4px 20px rgba(0, 122, 255, 0.4);
+                    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+                    z-index: 100;
+                    opacity: 0;
+                    transform: translateY(20px);
+                    pointer-events: none;
+                }
+                .back-to-top.visible {
+                    opacity: 1;
+                    transform: translateY(0);
+                    pointer-events: auto;
+                }
+                .back-to-top:hover {
+                    transform: translateY(-4px) scale(1.1);
+                    box-shadow: 0 8px 32px rgba(0, 122, 255, 0.5);
+                }
+                
+                /* 代码块增强 */
+                .code-block-wrapper {
+                    position: relative;
+                    margin: 16px 0;
+                }
+                .code-block-wrapper .copy-btn {
+                    position: absolute;
+                    top: 8px;
+                    right: 8px;
+                    padding: 6px 12px;
+                    border-radius: 6px;
+                    background: rgba(0, 0, 0, 0.1);
+                    border: none;
+                    color: rgba(0, 0, 0, 0.5);
+                    font-size: 12px;
+                    cursor: pointer;
+                    opacity: 0;
+                    transition: all 0.2s;
+                }
+                .code-block-wrapper:hover .copy-btn {
+                    opacity: 1;
+                }
+                .copy-btn:hover {
+                    background: rgba(0, 122, 255, 0.15);
+                    color: #007AFF;
+                }
+                .copy-btn.copied {
+                    background: rgba(52, 199, 89, 0.15);
+                    color: #34C759;
+                }
+                
+                /* 深色模式切换按钮 */
+                .theme-toggle {
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 10px;
+                    border: none;
+                    background: rgba(0, 0, 0, 0.05);
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 16px;
+                    transition: all 0.2s;
+                }
+                .theme-toggle:hover {
+                    background: rgba(0, 0, 0, 0.1);
+                }
+                .dark-mode .theme-toggle {
+                    background: rgba(255, 255, 255, 0.1);
+                    color: #FFD60A;
+                }
+                .dark-mode .theme-toggle:hover {
+                    background: rgba(255, 255, 255, 0.15);
+                }
+                
+                /* 章节入场动画 */
+                section {
+                    animation: fadeInUp 0.6s ease-out;
+                }
+                @keyframes fadeInUp {
+                    from { opacity: 0; transform: translateY(20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                
+                /* 卡片悬停动画增强 */
+                .glass-card {
+                    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+                }
+                .glass-card:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 
+                        inset 1px 1px 0 0 var(--glass-shadow-inset),
+                        inset -1px -1px 0 0 rgba(255, 255, 255, 0.1),
+                        0 8px 40px rgba(0, 0, 0, 0.12);
+                }
                 
                 /* 渐变文字 */
                 .gradient-text {
@@ -403,12 +566,13 @@ export default function LiquidGlassDesignSystem() {
                 .page-btn.active { background: #007AFF; color: #fff; }
             `}</style>
 
-            <div style={{
+            <div className={darkMode ? 'dark-mode' : ''} style={{
                 minHeight: '100vh',
-                background: '#F5F5F7',
-                color: '#1D1D1F',
+                background: 'var(--bg-primary)',
+                color: 'var(--text-primary)',
                 position: 'relative',
                 overflow: 'hidden',
+                transition: 'background 0.3s, color 0.3s',
             }}>
                 {/* 底层模糊图案 */}
                 <div className="blur-orb" style={{ position: 'fixed', top: '-200px', right: '-100px', width: '800px', height: '800px', borderRadius: '50%', background: 'linear-gradient(135deg, #FF9500, #FF2D55)', filter: 'blur(150px)', opacity: 0.25, pointerEvents: 'none' }} />
@@ -426,8 +590,8 @@ export default function LiquidGlassDesignSystem() {
                         <span style={{ fontSize: '15px', fontWeight: 600 }}>Liquid Glass</span>
                         <span style={{ fontSize: '12px', color: 'rgba(0,0,0,0.4)', marginLeft: '4px' }}>Design System</span>
                     </div>
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                        {sections.map(s => (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {sections.slice(0, 8).map(s => (
                             <button
                                 key={s.id}
                                 className={`nav-link ${activeSection === s.id ? 'active' : ''}`}
@@ -439,8 +603,21 @@ export default function LiquidGlassDesignSystem() {
                                 {s.label}
                             </button>
                         ))}
+                        <span style={{ color: 'var(--text-tertiary)', margin: '0 4px' }}>...</span>
+                        <button className="theme-toggle" onClick={() => setDarkMode(!darkMode)} title={darkMode ? '切换亮色模式' : '切换深色模式'}>
+                            <i className={`fas ${darkMode ? 'fa-sun' : 'fa-moon'}`}></i>
+                        </button>
                     </div>
                 </nav>
+                
+                {/* 回到顶部按钮 */}
+                <button 
+                    className={`back-to-top ${showBackToTop ? 'visible' : ''}`}
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    title="回到顶部"
+                >
+                    <i className="fas fa-arrow-up"></i>
+                </button>
 
                 <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 24px 80px', position: 'relative', zIndex: 1 }}>
                     
@@ -451,7 +628,7 @@ export default function LiquidGlassDesignSystem() {
                             <h1 style={{ fontSize: '56px', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: '16px' }}>
                                 <span className="gradient-text">Liquid Glass</span>
                             </h1>
-                            <p style={{ fontSize: '21px', color: 'rgba(0,0,0,0.55)', maxWidth: '600px', margin: '0 auto' }}>
+                            <p style={{ fontSize: '21px', color: 'var(--text-secondary)', maxWidth: '600px', margin: '0 auto' }}>
                                 一种全新的动态材质，让界面如同真实的玻璃一般，透明、流动、富有深度。
                             </p>
                         </div>
@@ -460,22 +637,22 @@ export default function LiquidGlassDesignSystem() {
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '32px' }}>
                                 <div>
                                     <div style={{ fontSize: '48px', fontWeight: 800, marginBottom: '8px' }} className="gradient-blue">透明</div>
-                                    <p style={{ fontSize: '15px', color: 'rgba(0,0,0,0.6)' }}>Transparent</p>
-                                    <p style={{ fontSize: '15px', color: 'rgba(0,0,0,0.5)', marginTop: '12px', lineHeight: 1.6 }}>
+                                    <p style={{ fontSize: '15px', color: 'var(--text-secondary)' }}>Transparent</p>
+                                    <p style={{ fontSize: '15px', color: 'var(--text-tertiary)', marginTop: '12px', lineHeight: 1.6 }}>
                                         让内容透过界面自然呈现，创造层次分明的视觉体验。
                                     </p>
                                 </div>
                                 <div>
                                     <div style={{ fontSize: '48px', fontWeight: 800, marginBottom: '8px' }} className="gradient-purple">流动</div>
-                                    <p style={{ fontSize: '15px', color: 'rgba(0,0,0,0.6)' }}>Flowing</p>
-                                    <p style={{ fontSize: '15px', color: 'rgba(0,0,0,0.5)', marginTop: '12px', lineHeight: 1.6 }}>
+                                    <p style={{ fontSize: '15px', color: 'var(--text-secondary)' }}>Flowing</p>
+                                    <p style={{ fontSize: '15px', color: 'var(--text-tertiary)', marginTop: '12px', lineHeight: 1.6 }}>
                                         界面随交互自然流动，响应用户的每一次触碰。
                                     </p>
                                 </div>
                                 <div>
                                     <div style={{ fontSize: '48px', fontWeight: 800, marginBottom: '8px' }} className="gradient-green">深度</div>
-                                    <p style={{ fontSize: '15px', color: 'rgba(0,0,0,0.6)' }}>Depth</p>
-                                    <p style={{ fontSize: '15px', color: 'rgba(0,0,0,0.5)', marginTop: '12px', lineHeight: 1.6 }}>
+                                    <p style={{ fontSize: '15px', color: 'var(--text-secondary)' }}>Depth</p>
+                                    <p style={{ fontSize: '15px', color: 'var(--text-tertiary)', marginTop: '12px', lineHeight: 1.6 }}>
                                         通过光影和层叠创造真实的空间感知。
                                     </p>
                                 </div>
