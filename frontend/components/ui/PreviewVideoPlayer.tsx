@@ -114,18 +114,23 @@ export const PreviewVideoPlayer = ({
     }, [onPlay]);
 
     const togglePlay = () => {
-        if (videoRef.current) {
-            if (playing) {
-                videoRef.current.pause();
-            } else {
-                // play() 返回 Promise，需要捕获 AbortError（快速点击时会发生）
-                videoRef.current.play().catch((e) => {
-                    // AbortError 是预期行为（用户快速暂停），忽略即可
-                    if (e.name !== 'AbortError') {
-                        console.warn('Video play error:', e);
-                    }
-                });
-            }
+        const video = videoRef.current;
+        if (!video) return;
+        
+        if (video.paused) {
+            // 使用实际视频状态而非 React 状态，避免状态不同步
+            video.play().catch((e) => {
+                // AbortError 是预期行为（快速暂停），忽略
+                if (e.name === 'AbortError') return;
+                // NotAllowedError 可能是自动播放策略限制
+                if (e.name === 'NotAllowedError') {
+                    console.warn('Video autoplay blocked by browser policy');
+                    return;
+                }
+                console.warn('Video play error:', e);
+            });
+        } else {
+            video.pause();
         }
     };
 
