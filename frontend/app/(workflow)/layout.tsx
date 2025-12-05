@@ -1,5 +1,6 @@
 'use client';
 
+import '@/styles/liquid-glass.css';
 import { useEffect, useMemo, useRef } from 'react';
 import { WorkspaceProvider, useWorkspace } from '@/components/WorkspaceContext';
 import { useWorkflowStore, WorkflowStep } from '@/lib/stores/workflowStore';
@@ -61,7 +62,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
     return (
         <div className="min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] font-sans selection:bg-blue-500/30">
-            <header className="z-30 glass-card border-b border-[var(--glass-border)] bg-[var(--glass-bg-light)] backdrop-blur-xl">
+            <header className="z-30 lg-card border-b border-[var(--glass-border)] bg-[var(--glass-bg-light)] backdrop-blur-xl">
                 <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20">

@@ -1,5 +1,6 @@
 'use client';
 
+import '@/styles/liquid-glass.css';
 import { useState } from 'react';
 import { FolderPlus, FolderOpen, Clock } from 'lucide-react';
 import { useWorkspace } from './WorkspaceContext';
@@ -38,7 +39,7 @@ export default function WorkspaceSelector() {
                     </div>
 
                     {/* Create New Card */}
-                    <div className="glass-card p-6 transition-all duration-300 hover:shadow-lg">
+                    <div className="lg-card p-6 transition-all duration-300 hover:shadow-lg">
                         <div className="flex items-center gap-4 mb-6">
                             <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
                                 <FolderPlus size={24} />
@@ -70,7 +71,7 @@ export default function WorkspaceSelector() {
                 </div>
 
                 {/* Right Column: Recent Workspaces */}
-                <div className="glass-card p-6 h-full max-h-[600px] overflow-hidden flex flex-col">
+                <div className="lg-card p-6 h-full max-h-[600px] overflow-hidden flex flex-col">
                     <div className="flex items-center gap-3 mb-6">
                         <Clock size={20} className="text-[var(--color-text-tertiary)]" />
                         <h3 className="text-lg font-semibold">最近的工作空间</h3>
