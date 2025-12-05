@@ -50,8 +50,12 @@ export const PreviewVideoPlayer = ({
         const video = videoRef.current;
         if (!video) return;
 
-        // 暂停当前播放
-        video.pause();
+        // 暂停当前播放（可能有 pending 的 play promise）
+        try {
+            video.pause();
+        } catch {
+            // 忽略暂停错误
+        }
         setPlaying(false);
         setCurrentTime(0);
         setDuration(0);
@@ -111,8 +115,17 @@ export const PreviewVideoPlayer = ({
 
     const togglePlay = () => {
         if (videoRef.current) {
-            if (playing) videoRef.current.pause();
-            else videoRef.current.play();
+            if (playing) {
+                videoRef.current.pause();
+            } else {
+                // play() 返回 Promise，需要捕获 AbortError（快速点击时会发生）
+                videoRef.current.play().catch((e) => {
+                    // AbortError 是预期行为（用户快速暂停），忽略即可
+                    if (e.name !== 'AbortError') {
+                        console.warn('Video play error:', e);
+                    }
+                });
+            }
         }
     };
 
