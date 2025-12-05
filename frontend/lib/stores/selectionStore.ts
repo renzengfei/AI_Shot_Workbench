@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-
-const API_BASE = '/api/yunwu';
+import { API_BASE } from '@/lib/services/http';
 
 // 类型定义
 interface SelectionState {
@@ -174,11 +173,11 @@ export const useSelectionStore = create<SelectionState>()(
         try {
           let endpoint = '';
           if (type === 'images') {
-            endpoint = `/workspaces/${encodeURIComponent(workspacePath)}/selected-images?generated_dir=${encodeURIComponent(generatedDir)}`;
+            endpoint = `/api/workspaces/${encodeURIComponent(workspacePath)}/selected-images?generated_dir=${encodeURIComponent(generatedDir)}`;
           } else if (type === 'videos') {
-            endpoint = `/workspaces/${encodeURIComponent(workspacePath)}/selected-videos?generated_dir=${encodeURIComponent(generatedDir)}`;
+            endpoint = `/api/workspaces/${encodeURIComponent(workspacePath)}/selected-videos?generated_dir=${encodeURIComponent(generatedDir)}`;
           } else if (type === 'outlines') {
-            endpoint = `/workspaces/${encodeURIComponent(workspacePath)}/selected-outlines?generated_dir=${encodeURIComponent(generatedDir)}`;
+            endpoint = `/api/workspaces/${encodeURIComponent(workspacePath)}/selected-outlines?generated_dir=${encodeURIComponent(generatedDir)}`;
           }
           
           const resp = await fetch(`${API_BASE}${endpoint}`);
@@ -247,13 +246,13 @@ export const useSelectionStore = create<SelectionState>()(
           let body: Record<string, unknown> = { generated_dir: generatedDir };
           
           if (type === 'images') {
-            endpoint = `/workspaces/${encodeURIComponent(workspacePath)}/selected-images`;
+            endpoint = `/api/workspaces/${encodeURIComponent(workspacePath)}/selected-images`;
             body.indexes = get().imageSelections[key] || {};
           } else if (type === 'videos') {
-            endpoint = `/workspaces/${encodeURIComponent(workspacePath)}/selected-videos`;
+            endpoint = `/api/workspaces/${encodeURIComponent(workspacePath)}/selected-videos`;
             body.indexes = get().videoSelections[key] || {};
           } else if (type === 'outlines') {
-            endpoint = `/workspaces/${encodeURIComponent(workspacePath)}/selected-outlines`;
+            endpoint = `/api/workspaces/${encodeURIComponent(workspacePath)}/selected-outlines`;
             body.urls = get().outlineSelections[key] || {};
           }
           
