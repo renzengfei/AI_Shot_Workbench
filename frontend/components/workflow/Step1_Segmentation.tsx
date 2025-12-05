@@ -1,5 +1,6 @@
 'use client';
 
+import '@/styles/liquid-glass.css';
 import { useState } from 'react';
 import { Upload, Link, ArrowRight } from 'lucide-react';
 import { useTimelineStore } from '@/lib/stores/timelineStore';
@@ -202,7 +203,7 @@ export default function Step1_Segmentation() {
     return (
         <div className="space-y-8 pb-20">
             {/* Header */}
-            <div className="glass-card p-4 flex items-center justify-between border-b-4 border-b-blue-500/20">
+            <div className="lg-card p-4 flex items-center justify-between border-b-4 border-b-blue-500/20">
                 <div className="space-y-1">
                     <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
                         原片切分
@@ -227,7 +228,7 @@ export default function Step1_Segmentation() {
             {!videoUrl && (
                 <div className="max-w-4xl mx-auto">
                     {/* Upload Video Card */}
-                    <div className="glass-card p-10 border border-[var(--glass-border)] shadow-2xl bg-gradient-to-b from-[var(--glass-bg-light)] to-[var(--glass-bg-dark)]">
+                    <div className="lg-card p-10 border border-[var(--glass-border)] shadow-2xl bg-gradient-to-b from-[var(--glass-bg-light)] to-[var(--glass-bg-dark)]">
                         <div className="text-center mb-10">
                             <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 mb-3">
                                 开始你的创作
@@ -313,12 +314,12 @@ export default function Step1_Segmentation() {
                     <div className="grid lg:grid-cols-12 gap-6 items-start">
                         {/* Left: Video (5/12) */}
                         <div className="lg:col-span-5 w-full sticky top-6">
-                            <div className="glass-card p-0 overflow-hidden border border-[var(--glass-border)] shadow-2xl rounded-2xl bg-black">
+                            <div className="lg-card p-0 overflow-hidden border border-[var(--glass-border)] shadow-2xl rounded-2xl bg-black">
                                 <VideoPlayer videoUrl={videoUrl} />
                             </div>
 
                             {/* Instructions Alert */}
-                            <div className="mt-4 glass-card p-4 bg-blue-500/5 border border-blue-500/10 rounded-xl">
+                            <div className="mt-4 lg-card p-4 bg-blue-500/5 border border-blue-500/10 rounded-xl">
                                 <div className="flex items-start gap-3">
                                     <div className="p-1.5 bg-blue-500/10 rounded-full text-blue-400 mt-0.5">
                                         <div className="w-1.5 h-1.5 bg-current rounded-full" />
@@ -337,12 +338,12 @@ export default function Step1_Segmentation() {
                         {/* Right: Controls + Timeline (7/12) */}
                         <div className="lg:col-span-7 space-y-6">
                             {/* Frame Preview */}
-                            <div className="glass-card p-4 border border-[var(--glass-border)]">
+                            <div className="lg-card p-4 border border-[var(--glass-border)]">
                                 <FramePreview />
                             </div>
 
                             {/* Timeline */}
-                            <div className="glass-card p-6 border border-[var(--glass-border)]">
+                            <div className="lg-card p-6 border border-[var(--glass-border)]">
                                 <div className="flex items-center justify-between mb-6">
                                     <h2 className="text-lg font-bold text-[var(--color-text-primary)] flex items-center gap-2">
                                         <div className="w-1 h-5 bg-blue-500 rounded-full" />
@@ -367,7 +368,7 @@ export default function Step1_Segmentation() {
                             </div>
 
                             {/* Controls */}
-                            <div className="glass-card p-4 border border-[var(--glass-border)]">
+                            <div className="lg-card p-4 border border-[var(--glass-border)]">
                                 <PlaybackControls />
                             </div>
                         </div>

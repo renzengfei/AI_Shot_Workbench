@@ -1,5 +1,6 @@
 'use client';
 
+import '@/styles/liquid-glass.css';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useWorkflowStore } from '@/lib/stores/workflowStore';
 import { FileText, ArrowRight, Copy, Check, Sparkles, Youtube, MessageSquare, Type, Eye, X, Clipboard, AlertCircle } from 'lucide-react';
@@ -196,7 +197,7 @@ export default function Step2_Deconstruction() {
     return (
         <div className="space-y-8">
             {/* Header */}
-            <div className="glass-card p-4 flex items-center justify-between border-b-4 border-b-blue-500/20">
+            <div className="lg-card p-4 flex items-center justify-between border-b-4 border-b-blue-500/20">
                 <div className="space-y-1">
                     <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
                         AI 原片拆解
@@ -233,7 +234,7 @@ export default function Step2_Deconstruction() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                     {/* Step 1 */}
-                    <div className="glass-card p-6 space-y-4 relative overflow-hidden group hover:border-blue-500/40 hover:shadow-lg transition-all duration-300 hover:-translate-y-1" style={{ animationDelay: '0ms' }}>
+                    <div className="lg-card p-6 space-y-4 relative overflow-hidden group hover:border-blue-500/40 hover:shadow-lg transition-all duration-300 hover:-translate-y-1" style={{ animationDelay: '0ms' }}>
                         <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-15 transition-opacity duration-500">
                             <span className="text-8xl font-bold bg-gradient-to-br from-blue-500 to-transparent bg-clip-text text-transparent">1</span>
                         </div>
@@ -252,7 +253,7 @@ export default function Step2_Deconstruction() {
                     </div>
 
                     {/* Step 2 */}
-                    <div className="glass-card p-6 space-y-4 relative overflow-hidden group hover:border-purple-500/40 hover:shadow-lg transition-all duration-300 hover:-translate-y-1" style={{ animationDelay: '100ms' }}>
+                    <div className="lg-card p-6 space-y-4 relative overflow-hidden group hover:border-purple-500/40 hover:shadow-lg transition-all duration-300 hover:-translate-y-1" style={{ animationDelay: '100ms' }}>
                         <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-15 transition-opacity duration-500">
                             <span className="text-8xl font-bold bg-gradient-to-br from-purple-500 to-transparent bg-clip-text text-transparent">2</span>
                         </div>
@@ -299,7 +300,7 @@ export default function Step2_Deconstruction() {
                     </div>
 
                     {/* Step 3 */}
-                    <div className="glass-card p-6 space-y-4 relative overflow-hidden group hover:border-amber-500/40 hover:shadow-lg transition-all duration-300 hover:-translate-y-1" style={{ animationDelay: '200ms' }}>
+                    <div className="lg-card p-6 space-y-4 relative overflow-hidden group hover:border-amber-500/40 hover:shadow-lg transition-all duration-300 hover:-translate-y-1" style={{ animationDelay: '200ms' }}>
                         <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-15 transition-opacity duration-500">
                             <span className="text-8xl font-bold bg-gradient-to-br from-amber-500 to-transparent bg-clip-text text-transparent">3</span>
                         </div>
@@ -335,7 +336,7 @@ export default function Step2_Deconstruction() {
                     </div>
 
                     {/* Step 4 */}
-                    <div className="glass-card p-6 space-y-4 relative overflow-hidden group hover:border-green-500/40 hover:shadow-lg transition-all duration-300 hover:-translate-y-1" style={{ animationDelay: '300ms' }}>
+                    <div className="lg-card p-6 space-y-4 relative overflow-hidden group hover:border-green-500/40 hover:shadow-lg transition-all duration-300 hover:-translate-y-1" style={{ animationDelay: '300ms' }}>
                         <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-15 transition-opacity duration-500">
                             <span className="text-8xl font-bold bg-gradient-to-br from-green-500 to-transparent bg-clip-text text-transparent">4</span>
                         </div>
@@ -346,7 +347,7 @@ export default function Step2_Deconstruction() {
                         <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
                             等待 AI 完成，粘贴 Round 1 的 JSON 与 Round 2 的 Markdown（角色说明 + 分镜表格），自动保存到工作空间。
                         </p>
-                        <div className="glass-card bg-gradient-to-r from-green-500/5 to-emerald-500/5 border border-green-500/10 p-3 text-xs text-green-600/90 dark:text-green-400/90">
+                        <div className="lg-card bg-gradient-to-r from-green-500/5 to-emerald-500/5 border border-green-500/10 p-3 text-xs text-green-600/90 dark:text-green-400/90">
                             <p className="flex items-center gap-1.5 font-medium mb-1">
                                 <MessageSquare size={13} />
                                 提示
@@ -359,7 +360,7 @@ export default function Step2_Deconstruction() {
 
             {/* Editors */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="glass-card p-1 flex flex-col h-[480px] group focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500/30 transition-all duration-300">
+                <div className="lg-card p-1 flex flex-col h-[480px] group focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500/30 transition-all duration-300">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--glass-border)] bg-[var(--glass-bg-light)] rounded-t-xl backdrop-blur-md">
                         <div className="flex items-center gap-3">
                             <div className="flex items-center gap-2 text-[var(--color-text-primary)]">
@@ -384,7 +385,7 @@ export default function Step2_Deconstruction() {
                     />
                 </div>
 
-                <div className="glass-card p-1 flex flex-col h-[480px] group focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500/30 transition-all duration-300">
+                <div className="lg-card p-1 flex flex-col h-[480px] group focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500/30 transition-all duration-300">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--glass-border)] bg-[var(--glass-bg-light)] rounded-t-xl backdrop-blur-md">
                         <div className="flex items-center gap-3">
                             <div className="flex items-center gap-2 text-[var(--color-text-primary)]">
@@ -422,7 +423,7 @@ export default function Step2_Deconstruction() {
             {/* Prompt Preview Modal */}
             {showPromptPreview && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="glass-card w-full max-w-3xl max-h-[80vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 border-[var(--glass-border-strong)]">
+                    <div className="lg-card w-full max-w-3xl max-h-[80vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 border-[var(--glass-border-strong)]">
                         <div className="flex items-center justify-between p-4 border-b border-[var(--glass-border)]">
                             <h3 className="text-lg font-semibold flex items-center gap-2">
                                 <Sparkles className="w-5 h-5 text-purple-500" />
