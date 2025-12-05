@@ -3506,9 +3506,9 @@ export default function Step3_DeconstructionReview({
                 filter: 'blur(60px)'
             }} />
 
-            <div className="space-y-12 pb-32 relative z-10">
+            <div className="space-y-8 pb-32 relative z-10">
                 {/* Header */}
-                <div className="lg-card p-5 space-y-3">
+                <div className="lg-card-static p-6 space-y-4">
                     <div className="flex items-center justify-between">
                         <h2 className="text-2xl font-bold text-[var(--color-text-primary)] flex items-center gap-2">
                             <Film size={24} className="text-blue-400" />
@@ -3546,17 +3546,14 @@ export default function Step3_DeconstructionReview({
                         <button
                             onClick={handleCopyPrompt}
                             disabled={promptCopyStatus === 'loading'}
-                            className={`
-                            flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
-                            ${promptCopyStatus === 'copied'
-                                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                            className={`lg-btn lg-btn-sm ${promptCopyStatus === 'copied'
+                                    ? 'lg-badge-green'
                                     : promptCopyStatus === 'error'
-                                        ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                                        : 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20'}
-                        `}
+                                        ? 'lg-badge-red'
+                                        : 'lg-btn-glass'}`}
                         >
                             {promptCopyStatus === 'copied' ? <Check size={14} /> : <Copy size={14} />}
-                            <span>{promptCopyStatus === 'loading' ? '加载中...' : promptCopyStatus === 'copied' ? '已复制' : '复制剧本优化提示词'}</span>
+                            <span>{promptCopyStatus === 'loading' ? '加载中...' : promptCopyStatus === 'copied' ? '已复制' : '复制提示词'}</span>
                         </button>
                         <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
                             <span className="hidden md:inline">剧本文件</span>
@@ -3575,74 +3572,58 @@ export default function Step3_DeconstructionReview({
                         </div>
                         <button
                             onClick={() => setShowPresetModal(true)}
-                            className="lg-btn lg-btn-primary"
+                            className="lg-btn lg-btn-sm lg-btn-primary"
                             type="button"
                         >
                             生图设定
                         </button>
                         <button
                             onClick={() => setShowProviderModal(true)}
-                            className="lg-btn lg-btn-secondary"
+                            className="lg-btn lg-btn-sm lg-btn-secondary"
                             type="button"
                         >
                             <Settings size={14} />
-                            生图供应商
+                            供应商
                         </button>
                         <button
                             onClick={() => setShowVideoConfigModal(true)}
-                            className="lg-btn lg-btn-glass"
+                            className="lg-btn lg-btn-sm lg-btn-glass"
                             style={{ borderColor: 'var(--lg-purple)', color: 'var(--lg-purple)' }}
                             type="button"
                         >
                             <Video size={14} />
-                            生视频配置
+                            视频
                         </button>
                         {!hideAnnotations && (
                             <button
                                 onClick={copyAllAnnotations}
-                                className={`
-                                flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
-                                ${copyStatus === 'copied'
-                                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                                className={`lg-btn lg-btn-sm ${copyStatus === 'copied'
+                                        ? 'lg-badge-green'
                                         : copyStatus === 'empty'
-                                            ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                                            ? 'lg-badge-orange'
                                             : copyStatus === 'error'
-                                                ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                                                : 'bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/20'}
-                            `}
+                                                ? 'lg-badge-red'
+                                                : 'lg-badge-purple'}`}
                             >
                                 {copyStatus === 'copied' ? <Check size={14} /> : <MessageSquare size={14} />}
-                                <span>
-                                    {copyStatus === 'copied'
-                                        ? '已复制批注'
-                                        : copyStatus === 'empty'
-                                            ? '批注为空'
-                                            : copyStatus === 'error'
-                                                ? '复制失败'
-                                                : '复制批注'}
-                                </span>
+                                <span>{copyStatus === 'copied' ? '已复制' : copyStatus === 'empty' ? '无批注' : copyStatus === 'error' ? '失败' : '批注'}</span>
                             </button>
                         )}
                         {/* Compare JSON Button - Only in review mode */}
                         {mode === 'review' && !hideCompare && (
                             <button
                                 onClick={() => setShowComparePanel(!showComparePanel)}
-                                className={`
-                                flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
-                                ${compareData
-                                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                                        : 'bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 border border-orange-500/20'}
-                            `}
+                                className={`lg-btn lg-btn-sm ${compareData ? 'lg-badge-orange' : 'lg-btn-glass'}`}
                             >
                                 <ClipboardPaste size={14} />
-                                <span>{compareData ? `对比中 (${diffMap.size}处差异)` : '粘贴数据对比'}</span>
+                                <span>{compareData ? `对比 (${diffMap.size})` : '对比'}</span>
                             </button>
                         )}
                     </div>
 
                     {/* Compare Panel - Only visible when showComparePanel is true */}
                     {mode === 'review' && !hideCompare && showComparePanel && (
-                        <div className="p-4 rounded-xl bg-[var(--color-bg-secondary)]/50 border border-amber-500/30 space-y-3">
+                        <div className="lg-card-compact p-4 space-y-3 border-amber-500/30">
                             <div className="flex items-center justify-between">
                                 <h4 className="text-sm font-semibold text-amber-400 flex items-center gap-2">
                                     <ClipboardPaste size={16} />
@@ -3706,7 +3687,8 @@ export default function Step3_DeconstructionReview({
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={handleParseCompareJson}
-                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition font-medium text-sm"
+                                    className="lg-btn lg-btn-sm lg-btn-primary"
+                                    style={{ background: 'var(--lg-orange)' }}
                                 >
                                     <RefreshCw size={14} />
                                     解析并对比
@@ -3714,10 +3696,10 @@ export default function Step3_DeconstructionReview({
                                 {compareData && (
                                     <button
                                         onClick={clearCompareData}
-                                        className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--glass-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-red-500/50 transition font-medium text-sm"
+                                        className="lg-btn lg-btn-sm lg-btn-secondary"
                                     >
                                         <X size={14} />
-                                        清除对比
+                                        清除
                                     </button>
                                 )}
                             </div>
@@ -3732,7 +3714,7 @@ export default function Step3_DeconstructionReview({
                     )}
 
                     {/* Global Volume Control */}
-                    <div className="flex items-center gap-4 p-3 rounded-lg bg-[var(--color-bg-secondary)]/50 border border-[var(--glass-border)]">
+                    <div className="flex items-center gap-4 p-3 lg-card-inset">
                         <button
                             onClick={toggleGlobalMute}
                             className="p-1.5 hover:bg-[var(--color-bg-tertiary)] rounded text-[var(--color-text-primary)]"
@@ -3752,8 +3734,8 @@ export default function Step3_DeconstructionReview({
                             {Math.round((isGlobalMuted ? 0 : globalVolume) * 100)}%
                         </span>
                     </div>
-                    {/* Theme Switcher - Temporary Debug Control */}
-                    <div className="flex items-center gap-3 p-3 rounded-lg bg-[var(--color-bg-secondary)]/50 border border-[var(--glass-border)] mt-2">
+                    {/* Theme Switcher */}
+                    <div className="flex items-center gap-3 p-3 lg-card-inset">
                         <span className="text-xs font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider">Theme</span>
                         <div className="flex bg-[var(--color-bg-tertiary)] p-0.5 rounded-lg">
                             {(['glacier', 'midnight', 'obsidian'] as const).map(theme => (
@@ -3780,7 +3762,7 @@ export default function Step3_DeconstructionReview({
                     )}
                     {/* Final Mode Metadata & Analysis */}
                     {(mode === 'final' || mode === 'revision') && (
-                        <div className="lg-card p-5 border border-purple-500/20 bg-[var(--glass-bg-light)] space-y-3">
+                        <div className="lg-card-compact p-5 border-l-4 border-l-purple-500 space-y-3">
                             <div className="flex items-center gap-2 text-purple-300">
                                 <Zap size={16} />
                                 <span className="text-sm font-semibold">{mode === 'final' ? '优化摘要' : '修订摘要（对比终版）'}</span>
@@ -3901,7 +3883,7 @@ export default function Step3_DeconstructionReview({
 
                         {/* NEW: Macro Optimization Analysis for Round 1 */}
                         {mode === 'revision' && (
-                            <div className="lg-card p-6 border-l-4 border-l-emerald-500 bg-emerald-500/5 space-y-4 rounded-2xl shadow-lg shadow-emerald-900/10">
+                            <div className="lg-card-compact p-5 border-l-4 border-l-emerald-500 space-y-4">
                                 <div className="flex items-center gap-3 text-emerald-400">
                                     <div className="p-1.5 rounded-md bg-emerald-500/20">
                                         <Zap size={18} />
@@ -3916,7 +3898,7 @@ export default function Step3_DeconstructionReview({
                             {/* Left Column: Narrative Flow (7/12) */}
                             <div className="xl:col-span-7 space-y-8">
                                 {/* Logic Chain */}
-                                <div className="lg-card p-6 space-y-4">
+                                <div className="lg-card-compact p-5 space-y-4">
                                     <div className="flex items-center gap-3 mb-2">
                                         <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-500">
                                             <GitBranch size={18} />
@@ -3940,7 +3922,7 @@ export default function Step3_DeconstructionReview({
                                     />
                                 </div>
 
-                                <div className="lg-card p-6 space-y-6">
+                                <div className="lg-card-compact p-5 space-y-5">
                                     <div className="flex items-center gap-3 mb-2">
                                         <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500">
                                             <Layout size={18} />
@@ -3983,7 +3965,7 @@ export default function Step3_DeconstructionReview({
                             {/* Right Column: Mechanics & Analysis (5/12) */}
                             <div className="xl:col-span-5 space-y-8">
                                 {/* Hooks Analysis */}
-                                <div className="lg-card p-6 space-y-5">
+                                <div className="lg-card-compact p-5 space-y-4">
                                     <div className="flex items-center gap-3 mb-4">
                                         <div className="p-2 rounded-lg bg-pink-500/10 text-pink-500">
                                             <Anchor size={18} />
@@ -4041,7 +4023,7 @@ export default function Step3_DeconstructionReview({
                                 </div>
 
                                 {/* Viral Elements */}
-                                <div className="lg-card p-6 space-y-4">
+                                <div className="lg-card-compact p-5 space-y-4">
                                     <div className="flex items-center gap-3 mb-4">
                                         <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
                                             <Zap size={18} />
@@ -4158,7 +4140,7 @@ export default function Step3_DeconstructionReview({
 
                                 {/* Add Character */}
                                 {canEdit && (
-                                    <div className="lg-card p-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                                    <div className="lg-card-compact p-5 border border-dashed border-slate-300/50">
                                         <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
                                             <div className="flex-1 flex flex-col gap-3 w-full">
                                                 <div className="flex flex-col gap-1.5">
@@ -4327,7 +4309,7 @@ export default function Step3_DeconstructionReview({
                                         })}
                                     </div>
                                 ) : (
-                                    <div className="lg-card p-6 rounded-2xl border border-dashed border-slate-200 text-sm text-slate-500">
+                                    <div className="lg-card-inset p-5 border border-dashed border-slate-200/50 text-sm text-slate-500">
                                         暂无角色，请添加角色信息。
                                     </div>
                                 )}
@@ -4583,7 +4565,7 @@ export default function Step3_DeconstructionReview({
                             )}
 
                             {typeof round2Data === 'string' && (
-                                <div className="lg-card p-6 border-amber-500/30 bg-amber-500/5">
+                                <div className="lg-card-compact p-5 border-l-4 border-l-amber-500">
                                     <div className="text-amber-400 text-base font-medium mb-3 flex items-center gap-2">
                                         <AlertCircle size={20} /> Markdown 解析失败
                                     </div>
@@ -4593,7 +4575,7 @@ export default function Step3_DeconstructionReview({
                                 </div>
                             )}
                             {mode === 'revision' && missingModifiedShots.length > 0 && (
-                                <div className="lg-card p-5 border border-purple-500/20 bg-[var(--glass-bg-light)]/80 space-y-3">
+                                <div className="lg-card-compact p-4 border-l-4 border-l-purple-500 space-y-3">
                                     <div className="text-sm font-semibold text-[var(--color-text-primary)]">修订日志中的其他镜头</div>
                                     <div className="grid gap-3 md:grid-cols-2">
                                         {missingModifiedShots.map((m, idx) => (
