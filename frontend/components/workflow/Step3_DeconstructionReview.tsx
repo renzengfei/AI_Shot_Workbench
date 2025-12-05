@@ -206,6 +206,7 @@ export default function Step3_DeconstructionReview({
     const [activeOutlineUrls, setActiveOutlineUrls] = useState<Record<number, string>>({});  // 每个镜头选中的线稿图
     const [generatingOutlines, setGeneratingOutlines] = useState<Record<number, boolean>>({});  // 正在生成线稿的镜头
     const [batchGeneratingOutlines, setBatchGeneratingOutlines] = useState(false);  // 批量生成线稿中
+    const isMountedRef = useRef(true);  // 组件是否挂载（用于防止卸载后清除 pending 状态）
     const [outlineProgress, setOutlineProgress] = useState({ completed: 0, total: 0 });  // 线稿生成进度
     // 全局线稿模式配置（从 workspace 加载）
     const [globalOutlineMode, setGlobalOutlineMode] = useState<boolean>(false);
@@ -233,6 +234,12 @@ export default function Step3_DeconstructionReview({
         revision: '对照修改记录查看修订版，只读',
         final: '查看全新剧本终版，只读',
     };
+
+    // 组件卸载时标记
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => { isMountedRef.current = false; };
+    }, []);
 
     // 持久化 defaultStream
     useEffect(() => {
@@ -1728,9 +1735,11 @@ export default function Step3_DeconstructionReview({
             console.error(err);
             showToast(err instanceof Error ? err.message : '线稿生成失败', 'error');
         } finally {
-            setGeneratingOutlines((prev) => ({ ...prev, [shotId]: false }));
-            // 清除 pending 状态
-            clearPendingOutline(shotId);
+            // 只在组件挂载时更新状态和清除 pending（防止切换步骤后丢失恢复能力）
+            if (isMountedRef.current) {
+                setGeneratingOutlines((prev) => ({ ...prev, [shotId]: false }));
+                clearPendingOutline(shotId);
+            }
         }
     };
 
@@ -1848,11 +1857,13 @@ export default function Step3_DeconstructionReview({
                 console.error(`Shot ${shotId} outline generation failed:`, err);
                 failedCount++;
             } finally {
-                setGeneratingOutlines((prev) => ({ ...prev, [shotId]: false }));
-                // 清除 pending 状态
-                clearPendingOutline(shotId);
-                completedCount++;
-                setOutlineProgress((prev) => ({ ...prev, completed: completedCount }));
+                // 只在组件挂载时更新状态和清除 pending
+                if (isMountedRef.current) {
+                    setGeneratingOutlines((prev) => ({ ...prev, [shotId]: false }));
+                    clearPendingOutline(shotId);
+                    completedCount++;
+                    setOutlineProgress((prev) => ({ ...prev, completed: completedCount }));
+                }
             }
         };
 

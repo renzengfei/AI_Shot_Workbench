@@ -952,14 +952,14 @@ export const ShotCard = ({
                     </div>
                 </div>
 
-                {/* 横向滚动布局：原片视频(sticky) + 选中图 + 生成视频 + 描述 + 流切换器 + 素材列表 */}
+                {/* 横向滚动布局：原片视频(固定左侧) + 右侧可滚动区域 */}
                 <div className="relative z-10 space-y-6">
                     {/* 横向滚动容器 */}
                     <div className="relative overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
                         <div className="flex flex-nowrap items-start gap-6 pb-4 pt-2" style={{ minWidth: 'max-content' }}>
 
-                            {/* 1. 原片分镜视频 (Sticky) - 放大宽度 w-[510px] */}
-                            <div className={`sticky left-0 top-0 z-20 ${mediaCardBase}`}>
+                            {/* 1. 原片分镜视频 - 使用 sticky 固定在左侧 */}
+                            <div className={`sticky left-0 z-20 ${mediaCardBase}`} style={{ background: 'linear-gradient(to right, white 90%, transparent 100%)' }}>
                                 <div className={mediaTitleClass}>原片分镜</div>
                                 {clipUrl ? (
                                     <PreviewVideoPlayer
@@ -2238,10 +2238,9 @@ export const ShotCard = ({
                         )}
                     </div>
                 </div>
-            </div >
-            {/* Delete Confirmation Modal */}
-            {
-                deleteConfirm && (
+
+                {/* Delete Confirmation Modal */}
+                {deleteConfirm && (
                     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
                         <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-slate-200">
                             <div className="flex items-center gap-3 mb-4">
@@ -2269,12 +2268,10 @@ export const ShotCard = ({
                             </div>
                         </div>
                     </div>
-                )
-            }
+                )}
 
-            {/* 图片放大查看 Lightbox */}
-            {
-                lightboxIndex !== null && sortedImages.length > 0 && (
+                {/* 图片放大查看 Lightbox */}
+                {lightboxIndex !== null && sortedImages.length > 0 && (
                     <ImageLightbox
                         images={sortedImages}
                         currentIndex={lightboxIndex}
@@ -2283,8 +2280,7 @@ export const ShotCard = ({
                         onNext={() => setLightboxIndex(Math.min(sortedImages.length - 1, lightboxIndex + 1))}
                         getImageIndex={getImageIndex}
                     />
-                )
-            }
-        </>
-    );
+                )}
+            </>
+            );
 };
