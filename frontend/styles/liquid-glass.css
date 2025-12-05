@@ -1,0 +1,264 @@
+/**
+ * Liquid Glass Design System
+ * 基于 Apple iOS 26 Human Interface Guidelines
+ * 
+ * 使用方法：
+ * 1. 在页面中 import '@/styles/liquid-glass.css'
+ * 2. 使用下方定义的类名即可
+ */
+
+/* ==================== CSS 变量 ==================== */
+:root {
+    /* 背景 */
+    --lg-bg-primary: #F5F5F7;
+    --lg-bg-secondary: #FFFFFF;
+    
+    /* 文字 */
+    --lg-text-primary: #1D1D1F;
+    --lg-text-secondary: rgba(0, 0, 0, 0.65);
+    --lg-text-tertiary: rgba(0, 0, 0, 0.45);
+    
+    /* 玻璃材质 */
+    --lg-glass-bg: rgba(255, 255, 255, 0.25);
+    --lg-glass-bg-strong: rgba(255, 255, 255, 0.72);
+    --lg-glass-border: rgba(255, 255, 255, 0.3);
+    --lg-glass-blur: 20px;
+    --lg-glass-saturate: 180%;
+    
+    /* 系统色 */
+    --lg-blue: #007AFF;
+    --lg-green: #34C759;
+    --lg-orange: #FF9500;
+    --lg-red: #FF3B30;
+    --lg-purple: #AF52DE;
+    --lg-cyan: #5AC8FA;
+    
+    /* 阴影 */
+    --lg-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --lg-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+    --lg-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
+    --lg-shadow-xl: 0 24px 80px rgba(0, 0, 0, 0.25);
+    
+    /* 圆角 */
+    --lg-radius-sm: 8px;
+    --lg-radius-md: 12px;
+    --lg-radius-lg: 16px;
+    --lg-radius-xl: 20px;
+    --lg-radius-2xl: 24px;
+    
+    /* 间距 */
+    --lg-space-1: 4px;
+    --lg-space-2: 8px;
+    --lg-space-3: 12px;
+    --lg-space-4: 16px;
+    --lg-space-6: 24px;
+    --lg-space-8: 32px;
+    --lg-space-12: 48px;
+    
+    /* 动效 */
+    --lg-transition-fast: 100ms;
+    --lg-transition-normal: 200ms;
+    --lg-transition-slow: 300ms;
+    --lg-easing-default: cubic-bezier(0.4, 0, 0.2, 1);
+    --lg-easing-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 深色模式 */
+.dark, [data-theme="dark"] {
+    --lg-bg-primary: #000000;
+    --lg-bg-secondary: #1C1C1E;
+    --lg-text-primary: #F5F5F7;
+    --lg-text-secondary: rgba(255, 255, 255, 0.7);
+    --lg-text-tertiary: rgba(255, 255, 255, 0.5);
+    --lg-glass-bg: rgba(30, 30, 30, 0.6);
+    --lg-glass-bg-strong: rgba(50, 50, 50, 0.85);
+    --lg-glass-border: rgba(255, 255, 255, 0.1);
+}
+
+/* ==================== 玻璃卡片 ==================== */
+.lg-card {
+    background: var(--lg-glass-bg);
+    backdrop-filter: blur(var(--lg-glass-blur)) saturate(var(--lg-glass-saturate));
+    -webkit-backdrop-filter: blur(var(--lg-glass-blur)) saturate(var(--lg-glass-saturate));
+    border-radius: var(--lg-radius-xl);
+    border: 1px solid var(--lg-glass-border);
+    box-shadow: 
+        inset 1px 1px 0 0 rgba(255, 255, 255, 0.5),
+        inset -1px -1px 0 0 rgba(255, 255, 255, 0.15),
+        var(--lg-shadow-md);
+    transition: all var(--lg-transition-slow) var(--lg-easing-default);
+}
+
+.lg-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+        inset 1px 1px 0 0 rgba(255, 255, 255, 0.5),
+        inset -1px -1px 0 0 rgba(255, 255, 255, 0.1),
+        var(--lg-shadow-lg);
+}
+
+.lg-card-strong {
+    background: var(--lg-glass-bg-strong);
+}
+
+/* ==================== 按钮 ==================== */
+.lg-btn {
+    padding: 12px 24px;
+    border-radius: var(--lg-radius-md);
+    font-size: 15px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all var(--lg-transition-normal) var(--lg-easing-default);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.lg-btn-primary {
+    background: var(--lg-blue);
+    color: #fff;
+}
+.lg-btn-primary:hover {
+    filter: brightness(1.1);
+    transform: scale(1.02);
+}
+
+.lg-btn-secondary {
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--lg-text-primary);
+}
+.lg-btn-secondary:hover {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.lg-btn-glass {
+    background: var(--lg-glass-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--lg-glass-border);
+    color: var(--lg-text-primary);
+}
+
+.lg-btn-danger {
+    background: var(--lg-red);
+    color: #fff;
+}
+
+/* ==================== 输入框 ==================== */
+.lg-input {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: var(--lg-radius-md);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(10px);
+    font-size: 15px;
+    color: var(--lg-text-primary);
+    transition: all var(--lg-transition-normal) var(--lg-easing-default);
+    outline: none;
+}
+.lg-input:focus {
+    border-color: var(--lg-blue);
+    box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.15);
+}
+.lg-input::placeholder {
+    color: var(--lg-text-tertiary);
+}
+.lg-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ==================== 开关 ==================== */
+.lg-switch {
+    width: 51px;
+    height: 31px;
+    border-radius: 31px;
+    background: rgba(0, 0, 0, 0.1);
+    position: relative;
+    cursor: pointer;
+    transition: all var(--lg-transition-slow) var(--lg-easing-default);
+}
+.lg-switch.active {
+    background: var(--lg-green);
+}
+.lg-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 27px;
+    height: 27px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: transform var(--lg-transition-slow) var(--lg-easing-spring);
+}
+.lg-switch.active::after {
+    transform: translateX(20px);
+}
+
+/* ==================== 徽章 ==================== */
+.lg-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.lg-badge-blue { background: rgba(0, 122, 255, 0.12); color: var(--lg-blue); }
+.lg-badge-green { background: rgba(52, 199, 89, 0.12); color: #248A3D; }
+.lg-badge-orange { background: rgba(255, 149, 0, 0.12); color: #C93400; }
+.lg-badge-red { background: rgba(255, 59, 48, 0.12); color: #D70015; }
+.lg-badge-purple { background: rgba(175, 82, 222, 0.12); color: var(--lg-purple); }
+
+/* ==================== 排版 ==================== */
+.lg-title-lg { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; }
+.lg-title-1 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+.lg-title-2 { font-size: 22px; font-weight: 700; }
+.lg-title-3 { font-size: 20px; font-weight: 600; }
+.lg-headline { font-size: 17px; font-weight: 600; }
+.lg-body { font-size: 17px; line-height: 1.6; }
+.lg-callout { font-size: 16px; }
+.lg-footnote { font-size: 13px; }
+.lg-caption { font-size: 12px; }
+
+/* ==================== 渐变文字 ==================== */
+.lg-gradient-text {
+    background: linear-gradient(135deg, #007AFF 0%, #5AC8FA 25%, #34C759 50%, #FF9500 75%, #FF2D55 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+}
+.lg-gradient-blue {
+    background: linear-gradient(135deg, #007AFF 0%, #5AC8FA 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+}
+
+/* ==================== 动画 ==================== */
+@keyframes lg-fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes lg-scale-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+.lg-animate-fade-in { animation: lg-fade-in var(--lg-transition-slow) var(--lg-easing-default); }
+.lg-animate-scale-in { animation: lg-scale-in var(--lg-transition-slow) var(--lg-easing-spring); }
+
+/* ==================== 模糊背景装饰 ==================== */
+.lg-blur-orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(150px);
+    opacity: 0.25;
+    pointer-events: none;
+    z-index: -1;
+}

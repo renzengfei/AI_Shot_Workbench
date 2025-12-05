@@ -43,47 +43,79 @@
 3. **保守点击策略**：关闭弹窗等操作只使用精确选择器（如 `data-testid`、`aria-label`），禁止使用模糊选择器（如 `[class*="close"]`）或随机位置点击。
 4. **网页结构易变**：第三方网站的 DOM 结构随时可能变化，不要假设之前的选择器仍然有效。
 
-## UI 设计规范 (Apple Glass Design System)
+## UI 设计规范 (Liquid Glass Design System)
 
-本项目采用 "Apple Glass" 设计风格，旨在打造高端、通透、富有层次感的现代化界面。
+本项目采用 **Liquid Glass** 设计风格（基于 Apple iOS 26 HIG），打造高端、通透、富有层次感的现代化界面。
 
-### 1. 核心原则 (Core Principles)
-- **Clarity (清晰)**：内容优先，文字清晰易读，图标语义明确。
-- **Deference (顺从)**：界面服务于内容，使用半透明材质（Glassmorphism）让背景与内容融合。
-- **Depth (层次)**：通过阴影、模糊和层级关系构建空间感。
+**📁 核心文件：**
+- **样式文件**: `frontend/styles/liquid-glass.css` — 导入即用
+- **完整规范**: `frontend/app/liquid-glass-demo-v2/page.tsx` — 可视化文档
 
-### 2. 视觉基础 (Visual Foundation)
-- **字体**：优先使用 SF Pro (macOS) 或 Inter (Google Fonts)。
-- **圆角**：统一使用大圆角（`rounded-xl`, `rounded-2xl`），营造亲和力。
-- **动效**：使用 `transition-all duration-300` 配合 `cubic-bezier` 打造丝滑交互。
+### 1. 核心原则
+| 原则 | 说明 |
+|------|------|
+| **Clarity** | 内容优先，文字清晰可读 |
+| **Deference** | 界面服务于内容，玻璃材质融合背景 |
+| **Depth** | 通过模糊、阴影构建空间层次 |
 
-### 3. 核心变量 (CSS Variables)
-所有样式定义在 `app/apple-design.css` 中，核心变量如下：
+### 2. 快速使用
 
-| 类别 | 变量名 | 说明 |
-| --- | --- | --- |
-| **背景** | `--color-bg-primary` | 主背景（纯白/纯黑） |
-| | `--color-bg-secondary` | 次级背景（浅灰/深灰） |
-| **玻璃材质** | `--glass-bg-light` | 浅色玻璃（高透明度） |
-| | `--glass-border` | 玻璃边框（极细微白/黑） |
-| | `--glass-shadow` | 玻璃投影（弥散光） |
-| **强调色** | `--color-blue-500` | Apple Blue (主操作) |
-| | `--color-text-primary` | 主要文本 |
-| | `--color-text-secondary` | 次要文本 |
+**引入样式：**
+```tsx
+import '@/styles/liquid-glass.css';
+```
 
-### 4. 常用组件类 (Utility Classes)
-直接使用以下类名构建 UI：
+**常用类名：**
+```
+卡片: .lg-card / .lg-card-strong
+按钮: .lg-btn-primary / .lg-btn-secondary / .lg-btn-glass
+输入: .lg-input
+开关: .lg-switch (.active)
+徽章: .lg-badge-blue / .lg-badge-green / .lg-badge-orange / .lg-badge-red
+标题: .lg-title-lg / .lg-title-1 / .lg-title-2 / .lg-title-3
+正文: .lg-body / .lg-footnote / .lg-caption
+渐变: .lg-gradient-text / .lg-gradient-blue
+动画: .lg-animate-fade-in / .lg-animate-scale-in
+```
 
-- **卡片**: `.glass-card` (标准玻璃卡片), `.glass-card-strong` (深色玻璃)
-- **标题**: `.apple-title` (32px), `.apple-headline` (24px)
-- **正文**: `.apple-body` (17px), `.apple-caption` (13px)
-- **按钮**: `.apple-button-primary` (主按钮), `.apple-button-secondary` (次按钮)
-- **输入**: `.apple-input` (带聚焦光晕的输入框)
+### 3. CSS 变量速查
+```css
+/* 颜色 */
+--lg-blue: #007AFF;    --lg-green: #34C759;
+--lg-orange: #FF9500;  --lg-red: #FF3B30;
+--lg-purple: #AF52DE;  --lg-cyan: #5AC8FA;
+
+/* 文字 */
+--lg-text-primary / --lg-text-secondary / --lg-text-tertiary
+
+/* 间距 */
+--lg-space-1(4px) / --lg-space-2(8px) / --lg-space-4(16px) / --lg-space-6(24px)
+
+/* 圆角 */
+--lg-radius-sm(8px) / --lg-radius-md(12px) / --lg-radius-lg(16px) / --lg-radius-xl(20px)
+
+/* 阴影 */
+--lg-shadow-sm / --lg-shadow-md / --lg-shadow-lg / --lg-shadow-xl
+```
+
+### 4. 玻璃材质配方
+```css
+.glass-effect {
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 20px;
+    box-shadow: 
+        inset 1px 1px 0 0 rgba(255, 255, 255, 0.5),
+        0 4px 24px rgba(0, 0, 0, 0.08);
+}
+```
 
 ### 5. 开发建议
-1.  **布局**：多用 `flex` 和 `grid`，保持 `gap-4` 或 `gap-6` 的呼吸感。
-2.  **图标**：使用 `lucide-react`，大小通常为 16px-20px，颜色配合文本层级。
-3.  **深色模式**：系统已内置 Dark Mode 支持，使用 CSS 变量即可自动适配。
+- **布局**: 多用 `flex` + `grid`，保持 `gap: 16px~24px` 的呼吸感
+- **图标**: 使用 `lucide-react` 或 Font Awesome 6，16-20px
+- **深色模式**: 给容器添加 `.dark` 类，CSS 变量自动切换
+- **动效**: 使用 `transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1)`
 
 ## Git 变更范围（提交清单）
 
