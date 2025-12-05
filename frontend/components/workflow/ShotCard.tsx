@@ -906,27 +906,6 @@ export const ShotCard = ({
                                 {String(index + 1).padStart(2, '0')}
                             </span>
                         </div>
-                        {/* 定稿统计 */}
-                        <div className="flex items-center gap-2 text-xs">
-                            {shot.finalizedOutline && (
-                                <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-slate-100 text-slate-600">
-                                    <Pencil size={12} />
-                                    <span>线稿</span>
-                                </span>
-                            )}
-                            {shot.finalizedImage && (
-                                <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-blue-50 text-blue-600">
-                                    <ImageIcon size={12} />
-                                    <span>图片</span>
-                                </span>
-                            )}
-                            {shot.finalizedVideo && (
-                                <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-green-50 text-green-600">
-                                    <Film size={12} />
-                                    <span>视频</span>
-                                </span>
-                            )}
-                        </div>
                     </div>
 
                     <div className="flex items-center gap-3 flex-wrap justify-end">
