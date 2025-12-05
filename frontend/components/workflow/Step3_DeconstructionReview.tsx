@@ -2665,7 +2665,8 @@ export default function Step3_DeconstructionReview({
                 (window as unknown as Record<string, unknown>).__savedImageFilenames = selections;
                 setSavedIndexesLoaded(true);
             });
-    }, [currentWorkspace?.path, generatedDir, selectionStore]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentWorkspace?.path, generatedDir]);
 
     // 保持 ref 最新
     useEffect(() => {
@@ -2707,7 +2708,8 @@ export default function Step3_DeconstructionReview({
                 (window as unknown as Record<string, unknown>).__savedVideoFilenames = selections;
                 setSavedVideoIndexesLoaded(true);
             });
-    }, [currentWorkspace?.path, generatedDir, selectionStore]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentWorkspace?.path, generatedDir]);
 
     // 当保存的视频文件名加载完成后，通过文件名匹配到索引并应用到对应镜头（多选）
     useEffect(() => {
