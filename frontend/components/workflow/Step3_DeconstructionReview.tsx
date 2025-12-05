@@ -1,5 +1,6 @@
 'use client';
 
+import '@/styles/liquid-glass.css';
 import { RefreshCw, Volume2, VolumeX, AlertCircle, Trash2, X, Zap, Users, Box, Layout, Film, ArrowRight, Check, Copy, MessageSquare, ClipboardPaste, GitBranch, Anchor, Pencil, ChevronLeft, ChevronRight, ArrowLeftRight, AlertTriangle, Ruler, Palette } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useWorkflowStore } from '@/lib/stores/workflowStore';
@@ -3482,9 +3483,34 @@ export default function Step3_DeconstructionReview({
 
     return (
         <>
-            <div className="space-y-12 pb-32">
+            {/* Liquid Glass Background Blur Orbs */}
+            <div className="lg-blur-orb" style={{ 
+                top: '-200px', 
+                right: '-100px', 
+                width: '600px', 
+                height: '600px', 
+                background: 'linear-gradient(135deg, #FF9500, #FF2D55)' 
+            }} />
+            <div className="lg-blur-orb" style={{ 
+                bottom: '-200px', 
+                left: '-100px', 
+                width: '500px', 
+                height: '500px', 
+                background: 'linear-gradient(135deg, #5AC8FA, #007AFF)' 
+            }} />
+            <div className="lg-blur-orb" style={{ 
+                top: '40%', 
+                left: '50%', 
+                transform: 'translateX(-50%)',
+                width: '400px', 
+                height: '400px', 
+                background: 'linear-gradient(135deg, #34C759, #30D158)',
+                opacity: 0.15
+            }} />
+
+            <div className="space-y-12 pb-32 relative z-10">
                 {/* Header */}
-                <div className="glass-card p-5 space-y-3">
+                <div className="lg-card p-5 space-y-3">
                     <div className="flex items-center justify-between">
                         <h2 className="text-2xl font-bold text-[var(--color-text-primary)] flex items-center gap-2">
                             <Film size={24} className="text-blue-400" />
@@ -3492,7 +3518,7 @@ export default function Step3_DeconstructionReview({
                         </h2>
                         <button
                             onClick={nextStep}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors font-medium text-sm shadow-lg shadow-blue-500/20"
+                            className="lg-btn lg-btn-primary shadow-lg shadow-blue-500/20"
                         >
                             下一步: 生产剧本 <ArrowRight size={16} />
                         </button>
@@ -3539,7 +3565,7 @@ export default function Step3_DeconstructionReview({
                             <select
                                 value={selectedDeconstructionFile || 'deconstruction.json'}
                                 onChange={(e) => void switchDeconstructionFile(e.target.value)}
-                                className="px-3 py-2 rounded-lg border border-[var(--glass-border)] bg-[var(--color-bg-secondary)]/70 text-[var(--color-text-primary)] focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30"
+                                className="lg-input py-2"
                             >
                                 {deconstructionFiles.length === 0 && (
                                     <option value="deconstruction.json">deconstruction.json</option>
@@ -3551,14 +3577,14 @@ export default function Step3_DeconstructionReview({
                         </div>
                         <button
                             onClick={() => setShowPresetModal(true)}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-blue-500 text-white hover:bg-blue-600 transition shadow-sm"
+                            className="lg-btn lg-btn-primary"
                             type="button"
                         >
                             生图设定
                         </button>
                         <button
                             onClick={() => setShowProviderModal(true)}
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition border border-slate-200"
+                            className="lg-btn lg-btn-secondary"
                             type="button"
                         >
                             <Settings size={14} />
@@ -3566,7 +3592,8 @@ export default function Step3_DeconstructionReview({
                         </button>
                         <button
                             onClick={() => setShowVideoConfigModal(true)}
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-violet-100 text-violet-600 hover:bg-violet-200 transition border border-violet-200"
+                            className="lg-btn lg-btn-glass"
+                            style={{ borderColor: 'var(--lg-purple)', color: 'var(--lg-purple)' }}
                             type="button"
                         >
                             <Video size={14} />
@@ -4639,8 +4666,8 @@ export default function Step3_DeconstructionReview({
                 </div>
             )}
             {showGalleryModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
-                    <div className="glass-card w-full max-w-5xl max-h-[85vh] overflow-hidden border border-[var(--glass-border)] shadow-2xl rounded-3xl">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/40 backdrop-blur-md">
+                    <div className="lg-card lg-card-strong w-full max-w-5xl max-h-[85vh] overflow-hidden shadow-2xl rounded-3xl lg-animate-scale-in">
                         {/* Header */}
                         <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--glass-border)] bg-gradient-to-r from-blue-500/5 to-purple-500/5">
                             <div className="flex items-center gap-4">
@@ -4962,18 +4989,18 @@ export default function Step3_DeconstructionReview({
                 </div>
             )}
             {showPresetModal && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
-                    <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-black/40 backdrop-blur-md">
+                    <div className="w-full max-w-5xl lg-card lg-card-strong rounded-3xl shadow-2xl overflow-hidden lg-animate-scale-in">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--lg-glass-border)]">
                             <div>
-                                <h3 className="text-lg font-semibold text-slate-900">生图设定库（全局复用）</h3>
-                                <p className="text-xs text-slate-500">选择一条设定即可应用，或新增设定</p>
+                                <h3 className="lg-title-3 text-[var(--lg-text-primary)]">生图设定库（全局复用）</h3>
+                                <p className="lg-footnote text-[var(--lg-text-secondary)]">选择一条设定即可应用，或新增设定</p>
                             </div>
                             <div className="flex items-center gap-3">
-                                {imagePresetLoading && <span className="text-xs text-blue-500 animate-pulse">加载中...</span>}
+                                {imagePresetLoading && <span className="lg-caption text-[var(--lg-blue)] animate-pulse">加载中...</span>}
                                 <button
                                     onClick={() => setShowPresetModal(false)}
-                                    className="p-2 rounded-full hover:bg-slate-100 transition text-slate-500"
+                                    className="p-2 rounded-full hover:bg-[var(--lg-glass-bg)] transition text-[var(--lg-text-secondary)]"
                                 >
                                     <X size={18} />
                                 </button>
