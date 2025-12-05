@@ -460,27 +460,35 @@ export default function Step3_DeconstructionReview({
                 }
                 setGeneratedOutlines(outlinesMap);
 
-                // 从后端加载保存的线稿选择（只有保存过的才会选中）
-                try {
-                    const savedResp = await fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-outlines?generated_dir=${generatedDir}`);
-                    if (savedResp.ok) {
-                        const savedData = await savedResp.json() as { urls: Record<string, string> };
-                        if (savedData.urls && Object.keys(savedData.urls).length > 0) {
+                // 从 Zustand store 加载线稿选择（先 localStorage，再后端）
+                // 1. 立即从 localStorage 缓存恢复
+                const cachedOutlines = selectionStore.getOutlineSelections(currentWorkspace.path, generatedDir);
+                if (Object.keys(cachedOutlines).length > 0) {
+                    const savedMap: Record<number, string> = {};
+                    for (const [shotIdStr, url] of Object.entries(cachedOutlines)) {
+                        const shotId = Number(shotIdStr);
+                        if (outlinesMap[shotId]?.includes(url)) {
+                            savedMap[shotId] = url;
+                        }
+                    }
+                    setActiveOutlineUrls(savedMap);
+                }
+                
+                // 2. 从后端加载最新数据
+                selectionStore.loadFromBackend(currentWorkspace.path, generatedDir, 'outlines')
+                    .then(() => {
+                        const selections = selectionStore.getOutlineSelections(currentWorkspace.path, generatedDir);
+                        if (Object.keys(selections).length > 0) {
                             const savedMap: Record<number, string> = {};
-                            for (const [shotIdStr, url] of Object.entries(savedData.urls)) {
+                            for (const [shotIdStr, url] of Object.entries(selections)) {
                                 const shotId = Number(shotIdStr);
-                                // 只有当 URL 仍然存在于线稿列表中时才使用
                                 if (outlinesMap[shotId]?.includes(url)) {
                                     savedMap[shotId] = url;
                                 }
                             }
                             setActiveOutlineUrls(savedMap);
                         }
-                        // 没有保存数据时不设置，保持未选中状态
-                    }
-                } catch {
-                    // 请求失败时不设置，保持未选中状态
-                }
+                    });
 
                 // 恢复 pending outline 状态
                 const pending = readPendingOutlines();
