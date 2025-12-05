@@ -917,19 +917,6 @@ export const ShotCard = ({
                                 {shot.duration && <span className="ml-1 text-[var(--lg-text-tertiary)] text-xs">({shot.duration}s)</span>}
                             </div>
                         )}
-                        {/* Outline Mode Toggle */}
-                        <button
-                            onClick={() => onToggleOutlineMode?.(shot, index)}
-                            className={`relative z-30 lg-btn lg-btn-xs ${effectiveOutlineMode
-                                ? 'lg-btn-primary'
-                                : 'lg-btn-glass'
-                                }`}
-                            title={effectiveOutlineMode ? 'Outline mode enabled' : 'Enable outline mode'}
-                        >
-                            <Pencil size={12} />
-                            <span>Outline</span>
-                            {effectiveOutlineMode && <Check size={10} />}
-                        </button>
                         <button
                             onClick={() => updateField('discarded', !isDiscarded)}
                             className={`relative z-30 lg-btn lg-btn-xs ${isDiscarded
@@ -1136,57 +1123,55 @@ export const ShotCard = ({
 
                                 {/* 4. 首帧/视频描述 */}
                                 <div className={`flex-shrink-0 ${DESC_WIDTH} ${CARD_HEIGHT} lg-card-compact ${CARD_PADDING} flex flex-col ${CARD_GAP} overflow-y-auto`}>
-                                    {/* 线稿提示词输入框 - 仅在线稿模式下显示，默认折叠 */}
-                                    {effectiveOutlineMode && (
-                                        <div className="flex flex-col gap-2 flex-shrink-0 mb-2">
-                                            <div className="flex items-center justify-between text-sm font-semibold text-[#6B7280] flex-shrink-0">
-                                                <button
-                                                    onClick={() => setOutlinePromptExpanded(!outlinePromptExpanded)}
-                                                    className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
-                                                >
-                                                    <Pencil size={14} />
-                                                    <span>线稿提示词</span>
-                                                    <ChevronDown size={14} className={`transition-transform duration-200 ${outlinePromptExpanded ? '' : '-rotate-90'}`} />
-                                                </button>
-                                                <div className="flex items-center gap-2">
-                                                    {outlinePromptExpanded && effectiveOutlinePrompt && effectiveOutlinePrompt !== globalOutlinePrompt && (
-                                                        <button
-                                                            onClick={() => onOutlinePromptChange?.(shot, index, globalOutlinePrompt)}
-                                                            className="text-xs text-slate-500 hover:text-[#6B7280] transition-colors flex items-center gap-1"
-                                                            title="恢复默认提示词"
-                                                        >
-                                                            <Undo2 size={12} />
-                                                            恢复默认
-                                                        </button>
-                                                    )}
+                                    {/* 线稿提示词输入框 - 始终显示，默认折叠 */}
+                                    <div className="flex flex-col gap-2 flex-shrink-0 mb-2">
+                                        <div className="flex items-center justify-between text-sm font-semibold text-[#6B7280] flex-shrink-0">
+                                            <button
+                                                onClick={() => setOutlinePromptExpanded(!outlinePromptExpanded)}
+                                                className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+                                            >
+                                                <Pencil size={14} />
+                                                <span>线稿提示词</span>
+                                                <ChevronDown size={14} className={`transition-transform duration-200 ${outlinePromptExpanded ? '' : '-rotate-90'}`} />
+                                            </button>
+                                            <div className="flex items-center gap-2">
+                                                {outlinePromptExpanded && effectiveOutlinePrompt && effectiveOutlinePrompt !== globalOutlinePrompt && (
                                                     <button
-                                                        onClick={() => onGenerateOutline?.(shot, index)}
-                                                        disabled={isGeneratingOutline}
-                                                        className={`lg-btn lg-btn-sm ${isGeneratingOutline
-                                                            ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
-                                                            : 'lg-btn-glass'
-                                                            }`}
+                                                        onClick={() => onOutlinePromptChange?.(shot, index, globalOutlinePrompt)}
+                                                        className="text-xs text-slate-500 hover:text-[#6B7280] transition-colors flex items-center gap-1"
+                                                        title="恢复默认提示词"
                                                     >
-                                                        {isGeneratingOutline ? (
-                                                            <><Loader2 size={14} className="animate-spin" />生成中</>
-                                                        ) : (
-                                                            <><Pencil size={14} />提取线稿</>
-                                                        )}
+                                                        <Undo2 size={12} />
+                                                        恢复默认
                                                     </button>
-                                                </div>
+                                                )}
+                                                <button
+                                                    onClick={() => onGenerateOutline?.(shot, index)}
+                                                    disabled={isGeneratingOutline}
+                                                    className={`lg-btn lg-btn-sm ${isGeneratingOutline
+                                                        ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
+                                                        : 'lg-btn-glass'
+                                                        }`}
+                                                >
+                                                    {isGeneratingOutline ? (
+                                                        <><Loader2 size={14} className="animate-spin" />生成中</>
+                                                    ) : (
+                                                        <><Pencil size={14} />提取线稿</>
+                                                    )}
+                                                </button>
                                             </div>
-                                            {outlinePromptExpanded && (
-                                                <AutoTextArea
-                                                    value={outlinePrompt ?? globalOutlinePrompt}
-                                                    onChange={(e) => onOutlinePromptChange?.(shot, index, e.target.value)}
-                                                    placeholder="描述线稿风格..."
-                                                    minRows={2}
-                                                    maxRows={8}
-                                                    className="w-full p-4 rounded-xl lg-input text-base leading-loose resize-none"
-                                                />
-                                            )}
                                         </div>
-                                    )}
+                                        {outlinePromptExpanded && (
+                                            <AutoTextArea
+                                                value={outlinePrompt ?? globalOutlinePrompt}
+                                                onChange={(e) => onOutlinePromptChange?.(shot, index, e.target.value)}
+                                                placeholder="描述线稿风格..."
+                                                minRows={2}
+                                                maxRows={8}
+                                                className="w-full p-4 rounded-xl lg-input text-base leading-loose resize-none"
+                                            />
+                                        )}
+                                    </div>
                                     <div className="flex flex-col gap-2 basis-[58%] min-h-0 overflow-hidden">
                                         <div className="flex items-center justify-between text-sm font-medium text-slate-500 flex-shrink-0">
                                             <div className="flex items-center gap-2">
@@ -1194,27 +1179,42 @@ export const ShotCard = ({
                                                 <span>首帧描述</span>
                                                 {renderAnnotationControl?.(`shot-${shot.id ?? index}-initial`, `Shot #${shot.id ?? index + 1} Initial Frame`)}
                                             </div>
-                                            {/* 生图按钮 - 使用全局供应商设置 */}
+                                            {/* 生图按钮区域 - 线稿徽标 + 生成图片 */}
                                             {showGeneration && (
-                                                <button
-                                                    onClick={() => {
-                                                        (document.activeElement as HTMLElement)?.blur();
-                                                        setTimeout(() => {
-                                                            onGenerateImage?.(shot, index, selectedProviderId);
-                                                        }, 50);
-                                                    }}
-                                                    disabled={isGenerating}
-                                                    className={`lg-btn lg-btn-sm ${isGenerating
-                                                        ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
-                                                        : 'lg-btn-primary'
+                                                <div className="flex items-center gap-1.5">
+                                                    {/* 线稿模式徽标 */}
+                                                    <button
+                                                        onClick={() => onToggleOutlineMode?.(shot, index)}
+                                                        className={`lg-btn lg-btn-sm px-2 ${effectiveOutlineMode
+                                                            ? 'lg-btn-primary'
+                                                            : 'lg-btn-glass'
                                                         }`}
-                                                >
-                                                    {isGenerating ? (
-                                                        <><Loader2 size={14} className="animate-spin" />生成中</>
-                                                    ) : (
-                                                        <><Wand2 size={14} />生成图片</>
-                                                    )}
-                                                </button>
+                                                        title={effectiveOutlineMode ? '关闭线稿模式' : '启用线稿模式'}
+                                                    >
+                                                        <Pencil size={14} />
+                                                        {effectiveOutlineMode && <Check size={10} />}
+                                                    </button>
+                                                    {/* 生成图片按钮 */}
+                                                    <button
+                                                        onClick={() => {
+                                                            (document.activeElement as HTMLElement)?.blur();
+                                                            setTimeout(() => {
+                                                                onGenerateImage?.(shot, index, selectedProviderId);
+                                                            }, 50);
+                                                        }}
+                                                        disabled={isGenerating}
+                                                        className={`lg-btn lg-btn-sm ${isGenerating
+                                                            ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
+                                                            : 'lg-btn-primary'
+                                                        }`}
+                                                    >
+                                                        {isGenerating ? (
+                                                            <><Loader2 size={14} className="animate-spin" />生成中</>
+                                                        ) : (
+                                                            <><Wand2 size={14} />生成图片</>
+                                                        )}
+                                                    </button>
+                                                </div>
                                             )}
                                         </div>
                                         <div className="flex-1 min-h-0 overflow-y-auto">
