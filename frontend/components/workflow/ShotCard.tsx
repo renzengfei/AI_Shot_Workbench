@@ -2281,6 +2281,7 @@ export const ShotCard = ({
                         getImageIndex={getImageIndex}
                     />
                 )}
-            </>
-            );
+            </div>
+        </>
+    );
 };
