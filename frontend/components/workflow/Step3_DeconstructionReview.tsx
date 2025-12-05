@@ -5390,46 +5390,57 @@ export default function Step3_DeconstructionReview({
                                     <div className="text-xs text-slate-400">暂无设定，请在下方新增。</div>
                                 )}
                             </div>
-                            <div className="p-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 space-y-3">
-                                <div className="text-sm font-semibold text-slate-800">{editingPresetId ? '编辑设定' : '新增设定'}</div>
-                                <AutoTextArea
-                                    value={presetForm.content}
-                                    onChange={(e) => setPresetForm((prev) => ({ ...prev, content: e.target.value }))}
-                                    minRows={3}
-                                    maxRows={8}
-                                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none"
-                                    placeholder="描述画风、用词模板、比例等，将在生成时拼接到首帧描述后"
-                                />
-                                <div className="flex items-center gap-3">
-                                    <label className="text-xs text-slate-600 whitespace-nowrap">每次生成</label>
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        max={4}
-                                        value={presetForm.images_per_generation}
-                                        onChange={(e) => setPresetForm((prev) => ({ ...prev, images_per_generation: Math.max(1, Math.min(4, parseInt(e.target.value) || 2)) }))}
-                                        className="w-16 px-2 py-1 rounded-lg border border-slate-200 bg-white text-sm text-center focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+                            {/* 新增/编辑表单：仅在编辑模式、无设定、或表单有内容时显示 */}
+                            {(editingPresetId || !imagePresets.length || presetForm.content.trim()) ? (
+                                <div className="p-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 space-y-3">
+                                    <div className="text-sm font-semibold text-slate-800">{editingPresetId ? '编辑设定' : '新增设定'}</div>
+                                    <AutoTextArea
+                                        value={presetForm.content}
+                                        onChange={(e) => setPresetForm((prev) => ({ ...prev, content: e.target.value }))}
+                                        minRows={3}
+                                        maxRows={8}
+                                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none"
+                                        placeholder="描述画风、用词模板、比例等，将在生成时拼接到首帧描述后"
                                     />
-                                    <span className="text-xs text-slate-500">张图片（1-4）</span>
-                                </div>
-                                <div className="flex gap-2 justify-end">
-                                    <button
-                                        onClick={() => void handleSavePreset()}
-                                        className="px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition disabled:opacity-60"
-                                        disabled={presetSaving}
-                                    >
-                                        {editingPresetId ? '保存修改' : '新增设定'}
-                                    </button>
-                                    {editingPresetId && (
+                                    <div className="flex items-center gap-3">
+                                        <label className="text-xs text-slate-600 whitespace-nowrap">每次生成</label>
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={4}
+                                            value={presetForm.images_per_generation}
+                                            onChange={(e) => setPresetForm((prev) => ({ ...prev, images_per_generation: Math.max(1, Math.min(4, parseInt(e.target.value) || 2)) }))}
+                                            className="w-16 px-2 py-1 rounded-lg border border-slate-200 bg-white text-sm text-center focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+                                        />
+                                        <span className="text-xs text-slate-500">张图片（1-4）</span>
+                                    </div>
+                                    <div className="flex gap-2 justify-end">
                                         <button
-                                            onClick={handleResetPresetForm}
-                                            className="px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:border-slate-300 transition"
+                                            onClick={() => void handleSavePreset()}
+                                            className="px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition disabled:opacity-60"
+                                            disabled={presetSaving}
                                         >
-                                            取消编辑
+                                            {editingPresetId ? '保存修改' : '新增设定'}
                                         </button>
-                                    )}
+                                        {editingPresetId && (
+                                            <button
+                                                onClick={handleResetPresetForm}
+                                                className="px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:border-slate-300 transition"
+                                            >
+                                                取消编辑
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
+                            ) : (
+                                <button
+                                    onClick={() => setPresetForm((prev) => ({ ...prev, content: ' ' }))}
+                                    className="w-full py-3 rounded-xl border-2 border-dashed border-slate-300 text-sm text-slate-500 hover:border-slate-400 hover:text-slate-600 transition flex items-center justify-center gap-2"
+                                >
+                                    <Plus size={16} />
+                                    新增设定
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
