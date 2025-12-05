@@ -208,7 +208,7 @@ export default function Step1_Segmentation() {
                     <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
                         原片切分
                     </h2>
-                    <p className="text-xs text-[var(--color-text-secondary)]">
+                    <p className="text-xs text-[var(--lg-text-secondary)]">
                         上传视频，AI 将自动为你完成分镜拆解
                     </p>
                 </div>
@@ -228,12 +228,12 @@ export default function Step1_Segmentation() {
             {!videoUrl && (
                 <div className="max-w-4xl mx-auto">
                     {/* Upload Video Card */}
-                    <div className="lg-card p-10 border border-[var(--glass-border)] shadow-2xl bg-gradient-to-b from-[var(--glass-bg-light)] to-[var(--glass-bg-dark)]">
+                    <div className="lg-card p-10">
                         <div className="text-center mb-10">
                             <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 mb-3">
                                 开始你的创作
                             </h2>
-                            <p className="text-[var(--color-text-secondary)] text-lg">
+                            <p className="text-[var(--lg-text-secondary)] text-lg">
                                 上传视频，AI 将自动为你完成分镜拆解
                             </p>
                         </div>
@@ -242,13 +242,13 @@ export default function Step1_Segmentation() {
                             {/* Local Upload */}
                             <label className="group relative overflow-hidden rounded-2xl cursor-pointer transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
                                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                                <div className="relative bg-[var(--glass-bg-light)] border border-[var(--glass-border)] rounded-2xl h-full flex flex-col items-center justify-center gap-6 p-8 transition-colors group-hover:border-blue-500/30">
-                                    <div className="w-20 h-20 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform duration-300 shadow-lg shadow-blue-500/10">
+                                <div className="lg-card-inset h-full flex flex-col items-center justify-center gap-6 p-8 transition-colors group-hover:border-[var(--lg-blue)]/30">
+                                    <div className="w-20 h-20 rounded-full bg-[var(--lg-blue)]/10 flex items-center justify-center text-[var(--lg-blue)] group-hover:scale-110 transition-transform duration-300 shadow-lg shadow-[var(--lg-blue)]/10">
                                         <Upload size={36} />
                                     </div>
                                     <div className="text-center space-y-2">
-                                        <span className="block font-bold text-xl text-[var(--color-text-primary)]">本地上传</span>
-                                        <span className="text-sm text-[var(--color-text-tertiary)]">支持 MP4, MOV (Max 500MB)</span>
+                                        <span className="block font-bold text-xl text-[var(--lg-text-primary)]">本地上传</span>
+                                        <span className="text-sm text-[var(--lg-text-tertiary)]">支持 MP4, MOV (Max 500MB)</span>
                                     </div>
                                 </div>
                                 <input
@@ -263,10 +263,10 @@ export default function Step1_Segmentation() {
                             <div className="flex flex-col gap-4">
                                 <div className="relative group flex-1">
                                     <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-orange-500/5 rounded-2xl" />
-                                    <div className="relative bg-[var(--glass-bg-light)] border border-[var(--glass-border)] rounded-2xl h-full p-6 flex flex-col justify-between group-hover:border-red-500/30 transition-colors">
+                                    <div className="lg-card-inset h-full p-6 flex flex-col justify-between group-hover:border-[var(--lg-red)]/30 transition-colors">
                                         <div className="space-y-4">
-                                            <div className="flex items-center gap-3 text-[var(--color-text-primary)]">
-                                                <div className="p-2 rounded-lg bg-red-500/10 text-red-500">
+                                            <div className="flex items-center gap-3 text-[var(--lg-text-primary)]">
+                                                <div className="p-2 rounded-lg bg-[var(--lg-red)]/10 text-[var(--lg-red)]">
                                                     <Link size={20} />
                                                 </div>
                                                 <span className="font-bold text-lg">YouTube 链接</span>
@@ -277,16 +277,15 @@ export default function Step1_Segmentation() {
                                                 value={youtubeUrl}
                                                 onChange={(e) => setYoutubeUrl(e.target.value)}
                                                 onKeyDown={(e) => e.key === 'Enter' && handleYouTubeDownload()}
-                                                className="w-full bg-[var(--color-bg-secondary)]/50 border border-[var(--glass-border)] rounded-xl px-4 py-3 outline-none focus:border-red-500/50 focus:ring-2 focus:ring-red-500/20 transition-all placeholder:text-[var(--color-text-tertiary)] text-[var(--color-text-primary)]"
+                                                className="lg-input"
                                             />
                                         </div>
                                         <button
                                             onClick={handleYouTubeDownload}
                                             disabled={isAnalyzing || !youtubeUrl.trim()}
-                                            className={`w-full mt-4 py-3 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2
-                                                ${isAnalyzing || !youtubeUrl.trim()
-                                                    ? 'bg-[var(--color-bg-secondary)] text-[var(--color-text-tertiary)] cursor-not-allowed'
-                                                    : 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg shadow-red-500/20 hover:shadow-red-500/30 active:scale-[0.98]'
+                                            className={`lg-btn w-full mt-4 ${isAnalyzing || !youtubeUrl.trim()
+                                                ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
+                                                : 'lg-btn-danger'
                                                 }`}
                                         >
                                             {isAnalyzing ? (
@@ -314,7 +313,7 @@ export default function Step1_Segmentation() {
                     <div className="grid lg:grid-cols-12 gap-6 items-start">
                         {/* Left: Video (5/12) */}
                         <div className="lg:col-span-5 w-full sticky top-6">
-                            <div className="lg-card p-0 overflow-hidden border border-[var(--glass-border)] shadow-2xl rounded-2xl bg-black">
+                            <div className="lg-card p-0 overflow-hidden rounded-2xl bg-black">
                                 <VideoPlayer videoUrl={videoUrl} />
                             </div>
 
@@ -324,9 +323,9 @@ export default function Step1_Segmentation() {
                                     <div className="p-1.5 bg-blue-500/10 rounded-full text-blue-400 mt-0.5">
                                         <div className="w-1.5 h-1.5 bg-current rounded-full" />
                                     </div>
-                                    <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                                        <p className="font-medium text-[var(--color-text-primary)]">检查建议：</p>
-                                        <ol className="list-decimal list-inside space-y-1 text-[var(--color-text-tertiary)] ml-1">
+                                    <div className="space-y-2 text-sm text-[var(--lg-text-secondary)]">
+                                        <p className="font-medium text-[var(--lg-text-primary)]">检查建议：</p>
+                                        <ol className="list-decimal list-inside space-y-1 text-[var(--lg-text-tertiary)] ml-1">
                                             <li>点击播放，确认每个片段是一个完整的分镜</li>
                                             <li>自动暂停时，对比前后帧确认切点准确</li>
                                         </ol>
@@ -338,14 +337,14 @@ export default function Step1_Segmentation() {
                         {/* Right: Controls + Timeline (7/12) */}
                         <div className="lg:col-span-7 space-y-6">
                             {/* Frame Preview */}
-                            <div className="lg-card p-4 border border-[var(--glass-border)]">
+                            <div className="lg-card p-4">
                                 <FramePreview />
                             </div>
 
                             {/* Timeline */}
-                            <div className="lg-card p-6 border border-[var(--glass-border)]">
+                            <div className="lg-card p-6">
                                 <div className="flex items-center justify-between mb-6">
-                                    <h2 className="text-lg font-bold text-[var(--color-text-primary)] flex items-center gap-2">
+                                    <h2 className="text-lg font-bold text-[var(--lg-text-primary)] flex items-center gap-2">
                                         <div className="w-1 h-5 bg-blue-500 rounded-full" />
                                         时间轴编辑
                                     </h2>
@@ -358,7 +357,7 @@ export default function Step1_Segmentation() {
                                 </div>
 
                                 {isAnalyzing ? (
-                                    <div className="h-32 flex flex-col items-center justify-center gap-3 text-[var(--color-text-tertiary)]">
+                                    <div className="h-32 flex flex-col items-center justify-center gap-3 text-[var(--lg-text-tertiary)]">
                                         <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
                                         <span className="text-sm">正在分析视频结构...</span>
                                     </div>
@@ -368,7 +367,7 @@ export default function Step1_Segmentation() {
                             </div>
 
                             {/* Controls */}
-                            <div className="lg-card p-4 border border-[var(--glass-border)]">
+                            <div className="lg-card p-4">
                                 <PlaybackControls />
                             </div>
                         </div>

@@ -61,8 +61,15 @@ function Shell({ children }: { children: React.ReactNode }) {
     if (!currentWorkspace) return <WorkspaceSelector />;
 
     return (
-        <div className="min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] font-sans selection:bg-blue-500/30">
-            <header className="z-30 lg-card border-b border-[var(--glass-border)] bg-[var(--glass-bg-light)] backdrop-blur-xl">
+        <div className="lg-page min-h-screen text-[var(--lg-text-primary)] font-sans selection:bg-blue-500/30">
+            {/* Liquid Glass 背景层 - 精致多层渐变 */}
+            <div className="lg-background" />
+            {/* 光晕层 - 衬托玻璃效果 */}
+            <div className="lg-orb-1" />
+            <div className="lg-orb-2" />
+            <div className="lg-orb-3" />
+
+            <header className="sticky top-4 mx-4 z-30 lg-card-static p-2 rounded-2xl">
                 <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20">
@@ -95,7 +102,7 @@ function Shell({ children }: { children: React.ReactNode }) {
                             href={project?.sourceUrl || savedSourceUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-sm text-blue-300 border border-white/15 transition"
+                            className="lg-btn-glass lg-btn-sm flex items-center gap-2 text-[var(--lg-blue)]"
                         >
                             <ExternalLink size={16} />
                             查看原片

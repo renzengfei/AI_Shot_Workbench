@@ -586,10 +586,10 @@ export default function LiquidGlassDesignSystem() {
                     pointerEvents: 'none',
                     zIndex: -1
                 }} />
-                {/* 光晕层 - 更大更柔和 */}
-                <div style={{ position: 'fixed', top: '-30%', right: '-20%', width: '80%', height: '80%', borderRadius: '50%', background: 'radial-gradient(circle, rgba(160,180,220,0.4) 0%, rgba(180,200,240,0.2) 40%, transparent 70%)', pointerEvents: 'none', filter: 'blur(40px)' }} />
-                <div style={{ position: 'fixed', bottom: '-25%', left: '-15%', width: '70%', height: '70%', borderRadius: '50%', background: 'radial-gradient(circle, rgba(220,190,170,0.35) 0%, rgba(240,210,190,0.15) 40%, transparent 70%)', pointerEvents: 'none', filter: 'blur(40px)' }} />
-                <div style={{ position: 'fixed', top: '20%', left: '55%', width: '60%', height: '60%', borderRadius: '50%', background: 'radial-gradient(circle, rgba(180,210,200,0.3) 0%, transparent 60%)', pointerEvents: 'none', filter: 'blur(60px)' }} />
+                {/* 光晕层 - 左上主光、右下补光，符合自然光源习惯 */}
+                <div style={{ position: 'fixed', top: '-25%', left: '-20%', width: '75%', height: '75%', borderRadius: '50%', background: 'radial-gradient(circle, rgba(180,200,240,0.45) 0%, rgba(160,180,220,0.2) 40%, transparent 70%)', pointerEvents: 'none', filter: 'blur(40px)' }} />
+                <div style={{ position: 'fixed', bottom: '-20%', right: '-15%', width: '65%', height: '65%', borderRadius: '50%', background: 'radial-gradient(circle, rgba(230,200,180,0.35) 0%, rgba(245,220,200,0.15) 40%, transparent 70%)', pointerEvents: 'none', filter: 'blur(40px)' }} />
+                <div style={{ position: 'fixed', top: '40%', left: '40%', width: '50%', height: '50%', borderRadius: '50%', background: 'radial-gradient(circle, rgba(200,215,210,0.25) 0%, transparent 60%)', pointerEvents: 'none', filter: 'blur(60px)' }} />
 
                 {/* 顶部导航 */}
                 <nav className="glass-card" style={{ 

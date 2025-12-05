@@ -20,7 +20,7 @@ export default function StepNavigation() {
 
     return (
         <div className="flex items-center justify-center w-full">
-            <div className="flex items-center p-1 rounded-lg bg-[var(--color-bg-secondary)]/50 border border-[var(--glass-border)] backdrop-blur-md">
+            <div className="flex items-center p-1 rounded-xl bg-[rgba(255,255,255,0.4)] border border-[var(--lg-glass-border)] backdrop-blur-lg">
                 {steps.map((step) => {
                     const path = STEP_ROUTES[step.id];
                     const isActive = pathname.startsWith(path);
@@ -31,12 +31,12 @@ export default function StepNavigation() {
                             key={step.id}
                             onClick={() => navigateToStep(step.id)}
                             className={`
-                                relative px-4 py-1.5 rounded-md text-xs font-medium whitespace-nowrap
+                                relative px-4 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all duration-200
                                 ${isActive
-                                    ? 'bg-[var(--glass-bg-light)] text-[var(--color-text-primary)] shadow-sm border border-[var(--glass-border)]'
+                                    ? 'bg-white/80 text-[var(--lg-text-primary)] shadow-sm border border-[var(--lg-glass-border)]'
                                     : isCompleted
-                                        ? 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-                                        : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+                                        ? 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)] hover:bg-white/40'
+                                        : 'text-[var(--lg-text-tertiary)] hover:text-[var(--lg-text-secondary)] hover:bg-white/20'
                                 }
                             `}
                         >

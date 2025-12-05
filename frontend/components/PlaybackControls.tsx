@@ -32,104 +32,52 @@ export default function PlaybackControls() {
         hiddenSegments.some(h => Math.abs(h - selectedCutPoint) < 0.001);
 
     return (
-        <div
-            className="apple-card"
-            style={{
-                padding: 'var(--spacing-md)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--spacing-sm)',
-                flexWrap: 'wrap'
-            }}
-        >
+        <div className="lg-card-inset p-4 flex items-center gap-3 flex-wrap">
             {/* Left cluster: Play/Pause + Speed */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+            <div className="flex items-center gap-3">
                 <button
                     onClick={() => setPlaying(!isPlaying)}
-                    className="apple-button-primary"
-                    style={{
-                        width: '48px',
-                        height: '48px',
-                        borderRadius: '50%',
-                        padding: 0,
-                        display: 'grid',
-                        placeItems: 'center'
-                    }}
+                    className="lg-btn lg-btn-primary w-12 h-12 rounded-full p-0 flex items-center justify-center"
                 >
                     {isPlaying ? <Pause size={18} /> : <Play size={18} />}
                 </button>
 
                 <button
                     onClick={() => cyclePlaybackRate()}
-                    className="apple-button-secondary"
-                    style={{
-                        padding: '10px 18px',
-                        fontSize: '15px',
-                        fontWeight: '600',
-                        fontVariantNumeric: 'tabular-nums',
-                        height: '48px'
-                    }}
+                    className="lg-btn lg-btn-secondary h-12 px-4 text-[15px] font-semibold tabular-nums"
                 >
                     {playbackRate}×
                 </button>
             </div>
 
             {/* Spacer */}
-            <div style={{ flex: 1 }} />
+            <div className="flex-1" />
 
             {/* Right cluster: add / delete / hide */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+            <div className="flex items-center gap-2">
                 <button
                     onClick={() => addManualCutPoint(playheadSeconds)}
-                    className="apple-button-secondary"
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 'var(--spacing-xs)',
-                        padding: '10px 18px',
-                        fontSize: '15px',
-                        height: '44px'
-                    }}
+                    className="lg-btn lg-btn-secondary lg-btn-sm flex items-center gap-1.5"
                 >
-                    <Plus size={18} />
+                    <Plus size={16} />
                     <span>添加切点</span>
                 </button>
 
                 <button
                     onClick={() => selectedCutPoint !== null && removeCutPoint(selectedCutPoint)}
                     disabled={!canDelete}
-                    className="apple-button-secondary"
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 'var(--spacing-xs)',
-                        padding: '10px 18px',
-                        fontSize: '15px',
-                        height: '44px',
-                        opacity: canDelete ? 1 : 0.4,
-                        cursor: canDelete ? 'pointer' : 'not-allowed'
-                    }}
+                    className={`lg-btn lg-btn-secondary lg-btn-sm flex items-center gap-1.5 ${!canDelete ? 'opacity-40 cursor-not-allowed' : ''}`}
                 >
-                    <Trash2 size={18} />
+                    <Trash2 size={16} />
                     <span>删除</span>
                 </button>
 
                 <button
                     onClick={() => selectedCutPoint !== null && toggleHideSegmentAtCut(selectedCutPoint)}
                     disabled={!canHide}
-                    className="apple-button-secondary"
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 'var(--spacing-xs)',
-                        padding: '10px 18px',
-                        fontSize: '15px',
-                        height: '44px',
-                        opacity: canHide ? 1 : 0.4,
-                        cursor: canHide ? 'pointer' : 'not-allowed'
-                    }}
+                    className={`lg-btn lg-btn-secondary lg-btn-sm flex items-center gap-1.5 ${!canHide ? 'opacity-40 cursor-not-allowed' : ''}`}
                 >
-                    {isHidden ? <Eye size={18} /> : <EyeOff size={18} />}
+                    {isHidden ? <Eye size={16} /> : <EyeOff size={16} />}
                     <span>{isHidden ? '显示' : '隐藏'}</span>
                 </button>
             </div>
