@@ -27,6 +27,8 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* 禁用触摸板左右滑动导致的浏览器前进/后退 */
+  overscroll-behavior-x: none;
 }
 
 /* Premium selection styling */

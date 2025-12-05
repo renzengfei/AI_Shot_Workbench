@@ -4323,76 +4323,106 @@ export default function Step3_DeconstructionReview({
                         {/* Shot List - Apple Glass Style */}
                         {/* 全局素材流切换按钮 + 导出按钮 */}
                         {typeof round2Data !== 'string' && round2Data?.shots && round2Data.shots.length > 0 && (
-                            <div className="flex items-center justify-end gap-4 mb-4">
-                                {/* 素材流切换 - 使用统一的玻璃容器 + 蓝色选中态 */}
-                                <div className="flex items-center gap-1 p-1 lg-card-inset">
-                                    <button
-                                        onClick={() => setDefaultStream('outline')}
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${defaultStream === 'outline'
-                                            ? 'bg-[var(--lg-blue)] text-white shadow-sm'
-                                            : 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)] hover:bg-white/50'
-                                            }`}
-                                    >
-                                        <Pencil size={14} />
-                                        线稿
-                                    </button>
-                                    <button
-                                        onClick={() => setDefaultStream('image')}
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${defaultStream === 'image'
-                                            ? 'bg-[var(--lg-blue)] text-white shadow-sm'
-                                            : 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)] hover:bg-white/50'
-                                            }`}
-                                    >
-                                        <ImageIcon size={14} />
-                                        图片
-                                    </button>
-                                    <button
-                                        onClick={() => setDefaultStream('video')}
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${defaultStream === 'video'
-                                            ? 'bg-[var(--lg-blue)] text-white shadow-sm'
-                                            : 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)] hover:bg-white/50'
-                                            }`}
-                                    >
-                                        <Video size={14} />
-                                        视频
-                                    </button>
+                            <div className="flex items-center justify-between gap-4 mb-4">
+                                {/* 左侧：定稿统计 */}
+                                <div className="flex items-center gap-3 text-sm">
+                                    {(() => {
+                                        const activeShots = round2Data.shots.filter(s => !s.discarded);
+                                        const total = activeShots.length;
+                                        const outlineCount = activeShots.filter(s => s.finalizedOutline).length;
+                                        const imageCount = activeShots.filter(s => s.finalizedImage).length;
+                                        const videoCount = activeShots.filter(s => s.finalizedVideo).length;
+                                        return (
+                                            <>
+                                                <span className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-100 text-slate-600">
+                                                    <Pencil size={12} />
+                                                    <span className="font-medium">{outlineCount}/{total}</span>
+                                                </span>
+                                                <span className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-50 text-blue-600">
+                                                    <ImageIcon size={12} />
+                                                    <span className="font-medium">{imageCount}/{total}</span>
+                                                </span>
+                                                <span className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-green-50 text-green-600">
+                                                    <Film size={12} />
+                                                    <span className="font-medium">{videoCount}/{total}</span>
+                                                </span>
+                                            </>
+                                        );
+                                    })()}
                                 </div>
 
-                                {/* 分隔线 */}
-                                <div className="w-px h-6 bg-[var(--lg-glass-border)]" />
+                                {/* 右侧：操作按钮组 */}
+                                <div className="flex items-center gap-4">
+                                    {/* 素材流切换 - 使用统一的玻璃容器 + 蓝色选中态 */}
+                                    <div className="flex items-center gap-1 p-1 lg-card-inset">
+                                        <button
+                                            onClick={() => setDefaultStream('outline')}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${defaultStream === 'outline'
+                                                ? 'bg-[var(--lg-blue)] text-white shadow-sm'
+                                                : 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)] hover:bg-white/50'
+                                                }`}
+                                        >
+                                            <Pencil size={14} />
+                                            线稿
+                                        </button>
+                                        <button
+                                            onClick={() => setDefaultStream('image')}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${defaultStream === 'image'
+                                                ? 'bg-[var(--lg-blue)] text-white shadow-sm'
+                                                : 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)] hover:bg-white/50'
+                                                }`}
+                                        >
+                                            <ImageIcon size={14} />
+                                            图片
+                                        </button>
+                                        <button
+                                            onClick={() => setDefaultStream('video')}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${defaultStream === 'video'
+                                                ? 'bg-[var(--lg-blue)] text-white shadow-sm'
+                                                : 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)] hover:bg-white/50'
+                                                }`}
+                                        >
+                                            <Video size={14} />
+                                            视频
+                                        </button>
+                                    </div>
 
-                                {/* 批量操作组 - 使用玻璃样式 */}
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={handleBatchGenerateOutlines}
-                                        disabled={batchGeneratingOutlines}
-                                        className="lg-btn lg-btn-sm lg-btn-glass disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        {batchGeneratingOutlines ? <Loader2 size={14} className="animate-spin" /> : <Pencil size={14} />}
-                                        {batchGeneratingOutlines ? '生成中...' : '批量生成线稿'}
-                                    </button>
-                                    {(batchGeneratingOutlines || outlineProgress.total > 0) && (
+                                    {/* 分隔线 */}
+                                    <div className="w-px h-6 bg-[var(--lg-glass-border)]" />
+
+                                    {/* 批量操作组 - 使用玻璃样式 */}
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={handleBatchGenerateOutlines}
+                                            disabled={batchGeneratingOutlines}
+                                            className="lg-btn lg-btn-sm lg-btn-glass disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {batchGeneratingOutlines ? <Loader2 size={14} className="animate-spin" /> : <Pencil size={14} />}
+                                            {batchGeneratingOutlines ? '生成中...' : '批量生成线稿'}
+                                        </button>
+                                        {(batchGeneratingOutlines || outlineProgress.total > 0) && (
+                                            <span className="lg-caption text-[var(--lg-text-tertiary)]">
+                                                {outlineProgress.completed}/{outlineProgress.total}
+                                                {outlineProgress.completed === outlineProgress.total && outlineProgress.total > 0 && ' ✓'}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* 导出按钮 - 主操作用蓝色 */}
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={handleExportVideos}
+                                            disabled={exporting || Object.keys(savedVideoFilenames).length === 0}
+                                            className="lg-btn lg-btn-sm lg-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {exporting ? <Loader2 size={14} className="animate-spin" /> : <FolderOutput size={14} />}
+                                            {exporting ? '导出中...' : '导出选中视频'}
+                                        </button>
                                         <span className="lg-caption text-[var(--lg-text-tertiary)]">
-                                            {outlineProgress.completed}/{outlineProgress.total}
-                                            {outlineProgress.completed === outlineProgress.total && outlineProgress.total > 0 && ' ✓'}
+                                            已选中 <span className="font-semibold text-[var(--lg-blue)]">{Object.keys(savedVideoFilenames).length}</span>
+                                            /{round2Data.shots.filter(s => !s.discarded).length}
                                         </span>
-                                    )}
-                                </div>
-
-                                {/* 导出按钮 - 主操作用蓝色 */}
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={handleExportVideos}
-                                        disabled={exporting || Object.keys(savedVideoFilenames).length === 0}
-                                        className="lg-btn lg-btn-sm lg-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        {exporting ? <Loader2 size={14} className="animate-spin" /> : <FolderOutput size={14} />}
-                                        {exporting ? '导出中...' : '导出选中视频'}
-                                    </button>
-                                    <span className="lg-caption text-[var(--lg-text-tertiary)]">
-                                        已选中 <span className="font-semibold text-[var(--lg-blue)]">{Object.keys(savedVideoFilenames).length}</span>
-                                        /{round2Data.shots.filter(s => !s.discarded).length}
-                                    </span>
+                                    </div>
                                 </div>
                             </div>
                         )}

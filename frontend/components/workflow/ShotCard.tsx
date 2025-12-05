@@ -67,12 +67,12 @@ const FinalizeButton = ({
     return (
         <button
             onClick={onClick}
-            className={`relative w-6 h-6 rounded-full transition-colors duration-100
+            className={`relative w-6 h-6 rounded-full transition-all duration-150 shadow-sm
                 ${isFinalized
-                    ? 'bg-[var(--lg-blue)]'
-                    : 'bg-transparent border-[1.5px] border-[var(--lg-glass-border)] hover:border-[var(--lg-blue)]'
+                    ? 'bg-[var(--lg-blue)] shadow-[var(--lg-blue)]/30'
+                    : 'bg-white/60 backdrop-blur-sm border border-slate-200/80 hover:border-[var(--lg-blue)]/50 hover:bg-white/90'
                 }
-                active:scale-95 transition-transform duration-75
+                active:scale-90
             `}
             title={isFinalized ? '取消定稿' : '设为定稿'}
         >
@@ -906,6 +906,27 @@ export const ShotCard = ({
                                 {String(index + 1).padStart(2, '0')}
                             </span>
                         </div>
+                        {/* 定稿统计 */}
+                        <div className="flex items-center gap-2 text-xs">
+                            {shot.finalizedOutline && (
+                                <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-slate-100 text-slate-600">
+                                    <Pencil size={12} />
+                                    <span>线稿</span>
+                                </span>
+                            )}
+                            {shot.finalizedImage && (
+                                <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-blue-50 text-blue-600">
+                                    <ImageIcon size={12} />
+                                    <span>图片</span>
+                                </span>
+                            )}
+                            {shot.finalizedVideo && (
+                                <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-green-50 text-green-600">
+                                    <Film size={12} />
+                                    <span>视频</span>
+                                </span>
+                            )}
+                        </div>
                     </div>
 
                     <div className="flex items-center gap-3 flex-wrap justify-end">
@@ -954,281 +975,119 @@ export const ShotCard = ({
 
                 {/* 横向滚动布局：原片视频(固定左侧) + 右侧可滚动区域 */}
                 <div className="relative z-10 space-y-6">
-                    {/* 横向滚动容器 */}
-                    <div className="relative overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
-                        <div className="flex flex-nowrap items-start gap-6 pb-4 pt-2" style={{ minWidth: 'max-content' }}>
-
-                            {/* 1. 原片分镜视频 - 使用 sticky 固定在左侧 */}
-                            <div className={`sticky left-0 z-20 ${mediaCardBase}`} style={{ background: 'linear-gradient(to right, white 90%, transparent 100%)' }}>
-                                <div className={mediaTitleClass}>原片分镜</div>
-                                {clipUrl ? (
-                                    <PreviewVideoPlayer
-                                        src={clipUrl}
-                                        volume={globalVolume}
-                                        muted={isGlobalMuted}
-                                        className="w-full"
-                                        aspectRatio="aspect-[9/16]"
-                                        poster={frameUrl || undefined}
-                                        lazy
-                                    />
-                                ) : isNewShot ? (
-                                    <div className={`${mediaBaseClass} border border-dashed border-slate-700 flex items-center justify-center text-slate-400 text-base p-6 text-center`}>
-                                        新增镜头
-                                    </div>
-                                ) : frameUrl ? (
-                                    <div className={`${mediaBaseClass} border border-[var(--glass-border)] shadow-lg`}>
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img src={frameUrl} alt={`Shot ${index + 1} frame`} className="w-full h-full object-cover" />
-                                    </div>
-                                ) : (
-                                    <div className={`${mediaBaseClass} border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-base`}>
-                                        无媒体
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* 1.5 选中线稿图 - 仅在线稿模式下显示 */}
-                            {showGeneration && effectiveOutlineMode && (
-                                <div className={`${mediaCardBase} ${shot.finalizedOutline ? 'ring-2 ring-zinc-400/30 !duration-100' : ''}`}>
-                                    <div className="flex items-center justify-between">
-                                        <div className={mediaTitleClass}>选中线稿图</div>
-                                        {activeOutlineUrl && (
-                                            <FinalizeButton
-                                                isFinalized={!!(shot.finalizedOutline && activeOutlineUrl.includes(shot.finalizedOutline))}
-                                                onClick={() => {
-                                                    const filename = activeOutlineUrl.split('/').pop() || '';
-                                                    const isFinalized = shot.finalizedOutline === filename;
-                                                    onFinalizeOutline?.(shot, index, isFinalized ? null : filename);
-                                                }}
-                                            />
-                                        )}
-                                    </div>
-                                    <div className={`${mediaBaseClass} border border-[#6B7280]/30 shadow-sm flex items-center justify-center`}>
-                                        {activeOutlineUrl ? (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img src={activeOutlineUrl.startsWith('/') ? `${API_BASE}${activeOutlineUrl}` : activeOutlineUrl} alt="线稿图" className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className="flex flex-col items-center gap-2 text-slate-400">
-                                                <Pencil size={28} className="text-[#6B7280]/50" />
-                                                <span className="text-sm">暂无线稿</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                    {/* 生成线稿按钮 */}
-                                    <div className="mt-2">
-                                        <button
-                                            onClick={() => onGenerateOutline?.(shot, index)}
-                                            disabled={isGeneratingOutline}
-                                            className={`lg-btn lg-btn-sm w-full ${isGeneratingOutline
-                                                ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
-                                                : 'lg-btn-secondary'
-                                                }`}
-                                        >
-                                            {isGeneratingOutline ? (
-                                                <><Loader2 size={16} className="animate-spin" />生成中...</>
-                                            ) : (
-                                                <><Pencil size={16} />提取线稿</>
-                                            )}
-                                        </button>
-                                    </div>
+                    {/* 双栏布局：左侧固定 + 右侧滚动 */}
+                    <div className="flex items-start gap-6">
+                        {/* 1. 原片分镜视频 - 固定在左侧，不随滚动移动 */}
+                        <div className={`flex-shrink-0 ${mediaCardBase}`}>
+                            <div className={`${mediaTitleClass} !text-left`}>原片分镜</div>
+                            {clipUrl ? (
+                                <PreviewVideoPlayer
+                                    src={clipUrl}
+                                    volume={globalVolume}
+                                    muted={isGlobalMuted}
+                                    className="w-full"
+                                    aspectRatio="aspect-[9/16]"
+                                    poster={frameUrl || undefined}
+                                    lazy
+                                />
+                            ) : isNewShot ? (
+                                <div className={`${mediaBaseClass} border border-dashed border-slate-700 flex items-center justify-center text-slate-400 text-base p-6 text-center`}>
+                                    新增镜头
+                                </div>
+                            ) : frameUrl ? (
+                                <div className={`${mediaBaseClass} border border-[var(--glass-border)] shadow-lg`}>
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={frameUrl} alt={`Shot ${index + 1} frame`} className="w-full h-full object-cover" />
+                                </div>
+                            ) : (
+                                <div className={`${mediaBaseClass} border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-base`}>
+                                    无媒体
                                 </div>
                             )}
+                        </div>
 
-                            {/* 2. 选中的生成图片 - 放大 */}
-                            {showGeneration && (
-                                <div className={`${mediaCardBase} ${shot.finalizedImage ? 'ring-2 ring-zinc-400/30 !duration-100' : ''}`}>
-                                    <div className="flex items-center justify-between">
-                                        <div className={mediaTitleClass}>
-                                            {getGenerationInfo(activeImage || '') || '选中生成图'}
-                                        </div>
-                                        {activeImage && (
-                                            <FinalizeButton
-                                                isFinalized={!!(shot.finalizedImage && activeImage.includes(shot.finalizedImage))}
-                                                onClick={() => {
-                                                    const filename = activeImage.split('/').pop() || '';
-                                                    const isFinalized = shot.finalizedImage === filename;
-                                                    onFinalizeImage?.(shot, index, isFinalized ? null : filename);
-                                                }}
-                                            />
-                                        )}
-                                    </div>
-                                    <div className={`${mediaBaseClass} border ${highlightGenerated || (activeImage && newImages.includes(activeImage)) ? 'border-red-400' : 'border-slate-200'} shadow-sm flex items-center justify-center text-lg text-blue-300`}>
-                                        {(activeImage && newImages.includes(activeImage)) && (
-                                            <span className="absolute top-2 right-2 px-3 py-1.5 rounded-full text-sm font-semibold bg-[#e11d48] text-white">NEW</span>
-                                        )}
-                                        {activeImage ? (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img src={activeImage} alt="生成图片" className="w-full h-full object-cover" />
-                                        ) : (
-                                            <span className="text-slate-400">点击下方生成</span>
-                                        )}
-                                    </div>
-                                    {/* 生图按钮 - 使用全局供应商设置 */}
-                                    <div className="mt-2">
-                                        <button
-                                            onClick={() => {
-                                                (document.activeElement as HTMLElement)?.blur();
-                                                setTimeout(() => {
-                                                    onGenerateImage?.(shot, index, selectedProviderId);
-                                                }, 50);
-                                            }}
-                                            disabled={isGenerating}
-                                            className={`w-full lg-btn lg-btn-sm ${isGenerating
-                                                ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
-                                                : 'lg-btn-primary'
-                                                }`}
-                                        >
-                                            {isGenerating ? (
-                                                <><Loader2 size={16} className="animate-spin" />生成中...</>
-                                            ) : (
-                                                <><Wand2 size={16} />生成</>
-                                            )}
-                                        </button>
-                                    </div>
-                                    {/* 生成失败提示 */}
-                                    {generateError && !isGenerating && (
-                                        <ErrorTooltip error={generateError} />
-                                    )}
-                                </div>
-                            )}
+                        {/* 右侧可滚动区域 */}
+                        <div className="flex-1 min-w-0 overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
+                            <div className="flex flex-nowrap items-start gap-6 pb-4" style={{ minWidth: 'max-content' }}>
 
-                            {/* 3. 选中视频 - 展示选中的视频，支持多选切换 */}
-                            {showGeneration && (
-                                <div className={`${mediaCardBase} ${shot.finalizedVideo ? 'ring-2 ring-zinc-400/30 !duration-100' : ''}`}>
-                                    <div className="flex items-center justify-between gap-2">
-                                        <div className={mediaTitleClass}>选中视频</div>
-                                        {/* 多选控件：切换、移除、定稿 */}
-                                        <div className="flex items-center gap-1">
-                                            {/* 切换按钮 - 仅多选时显示 */}
-                                            {selectedVideoIndexes.length > 1 && (
-                                                <>
-                                                    <button
-                                                        onClick={() => setViewingIndex(v => Math.max(0, v - 1))}
-                                                        disabled={viewingIndex === 0}
-                                                        className="p-1 rounded-md hover:bg-white/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                                                        title="上一个"
-                                                    >
-                                                        <ChevronLeft size={14} className="text-[var(--lg-text-secondary)]" />
-                                                    </button>
-                                                    <span className="text-xs text-[var(--lg-text-tertiary)] min-w-[32px] text-center">
-                                                        {viewingIndex + 1}/{selectedVideoIndexes.length}
-                                                    </span>
-                                                    <button
-                                                        onClick={() => setViewingIndex(v => Math.min(selectedVideoIndexes.length - 1, v + 1))}
-                                                        disabled={viewingIndex >= selectedVideoIndexes.length - 1}
-                                                        className="p-1 rounded-md hover:bg-white/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                                                        title="下一个"
-                                                    >
-                                                        <ChevronRight size={14} className="text-[var(--lg-text-secondary)]" />
-                                                    </button>
-                                                </>
-                                            )}
-                                            {/* 移除按钮 - 有选中时显示 */}
-                                            {selectedVideoIndexes.length > 0 && currentVideoRealIndex >= 0 && (
-                                                <button
-                                                    onClick={() => onRemoveVideoIndex?.(currentVideoRealIndex)}
-                                                    className="p-1 rounded-md hover:bg-red-50 hover:text-red-500 transition-all"
-                                                    title="移除此视频"
-                                                >
-                                                    <X size={14} className="text-[var(--lg-text-tertiary)]" />
-                                                </button>
-                                            )}
-                                            {/* 定稿按钮 */}
-                                            {videoSrc && (
+                                {/* 1.5 选中线稿图 - 仅在线稿模式下显示 */}
+                                {showGeneration && effectiveOutlineMode && (
+                                    <div className={`${mediaCardBase} ${shot.finalizedOutline ? 'ring-2 ring-zinc-400/30 !duration-100' : ''}`}>
+                                        <div className="flex items-center justify-between">
+                                            <div className={mediaTitleClass}>选中线稿图</div>
+                                            {activeOutlineUrl && (
                                                 <FinalizeButton
-                                                    isFinalized={!!(shot.finalizedVideo && videoSrc.includes(shot.finalizedVideo))}
+                                                    isFinalized={!!(shot.finalizedOutline && activeOutlineUrl.includes(shot.finalizedOutline))}
                                                     onClick={() => {
-                                                        const filename = videoSrc.split('/').pop() || '';
-                                                        const isFinalized = shot.finalizedVideo === filename;
-                                                        onFinalizeVideo?.(shot, index, isFinalized ? null : filename);
+                                                        const filename = activeOutlineUrl.split('/').pop() || '';
+                                                        const isFinalized = shot.finalizedOutline === filename;
+                                                        onFinalizeOutline?.(shot, index, isFinalized ? null : filename);
                                                     }}
                                                 />
                                             )}
                                         </div>
-                                    </div>
-                                    {videoSrc ? (
-                                        <>
-                                            <PreviewVideoPlayer
-                                                src={videoSrc}
-                                                volume={globalVolume}
-                                                muted={isGlobalMuted}
-                                                className="w-full"
-                                                aspectRatio="aspect-[9/16]"
-                                                lazy
-                                                defaultRate={2.5}
-                                            />
-                                        </>
-                                    ) : (
-                                        <div className={`${mediaBaseClass} lg-card-inset flex flex-col items-center justify-center gap-3`}>
-                                            <Video size={32} className="text-[var(--lg-text-tertiary)]" />
-                                            <span className="text-sm text-[var(--lg-text-tertiary)]">暂无选中视频</span>
+                                        <div className={`${mediaBaseClass} border border-[#6B7280]/30 shadow-sm flex items-center justify-center`}>
+                                            {activeOutlineUrl ? (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img src={activeOutlineUrl.startsWith('/') ? `${API_BASE}${activeOutlineUrl}` : activeOutlineUrl} alt="线稿图" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="flex flex-col items-center gap-2 text-slate-400">
+                                                    <Pencil size={28} className="text-[#6B7280]/50" />
+                                                    <span className="text-sm">暂无线稿</span>
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* 4. 首帧/视频描述 */}
-                            <div className={`flex-shrink-0 ${DESC_WIDTH} ${CARD_HEIGHT} lg-card-compact ${CARD_PADDING} flex flex-col ${CARD_GAP} overflow-y-auto`}>
-                                {/* 线稿提示词输入框 - 仅在线稿模式下显示，默认折叠 */}
-                                {effectiveOutlineMode && (
-                                    <div className="flex flex-col gap-2 flex-shrink-0 mb-2">
-                                        <div className="flex items-center justify-between text-sm font-semibold text-[#6B7280] flex-shrink-0">
+                                        {/* 生成线稿按钮 */}
+                                        <div className="mt-2">
                                             <button
-                                                onClick={() => setOutlinePromptExpanded(!outlinePromptExpanded)}
-                                                className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+                                                onClick={() => onGenerateOutline?.(shot, index)}
+                                                disabled={isGeneratingOutline}
+                                                className={`lg-btn lg-btn-sm w-full ${isGeneratingOutline
+                                                    ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
+                                                    : 'lg-btn-secondary'
+                                                    }`}
                                             >
-                                                <Pencil size={14} />
-                                                <span>线稿提示词</span>
-                                                <ChevronDown size={14} className={`transition-transform duration-200 ${outlinePromptExpanded ? '' : '-rotate-90'}`} />
-                                            </button>
-                                            <div className="flex items-center gap-2">
-                                                {outlinePromptExpanded && effectiveOutlinePrompt && effectiveOutlinePrompt !== globalOutlinePrompt && (
-                                                    <button
-                                                        onClick={() => onOutlinePromptChange?.(shot, index, globalOutlinePrompt)}
-                                                        className="text-xs text-slate-500 hover:text-[#6B7280] transition-colors flex items-center gap-1"
-                                                        title="恢复默认提示词"
-                                                    >
-                                                        <Undo2 size={12} />
-                                                        恢复默认
-                                                    </button>
+                                                {isGeneratingOutline ? (
+                                                    <><Loader2 size={16} className="animate-spin" />生成中...</>
+                                                ) : (
+                                                    <><Pencil size={16} />提取线稿</>
                                                 )}
-                                                <button
-                                                    onClick={() => onGenerateOutline?.(shot, index)}
-                                                    disabled={isGeneratingOutline}
-                                                    className={`lg-btn lg-btn-sm ${isGeneratingOutline
-                                                        ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
-                                                        : 'lg-btn-glass'
-                                                        }`}
-                                                >
-                                                    {isGeneratingOutline ? (
-                                                        <><Loader2 size={14} className="animate-spin" />生成中</>
-                                                    ) : (
-                                                        <><Pencil size={14} />提取线稿</>
-                                                    )}
-                                                </button>
-                                            </div>
+                                            </button>
                                         </div>
-                                        {outlinePromptExpanded && (
-                                            <AutoTextArea
-                                                value={outlinePrompt ?? globalOutlinePrompt}
-                                                onChange={(e) => onOutlinePromptChange?.(shot, index, e.target.value)}
-                                                placeholder="描述线稿风格..."
-                                                minRows={2}
-                                                maxRows={8}
-                                                className="w-full p-4 rounded-xl lg-input text-base leading-loose resize-none"
-                                            />
-                                        )}
                                     </div>
                                 )}
-                                <div className="flex flex-col gap-2 basis-[58%] min-h-0 overflow-hidden">
-                                    <div className="flex items-center justify-between text-sm font-medium text-slate-500 flex-shrink-0">
-                                        <div className="flex items-center gap-2">
-                                            <ImageIcon size={14} />
-                                            <span>首帧描述</span>
-                                            {renderAnnotationControl?.(`shot-${shot.id ?? index}-initial`, `Shot #${shot.id ?? index + 1} Initial Frame`)}
+
+                                {/* 2. 选中的生成图片 - 放大 */}
+                                {showGeneration && (
+                                    <div className={`${mediaCardBase} ${shot.finalizedImage ? 'ring-2 ring-zinc-400/30 !duration-100' : ''}`}>
+                                        <div className="flex items-center justify-between">
+                                            <div className={mediaTitleClass}>
+                                                {getGenerationInfo(activeImage || '') || '选中生成图'}
+                                            </div>
+                                            {activeImage && (
+                                                <FinalizeButton
+                                                    isFinalized={!!(shot.finalizedImage && activeImage.includes(shot.finalizedImage))}
+                                                    onClick={() => {
+                                                        const filename = activeImage.split('/').pop() || '';
+                                                        const isFinalized = shot.finalizedImage === filename;
+                                                        onFinalizeImage?.(shot, index, isFinalized ? null : filename);
+                                                    }}
+                                                />
+                                            )}
+                                        </div>
+                                        <div className={`${mediaBaseClass} border ${highlightGenerated || (activeImage && newImages.includes(activeImage)) ? 'border-red-400' : 'border-slate-200'} shadow-sm flex items-center justify-center text-lg text-blue-300`}>
+                                            {(activeImage && newImages.includes(activeImage)) && (
+                                                <span className="absolute top-2 right-2 px-3 py-1.5 rounded-full text-sm font-semibold bg-[#e11d48] text-white">NEW</span>
+                                            )}
+                                            {activeImage ? (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img src={activeImage} alt="生成图片" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <span className="text-slate-400">点击下方生成</span>
+                                            )}
                                         </div>
                                         {/* 生图按钮 - 使用全局供应商设置 */}
-                                        {showGeneration && (
+                                        <div className="mt-2">
                                             <button
                                                 onClick={() => {
                                                     (document.activeElement as HTMLElement)?.blur();
@@ -1237,377 +1096,542 @@ export const ShotCard = ({
                                                     }, 50);
                                                 }}
                                                 disabled={isGenerating}
-                                                className={`lg-btn lg-btn-sm ${isGenerating
+                                                className={`w-full lg-btn lg-btn-sm ${isGenerating
                                                     ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
                                                     : 'lg-btn-primary'
                                                     }`}
                                             >
                                                 {isGenerating ? (
-                                                    <><Loader2 size={14} className="animate-spin" />生成中</>
+                                                    <><Loader2 size={16} className="animate-spin" />生成中...</>
                                                 ) : (
-                                                    <><Wand2 size={14} />生成图片</>
+                                                    <><Wand2 size={16} />生成</>
                                                 )}
                                             </button>
-                                        )}
-                                    </div>
-                                    <div className="flex-1 min-h-0 overflow-y-auto">
-                                        {renderFieldWithRevision(
-                                            structuredFrameOriginal || structuredFrameOptimized ? (
-                                                <div className="p-3 rounded-lg border border-dashed border-slate-200 bg-white/60 text-sm text-slate-500">
-                                                    结构化首帧，见下方
-                                                </div>
-                                            ) : (
-                                                <AutoTextArea
-                                                    value={initialFrameText}
-                                                    onChange={(e) => updateField('initial_frame', e.target.value)}
-                                                    readOnly={!canEdit}
-                                                    minRows={2}
-                                                    maxRows={20}
-                                                    className="w-full h-full p-4 rounded-xl lg-input text-base leading-relaxed resize-none"
-                                                    placeholder="输入首帧描述..."
-                                                />
-                                            ),
-                                            '首帧描述',
-                                            initialFrameText,
-                                            initialFrameTextOptimized,
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="flex flex-col gap-2 basis-[30%] min-h-0">
-                                    <div className="flex items-center justify-between text-sm font-medium text-slate-500 flex-shrink-0">
-                                        <div className="flex items-center gap-2">
-                                            <Film size={14} />
-                                            <span>视频描述</span>
-                                            {renderAnnotationControl?.(`shot-${shot.id ?? index}-visual`, `Shot #${shot.id ?? index + 1} Visual`)}
                                         </div>
-                                        {/* 生视频按钮 */}
-                                        {onGenerateVideo && showGeneration && (
-                                            <button
-                                                onClick={() => isGeneratingVideo ? onStopVideoGeneration?.(shot, index) : onGenerateVideo(shot, index)}
-                                                disabled={!isGeneratingVideo && !hasGeneratedImages}
-                                                title={isGeneratingVideo ? '停止生成视频' : !hasGeneratedImages ? '请先生成图片' : '使用当前图片生成视频'}
-                                                className={`lg-btn lg-btn-sm ${isGeneratingVideo
-                                                    ? 'lg-btn-danger'
-                                                    : !hasGeneratedImages
-                                                        ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
-                                                        : 'lg-btn-primary'
-                                                    }`}
-                                            >
-                                                {isGeneratingVideo ? (
-                                                    <><Square size={14} fill="currentColor" />停止</>
-                                                ) : (
-                                                    <><Video size={14} />生成视频</>
-                                                )}
-                                            </button>
+                                        {/* 生成失败提示 */}
+                                        {generateError && !isGenerating && (
+                                            <ErrorTooltip error={generateError} />
                                         )}
                                     </div>
-                                    {renderFieldWithRevision(
-                                        <AutoTextArea
-                                            value={visualVal}
-                                            onChange={(e) => updateField('visual_changes', e.target.value)}
-                                            readOnly={!canEdit}
-                                            minRows={2}
-                                            maxRows={12}
-                                            className="w-full h-full p-4 rounded-xl lg-input text-base leading-relaxed resize-none"
-                                            placeholder="画面描述..."
-                                        />,
-                                        '视频描述',
-                                        baseVisual,
-                                        optVisual
-                                    )}
-                                    {renderDiffPanel(`shot-${shot.id ?? index}-visual_changes`)}
-                                </div>
-                            </div>
+                                )}
 
-                            {/* 5. 流切换器 (Apple Glass 竖向Tab) */}
-                            {showGeneration && (
-                                <div className={`flex-shrink-0 w-[72px] ${CARD_HEIGHT} flex flex-col items-center gap-2 p-2 lg-card-compact`}>
-                                    {/* 线稿 Tab */}
-                                    <button
-                                        onClick={() => setActiveStream('outline')}
-                                        className={`group w-14 flex-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all duration-200 active:scale-95
-                                            ${activeStream === 'outline'
-                                                ? 'bg-[var(--lg-blue)] shadow-md shadow-[var(--lg-blue)]/30'
-                                                : 'lg-card-inset'}`}
-                                    >
-                                        <Pencil size={18} className={activeStream === 'outline' ? 'text-white' : 'text-[var(--lg-text-tertiary)] group-hover:text-[var(--lg-text-primary)]'} />
-                                        <span className={`text-[10px] font-medium ${activeStream === 'outline' ? 'text-white' : 'text-[var(--lg-text-tertiary)] group-hover:text-[var(--lg-text-primary)]'}`}>线稿</span>
-                                    </button>
-                                    {/* 图片 Tab */}
-                                    <div className="relative flex-1 flex flex-col w-14">
-                                        <button
-                                            onClick={() => {
-                                                setActiveStream('image');
-                                                if (newImages.length > 0) {
-                                                    onClearNewImages?.(shot, index);
-                                                }
-                                            }}
-                                            className={`group w-full h-full rounded-xl flex flex-col items-center justify-center gap-1 transition-all duration-200 active:scale-95
-                                                ${activeStream === 'image'
-                                                    ? 'bg-[var(--lg-blue)] shadow-md shadow-[var(--lg-blue)]/30'
-                                                    : 'lg-card-inset'}`}
-                                        >
-                                            <ImageIcon size={18} className={activeStream === 'image' ? 'text-white' : 'text-[var(--lg-text-tertiary)] group-hover:text-[var(--lg-text-primary)]'} />
-                                            <span className={`text-[10px] font-medium ${activeStream === 'image' ? 'text-white' : 'text-[var(--lg-text-tertiary)] group-hover:text-[var(--lg-text-primary)]'}`}>图片</span>
-                                        </button>
-                                        {newImages.length > 0 && (
-                                            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#e11d48] shadow-sm animate-pulse" />
-                                        )}
-                                    </div>
-                                    {/* 视频 Tab */}
-                                    <button
-                                        onClick={() => setActiveStream('video')}
-                                        className={`group w-14 flex-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all duration-200 active:scale-95
-                                            ${activeStream === 'video'
-                                                ? 'bg-[var(--lg-blue)] shadow-md shadow-[var(--lg-blue)]/30'
-                                                : 'lg-card-inset'}`}
-                                    >
-                                        <Video size={18} className={activeStream === 'video' ? 'text-white' : 'text-[var(--lg-text-tertiary)] group-hover:text-[var(--lg-text-primary)]'} />
-                                        <span className={`text-[10px] font-medium ${activeStream === 'video' ? 'text-white' : 'text-[var(--lg-text-tertiary)] group-hover:text-[var(--lg-text-primary)]'}`}>视频</span>
-                                    </button>
-                                </div>
-                            )}
-
-                            {/* 6. 素材列表 (横向无限滚动) */}
-                            <div className="flex flex-nowrap items-start gap-6">
-                                {activeStream === 'video' ? (
-                                    <>
-                                        {/* 生成中：显示占位卡片（在已有视频前面） */}
-                                        {isGeneratingVideo && videoTaskProgresses.length > 0 && videoTaskProgresses.map((task, idx) => (
-                                            <div
-                                                key={`task-${task.taskId}-${idx}`}
-                                                className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} lg-card-compact ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
-                                            >
-                                                <div className={mediaTitleClass}>生成中 <WaitTimer startTime={task.startTime} /></div>
-                                                <div className={`${mediaBaseClass} border border-white/10 shadow-inner flex flex-col items-center justify-center gap-3`}>
-                                                    <Loader2 size={36} className="animate-spin text-[#71717a]" />
-                                                    <span className="text-[#71717a] text-sm font-medium">
-                                                        {task.status === 'downloading' ? '下载中...' : task.status === 'processing' ? (task.progress > 0 ? `${task.progress}%` : '生成中...') : '排队中...'}
-                                                    </span>
-                                                    {(task.status === 'processing' || task.status === 'downloading') && (
-                                                        <div className="w-32 h-2 bg-zinc-200 rounded-full overflow-hidden">
-                                                            <div
-                                                                className="h-full bg-[#71717a] rounded-full transition-all duration-300"
-                                                                style={{ width: `${task.progress}%` }}
-                                                            />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center justify-center">
-                                                    <span className="text-xs text-slate-400">视频 #{idx + 1}</span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                        {/* 已有视频（多选模式） */}
-                                        {generatedVideoUrls.map((url, idx) => {
-                                            const isSelected = selectedVideoIndexes.includes(idx);
-                                            const fullUrl = url.startsWith('/') ? `${API_BASE}${url}` : url;
-                                            const isNew = newVideos.includes(url);
-                                            const genInfo = getGenerationInfo(url);
-                                            return (
-                                                <div
-                                                    key={`video-${url}-${idx}`}
-                                                    className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} lg-card-compact transition-all duration-300 ${isSelected ? 'ring-2 ring-green-500/40' : ''} ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
-                                                >
-                                                    <div className={mediaTitleClass}>{genInfo || ' '}</div>
-                                                    <div className={`${mediaBaseClass} border border-white/10 shadow-inner cursor-pointer relative`}>
-                                                        {/* 左上角：选中勾选标识 */}
-                                                        {isSelected && (
-                                                            <span className="absolute top-2 left-2 w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center z-10 shadow-md">
-                                                                <Check size={14} />
-                                                            </span>
-                                                        )}
-                                                        {/* 右上角：NEW 标识 */}
-                                                        {isNew && (
-                                                            <span className="absolute top-2 right-2 px-2 py-1 rounded-md text-xs font-semibold bg-[#e11d48] text-white z-10">
-                                                                NEW
-                                                            </span>
-                                                        )}
-                                                        {/* 不设置 poster，让浏览器自动显示视频第一帧 */}
-                                                        <PreviewVideoPlayer
-                                                            src={fullUrl}
-                                                            volume={globalVolume}
-                                                            muted={isGlobalMuted}
-                                                            aspectRatio="aspect-[9/16]"
-                                                            className="w-full h-full object-cover"
-                                                            lazy
-                                                            defaultRate={2.5}
-                                                            onPlay={() => onVideoSeen?.(url)}
-                                                        />
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
+                                {/* 3. 选中视频 - 展示选中的视频，支持多选切换 */}
+                                {showGeneration && (
+                                    <div className={`${mediaCardBase} ${shot.finalizedVideo ? 'ring-2 ring-zinc-400/30 !duration-100' : ''}`}>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className={mediaTitleClass}>选中视频</div>
+                                            {/* 多选控件：切换、移除、定稿 */}
+                                            <div className="flex items-center gap-1">
+                                                {/* 切换按钮 - 仅多选时显示 */}
+                                                {selectedVideoIndexes.length > 1 && (
+                                                    <>
                                                         <button
-                                                            onClick={() => onSelectVideoIndex?.(idx)}
-                                                            className={`flex-1 lg-btn lg-btn-sm ${isSelected
-                                                                ? 'lg-btn-primary'
-                                                                : 'lg-btn-glass'}`}
+                                                            onClick={() => setViewingIndex(v => Math.max(0, v - 1))}
+                                                            disabled={viewingIndex === 0}
+                                                            className="p-1 rounded-md hover:bg-white/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                                            title="上一个"
                                                         >
-                                                            {isSelected ? <><Check size={14} /> 已选中</> : '选择'}
+                                                            <ChevronLeft size={14} className="text-[var(--lg-text-secondary)]" />
                                                         </button>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                        {/* 空状态：没有视频且不在生成中 */}
-                                        {generatedVideoUrls.length === 0 && !isGeneratingVideo && (
-                                            <div className={`w-full min-w-[360px] flex flex-col items-center justify-center gap-4 lg-card-inset ${CARD_RADIUS} p-10`}>
-                                                <Video size={36} className="text-[var(--lg-text-tertiary)]" />
-                                                <span className="text-[var(--lg-text-tertiary)]">暂无生成视频</span>
-                                                <span className="text-xs text-[var(--lg-text-tertiary)]">点击「视频」按钮开始生成</span>
+                                                        <span className="text-xs text-[var(--lg-text-tertiary)] min-w-[32px] text-center">
+                                                            {viewingIndex + 1}/{selectedVideoIndexes.length}
+                                                        </span>
+                                                        <button
+                                                            onClick={() => setViewingIndex(v => Math.min(selectedVideoIndexes.length - 1, v + 1))}
+                                                            disabled={viewingIndex >= selectedVideoIndexes.length - 1}
+                                                            className="p-1 rounded-md hover:bg-white/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                                            title="下一个"
+                                                        >
+                                                            <ChevronRight size={14} className="text-[var(--lg-text-secondary)]" />
+                                                        </button>
+                                                    </>
+                                                )}
+                                                {/* 移除按钮 - 有选中时显示 */}
+                                                {selectedVideoIndexes.length > 0 && currentVideoRealIndex >= 0 && (
+                                                    <button
+                                                        onClick={() => onRemoveVideoIndex?.(currentVideoRealIndex)}
+                                                        className="p-1 rounded-md hover:bg-red-50 hover:text-red-500 transition-all"
+                                                        title="移除此视频"
+                                                    >
+                                                        <X size={14} className="text-[var(--lg-text-tertiary)]" />
+                                                    </button>
+                                                )}
+                                                {/* 定稿按钮 */}
+                                                {videoSrc && (
+                                                    <FinalizeButton
+                                                        isFinalized={!!(shot.finalizedVideo && videoSrc.includes(shot.finalizedVideo))}
+                                                        onClick={() => {
+                                                            const filename = videoSrc.split('/').pop() || '';
+                                                            const isFinalized = shot.finalizedVideo === filename;
+                                                            onFinalizeVideo?.(shot, index, isFinalized ? null : filename);
+                                                        }}
+                                                    />
+                                                )}
+                                            </div>
+                                        </div>
+                                        {videoSrc ? (
+                                            <>
+                                                <PreviewVideoPlayer
+                                                    src={videoSrc}
+                                                    volume={globalVolume}
+                                                    muted={isGlobalMuted}
+                                                    className="w-full"
+                                                    aspectRatio="aspect-[9/16]"
+                                                    lazy
+                                                    defaultRate={2.5}
+                                                />
+                                            </>
+                                        ) : (
+                                            <div className={`${mediaBaseClass} lg-card-inset flex flex-col items-center justify-center gap-3`}>
+                                                <Video size={32} className="text-[var(--lg-text-tertiary)]" />
+                                                <span className="text-sm text-[var(--lg-text-tertiary)]">暂无选中视频</span>
                                             </div>
                                         )}
-                                        {/* 空状态：没有视频但正在生成（没有占位卡片时的备用显示） */}
-                                        {generatedVideoUrls.length === 0 && isGeneratingVideo && videoTaskProgresses.length === 0 && (
-                                            <div className={`w-full min-w-[360px] flex flex-col items-center justify-center gap-4 lg-card-inset ${CARD_RADIUS} p-10`}>
-                                                <div className="flex flex-col items-center gap-3 w-full">
-                                                    <Loader2 size={36} className="animate-spin text-[var(--lg-text-tertiary)]" />
-                                                    <span className="text-[var(--lg-text-tertiary)]">
-                                                        {videoTaskStatus === 'processing' ? `视频生成中 ${videoProgress}%` : '排队等待中...'}
-                                                    </span>
-                                                    {videoTaskStatus === 'processing' && (
-                                                        <div className="w-48 h-2 bg-zinc-200 rounded-full overflow-hidden">
-                                                            <div
-                                                                className="h-full bg-[#71717a] rounded-full transition-all duration-300"
-                                                                style={{ width: `${videoProgress}%` }}
-                                                            />
-                                                        </div>
+                                    </div>
+                                )}
+
+                                {/* 4. 首帧/视频描述 */}
+                                <div className={`flex-shrink-0 ${DESC_WIDTH} ${CARD_HEIGHT} lg-card-compact ${CARD_PADDING} flex flex-col ${CARD_GAP} overflow-y-auto`}>
+                                    {/* 线稿提示词输入框 - 仅在线稿模式下显示，默认折叠 */}
+                                    {effectiveOutlineMode && (
+                                        <div className="flex flex-col gap-2 flex-shrink-0 mb-2">
+                                            <div className="flex items-center justify-between text-sm font-semibold text-[#6B7280] flex-shrink-0">
+                                                <button
+                                                    onClick={() => setOutlinePromptExpanded(!outlinePromptExpanded)}
+                                                    className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+                                                >
+                                                    <Pencil size={14} />
+                                                    <span>线稿提示词</span>
+                                                    <ChevronDown size={14} className={`transition-transform duration-200 ${outlinePromptExpanded ? '' : '-rotate-90'}`} />
+                                                </button>
+                                                <div className="flex items-center gap-2">
+                                                    {outlinePromptExpanded && effectiveOutlinePrompt && effectiveOutlinePrompt !== globalOutlinePrompt && (
+                                                        <button
+                                                            onClick={() => onOutlinePromptChange?.(shot, index, globalOutlinePrompt)}
+                                                            className="text-xs text-slate-500 hover:text-[#6B7280] transition-colors flex items-center gap-1"
+                                                            title="恢复默认提示词"
+                                                        >
+                                                            <Undo2 size={12} />
+                                                            恢复默认
+                                                        </button>
                                                     )}
                                                     <button
-                                                        onClick={() => onStopVideoGeneration?.(shot, index)}
-                                                        className="lg-btn lg-btn-xs lg-btn-danger"
+                                                        onClick={() => onGenerateOutline?.(shot, index)}
+                                                        disabled={isGeneratingOutline}
+                                                        className={`lg-btn lg-btn-sm ${isGeneratingOutline
+                                                            ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
+                                                            : 'lg-btn-glass'
+                                                            }`}
                                                     >
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
-                                                        停止生成
+                                                        {isGeneratingOutline ? (
+                                                            <><Loader2 size={14} className="animate-spin" />生成中</>
+                                                        ) : (
+                                                            <><Pencil size={14} />提取线稿</>
+                                                        )}
                                                     </button>
                                                 </div>
                                             </div>
-                                        )}
-                                    </>
-                                ) : activeStream === 'outline' ? (
-                                    <>
-                                        {/* 线稿流：生成中 */}
-                                        {isGeneratingOutline && (
-                                            <div className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} lg-card-compact ${CARD_PADDING} flex flex-col ${CARD_GAP}`}>
-                                                <div className={mediaTitleClass}>生成线稿中...</div>
-                                                <div className={`${mediaBaseClass} border border-white/10 shadow-inner flex flex-col items-center justify-center gap-3`}>
-                                                    <Loader2 size={36} className="animate-spin text-[#6B7280]" />
-                                                    <span className="text-[#6B7280] text-sm font-medium">正在提取线稿...</span>
-                                                </div>
+                                            {outlinePromptExpanded && (
+                                                <AutoTextArea
+                                                    value={outlinePrompt ?? globalOutlinePrompt}
+                                                    onChange={(e) => onOutlinePromptChange?.(shot, index, e.target.value)}
+                                                    placeholder="描述线稿风格..."
+                                                    minRows={2}
+                                                    maxRows={8}
+                                                    className="w-full p-4 rounded-xl lg-input text-base leading-loose resize-none"
+                                                />
+                                            )}
+                                        </div>
+                                    )}
+                                    <div className="flex flex-col gap-2 basis-[58%] min-h-0 overflow-hidden">
+                                        <div className="flex items-center justify-between text-sm font-medium text-slate-500 flex-shrink-0">
+                                            <div className="flex items-center gap-2">
+                                                <ImageIcon size={14} />
+                                                <span>首帧描述</span>
+                                                {renderAnnotationControl?.(`shot-${shot.id ?? index}-initial`, `Shot #${shot.id ?? index + 1} Initial Frame`)}
                                             </div>
+                                            {/* 生图按钮 - 使用全局供应商设置 */}
+                                            {showGeneration && (
+                                                <button
+                                                    onClick={() => {
+                                                        (document.activeElement as HTMLElement)?.blur();
+                                                        setTimeout(() => {
+                                                            onGenerateImage?.(shot, index, selectedProviderId);
+                                                        }, 50);
+                                                    }}
+                                                    disabled={isGenerating}
+                                                    className={`lg-btn lg-btn-sm ${isGenerating
+                                                        ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
+                                                        : 'lg-btn-primary'
+                                                        }`}
+                                                >
+                                                    {isGenerating ? (
+                                                        <><Loader2 size={14} className="animate-spin" />生成中</>
+                                                    ) : (
+                                                        <><Wand2 size={14} />生成图片</>
+                                                    )}
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-h-0 overflow-y-auto">
+                                            {renderFieldWithRevision(
+                                                structuredFrameOriginal || structuredFrameOptimized ? (
+                                                    <div className="p-3 rounded-lg border border-dashed border-slate-200 bg-white/60 text-sm text-slate-500">
+                                                        结构化首帧，见下方
+                                                    </div>
+                                                ) : (
+                                                    <AutoTextArea
+                                                        value={initialFrameText}
+                                                        onChange={(e) => updateField('initial_frame', e.target.value)}
+                                                        readOnly={!canEdit}
+                                                        minRows={2}
+                                                        maxRows={20}
+                                                        className="w-full h-full p-4 rounded-xl lg-input text-base leading-relaxed resize-none"
+                                                        placeholder="输入首帧描述..."
+                                                    />
+                                                ),
+                                                '首帧描述',
+                                                initialFrameText,
+                                                initialFrameTextOptimized,
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col gap-2 basis-[30%] min-h-0">
+                                        <div className="flex items-center justify-between text-sm font-medium text-slate-500 flex-shrink-0">
+                                            <div className="flex items-center gap-2">
+                                                <Film size={14} />
+                                                <span>视频描述</span>
+                                                {renderAnnotationControl?.(`shot-${shot.id ?? index}-visual`, `Shot #${shot.id ?? index + 1} Visual`)}
+                                            </div>
+                                            {/* 生视频按钮 */}
+                                            {onGenerateVideo && showGeneration && (
+                                                <button
+                                                    onClick={() => isGeneratingVideo ? onStopVideoGeneration?.(shot, index) : onGenerateVideo(shot, index)}
+                                                    disabled={!isGeneratingVideo && !hasGeneratedImages}
+                                                    title={isGeneratingVideo ? '停止生成视频' : !hasGeneratedImages ? '请先生成图片' : '使用当前图片生成视频'}
+                                                    className={`lg-btn lg-btn-sm ${isGeneratingVideo
+                                                        ? 'lg-btn-danger'
+                                                        : !hasGeneratedImages
+                                                            ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
+                                                            : 'lg-btn-primary'
+                                                        }`}
+                                                >
+                                                    {isGeneratingVideo ? (
+                                                        <><Square size={14} fill="currentColor" />停止</>
+                                                    ) : (
+                                                        <><Video size={14} />生成视频</>
+                                                    )}
+                                                </button>
+                                            )}
+                                        </div>
+                                        {renderFieldWithRevision(
+                                            <AutoTextArea
+                                                value={visualVal}
+                                                onChange={(e) => updateField('visual_changes', e.target.value)}
+                                                readOnly={!canEdit}
+                                                minRows={2}
+                                                maxRows={12}
+                                                className="w-full h-full p-4 rounded-xl lg-input text-base leading-relaxed resize-none"
+                                                placeholder="画面描述..."
+                                            />,
+                                            '视频描述',
+                                            baseVisual,
+                                            optVisual
                                         )}
-                                        {/* 线稿流：已有线稿 */}
-                                        {outlineUrls.map((url, idx) => {
-                                            const isActive = url === activeOutlineUrl;
-                                            const genInfo = getGenerationInfo(url);
+                                        {renderDiffPanel(`shot-${shot.id ?? index}-visual_changes`)}
+                                    </div>
+                                </div>
+
+                                {/* 5. 流切换器 (Apple Glass 竖向Tab) */}
+                                {showGeneration && (
+                                    <div className={`flex-shrink-0 w-[72px] ${CARD_HEIGHT} flex flex-col items-center gap-2 p-2 lg-card-compact`}>
+                                        {/* 线稿 Tab */}
+                                        <button
+                                            onClick={() => setActiveStream('outline')}
+                                            className={`group w-14 flex-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all duration-200 active:scale-95
+                                            ${activeStream === 'outline'
+                                                    ? 'bg-[var(--lg-blue)] shadow-md shadow-[var(--lg-blue)]/30'
+                                                    : 'lg-card-inset'}`}
+                                        >
+                                            <Pencil size={18} className={activeStream === 'outline' ? 'text-white' : 'text-[var(--lg-text-tertiary)] group-hover:text-[var(--lg-text-primary)]'} />
+                                            <span className={`text-[10px] font-medium ${activeStream === 'outline' ? 'text-white' : 'text-[var(--lg-text-tertiary)] group-hover:text-[var(--lg-text-primary)]'}`}>线稿</span>
+                                        </button>
+                                        {/* 图片 Tab */}
+                                        <div className="relative flex-1 flex flex-col w-14">
+                                            <button
+                                                onClick={() => {
+                                                    setActiveStream('image');
+                                                    if (newImages.length > 0) {
+                                                        onClearNewImages?.(shot, index);
+                                                    }
+                                                }}
+                                                className={`group w-full h-full rounded-xl flex flex-col items-center justify-center gap-1 transition-all duration-200 active:scale-95
+                                                ${activeStream === 'image'
+                                                        ? 'bg-[var(--lg-blue)] shadow-md shadow-[var(--lg-blue)]/30'
+                                                        : 'lg-card-inset'}`}
+                                            >
+                                                <ImageIcon size={18} className={activeStream === 'image' ? 'text-white' : 'text-[var(--lg-text-tertiary)] group-hover:text-[var(--lg-text-primary)]'} />
+                                                <span className={`text-[10px] font-medium ${activeStream === 'image' ? 'text-white' : 'text-[var(--lg-text-tertiary)] group-hover:text-[var(--lg-text-primary)]'}`}>图片</span>
+                                            </button>
+                                            {newImages.length > 0 && (
+                                                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#e11d48] shadow-sm animate-pulse" />
+                                            )}
+                                        </div>
+                                        {/* 视频 Tab */}
+                                        <button
+                                            onClick={() => setActiveStream('video')}
+                                            className={`group w-14 flex-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all duration-200 active:scale-95
+                                            ${activeStream === 'video'
+                                                    ? 'bg-[var(--lg-blue)] shadow-md shadow-[var(--lg-blue)]/30'
+                                                    : 'lg-card-inset'}`}
+                                        >
+                                            <Video size={18} className={activeStream === 'video' ? 'text-white' : 'text-[var(--lg-text-tertiary)] group-hover:text-[var(--lg-text-primary)]'} />
+                                            <span className={`text-[10px] font-medium ${activeStream === 'video' ? 'text-white' : 'text-[var(--lg-text-tertiary)] group-hover:text-[var(--lg-text-primary)]'}`}>视频</span>
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* 6. 素材列表 (横向无限滚动) */}
+                                <div className="flex flex-nowrap items-start gap-6">
+                                    {activeStream === 'video' ? (
+                                        <>
+                                            {/* 生成中：显示占位卡片（在已有视频前面） */}
+                                            {isGeneratingVideo && videoTaskProgresses.length > 0 && videoTaskProgresses.map((task, idx) => (
+                                                <div
+                                                    key={`task-${task.taskId}-${idx}`}
+                                                    className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} lg-card-compact ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
+                                                >
+                                                    <div className={mediaTitleClass}>生成中 <WaitTimer startTime={task.startTime} /></div>
+                                                    <div className={`${mediaBaseClass} border border-white/10 shadow-inner flex flex-col items-center justify-center gap-3`}>
+                                                        <Loader2 size={36} className="animate-spin text-[#71717a]" />
+                                                        <span className="text-[#71717a] text-sm font-medium">
+                                                            {task.status === 'downloading' ? '下载中...' : task.status === 'processing' ? (task.progress > 0 ? `${task.progress}%` : '生成中...') : '排队中...'}
+                                                        </span>
+                                                        {(task.status === 'processing' || task.status === 'downloading') && (
+                                                            <div className="w-32 h-2 bg-zinc-200 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className="h-full bg-[#71717a] rounded-full transition-all duration-300"
+                                                                    style={{ width: `${task.progress}%` }}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center justify-center">
+                                                        <span className="text-xs text-slate-400">视频 #{idx + 1}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {/* 已有视频（多选模式） */}
+                                            {generatedVideoUrls.map((url, idx) => {
+                                                const isSelected = selectedVideoIndexes.includes(idx);
+                                                const fullUrl = url.startsWith('/') ? `${API_BASE}${url}` : url;
+                                                const isNew = newVideos.includes(url);
+                                                const genInfo = getGenerationInfo(url);
+                                                return (
+                                                    <div
+                                                        key={`video-${url}-${idx}`}
+                                                        className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} lg-card-compact transition-all duration-300 ${isSelected ? 'ring-2 ring-green-500/40' : ''} ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
+                                                    >
+                                                        <div className={mediaTitleClass}>{genInfo || ' '}</div>
+                                                        <div className={`${mediaBaseClass} border border-white/10 shadow-inner cursor-pointer relative`}>
+                                                            {/* 左上角：选中勾选标识 */}
+                                                            {isSelected && (
+                                                                <span className="absolute top-2 left-2 w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center z-10 shadow-md">
+                                                                    <Check size={14} />
+                                                                </span>
+                                                            )}
+                                                            {/* 右上角：NEW 标识 */}
+                                                            {isNew && (
+                                                                <span className="absolute top-2 right-2 px-2 py-1 rounded-md text-xs font-semibold bg-[#e11d48] text-white z-10">
+                                                                    NEW
+                                                                </span>
+                                                            )}
+                                                            {/* 不设置 poster，让浏览器自动显示视频第一帧 */}
+                                                            <PreviewVideoPlayer
+                                                                src={fullUrl}
+                                                                volume={globalVolume}
+                                                                muted={isGlobalMuted}
+                                                                aspectRatio="aspect-[9/16]"
+                                                                className="w-full h-full object-cover"
+                                                                lazy
+                                                                defaultRate={2.5}
+                                                                onPlay={() => onVideoSeen?.(url)}
+                                                            />
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={() => onSelectVideoIndex?.(idx)}
+                                                                className={`flex-1 lg-btn lg-btn-sm ${isSelected
+                                                                    ? 'lg-btn-primary'
+                                                                    : 'lg-btn-glass'}`}
+                                                            >
+                                                                {isSelected ? <><Check size={14} /> 已选中</> : '选择'}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                            {/* 空状态：没有视频且不在生成中 */}
+                                            {generatedVideoUrls.length === 0 && !isGeneratingVideo && (
+                                                <div className={`w-full min-w-[360px] flex flex-col items-center justify-center gap-4 lg-card-inset ${CARD_RADIUS} p-10`}>
+                                                    <Video size={36} className="text-[var(--lg-text-tertiary)]" />
+                                                    <span className="text-[var(--lg-text-tertiary)]">暂无生成视频</span>
+                                                    <span className="text-xs text-[var(--lg-text-tertiary)]">点击「视频」按钮开始生成</span>
+                                                </div>
+                                            )}
+                                            {/* 空状态：没有视频但正在生成（没有占位卡片时的备用显示） */}
+                                            {generatedVideoUrls.length === 0 && isGeneratingVideo && videoTaskProgresses.length === 0 && (
+                                                <div className={`w-full min-w-[360px] flex flex-col items-center justify-center gap-4 lg-card-inset ${CARD_RADIUS} p-10`}>
+                                                    <div className="flex flex-col items-center gap-3 w-full">
+                                                        <Loader2 size={36} className="animate-spin text-[var(--lg-text-tertiary)]" />
+                                                        <span className="text-[var(--lg-text-tertiary)]">
+                                                            {videoTaskStatus === 'processing' ? `视频生成中 ${videoProgress}%` : '排队等待中...'}
+                                                        </span>
+                                                        {videoTaskStatus === 'processing' && (
+                                                            <div className="w-48 h-2 bg-zinc-200 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className="h-full bg-[#71717a] rounded-full transition-all duration-300"
+                                                                    style={{ width: `${videoProgress}%` }}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                        <button
+                                                            onClick={() => onStopVideoGeneration?.(shot, index)}
+                                                            className="lg-btn lg-btn-xs lg-btn-danger"
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
+                                                            停止生成
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : activeStream === 'outline' ? (
+                                        <>
+                                            {/* 线稿流：生成中 */}
+                                            {isGeneratingOutline && (
+                                                <div className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} lg-card-compact ${CARD_PADDING} flex flex-col ${CARD_GAP}`}>
+                                                    <div className={mediaTitleClass}>生成线稿中...</div>
+                                                    <div className={`${mediaBaseClass} border border-white/10 shadow-inner flex flex-col items-center justify-center gap-3`}>
+                                                        <Loader2 size={36} className="animate-spin text-[#6B7280]" />
+                                                        <span className="text-[#6B7280] text-sm font-medium">正在提取线稿...</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {/* 线稿流：已有线稿 */}
+                                            {outlineUrls.map((url, idx) => {
+                                                const isActive = url === activeOutlineUrl;
+                                                const genInfo = getGenerationInfo(url);
+                                                return (
+                                                    <div
+                                                        key={`outline-${url}-${idx}`}
+                                                        className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} lg-card-compact transition-all duration-300 ${isActive ? 'ring-2 ring-[var(--lg-text-secondary)]/30' : ''} ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
+                                                    >
+                                                        <div className={mediaTitleClass}>{genInfo || '线稿图'}</div>
+                                                        <div className={`${mediaBaseClass} border border-white/10 shadow-inner cursor-pointer relative`}>
+                                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                            <img src={url.startsWith('/') ? `${API_BASE}${url}` : url} alt={`线稿 ${idx + 1}`} className="w-full h-full object-cover" />
+                                                        </div>
+                                                        {/* 操作按钮区 */}
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={() => onSelectOutline?.(shot, index, url)}
+                                                                className={`flex-1 flex items-center justify-center gap-2 text-sm font-medium ${BTN_RADIUS} px-4 py-2.5 transition-all duration-200 active:scale-[0.98] ${isActive
+                                                                    ? 'bg-gradient-to-r from-[#6B7280] to-[#5B6370] text-white shadow-md'
+                                                                    : 'bg-white/70 border border-slate-200/50 text-slate-600 hover:bg-white hover:border-[#6B7280]/50 hover:text-[#6B7280]'}`}
+                                                            >
+                                                                {isActive ? <><Check size={14} /> 已选择</> : '选择此线稿'}
+                                                            </button>
+                                                            <button
+                                                                onClick={() => onDeleteOutline?.(shot, index, url)}
+                                                                className={`p-2.5 ${BTN_RADIUS} bg-white/70 border border-slate-200/50 text-slate-400 hover:bg-red-50 hover:border-red-300 hover:text-red-500 transition-all duration-200`}
+                                                                title="删除线稿"
+                                                            >
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                            {/* 线稿流：空状态 */}
+                                            {!isGeneratingOutline && outlineUrls.length === 0 && (
+                                                <div className={`w-full min-w-[360px] flex flex-col items-center justify-center gap-4 lg-card-inset ${CARD_RADIUS} p-10`}>
+                                                    <Pencil size={36} className="text-[var(--lg-text-tertiary)]" />
+                                                    <span className="text-[var(--lg-text-tertiary)]">暂无线稿图</span>
+                                                    <button
+                                                        onClick={() => onGenerateOutline?.(shot, index)}
+                                                        className="lg-btn lg-btn-xs lg-btn-secondary"
+                                                    >
+                                                        <Wand2 size={14} />
+                                                        提取线稿
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : sortedImages.length > 0 ? (
+                                        sortedImages.map((url, idx) => {
+                                            const originalIdx = generatedImageUrls.indexOf(url);
+                                            const isActive = activeImage === url;
+                                            const isNew = newImages.includes(url);
+                                            const genTime = getGenerationInfo(url);
                                             return (
                                                 <div
-                                                    key={`outline-${url}-${idx}`}
-                                                    className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} lg-card-compact transition-all duration-300 ${isActive ? 'ring-2 ring-[var(--lg-text-secondary)]/30' : ''} ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
+                                                    key={`${url}-${idx}`}
+                                                    className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} lg-card-compact transition-all duration-300 ${isActive ? 'ring-2 ring-[var(--lg-blue)]/30' : ''} ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
                                                 >
-                                                    <div className={mediaTitleClass}>{genInfo || '线稿图'}</div>
-                                                    <div className={`${mediaBaseClass} border border-white/10 shadow-inner cursor-pointer relative`}>
+                                                    <div className={mediaTitleClass}>{genTime || ' '}</div>
+                                                    <div
+                                                        className={`${mediaBaseClass} border border-white/10 shadow-inner cursor-pointer`}
+                                                        onClick={() => setLightboxIndex(idx)}
+                                                    >
+                                                        {/* 右上角：生成时间 */}
+                                                        {genTime && (
+                                                            <span className="absolute top-2 right-2 px-2 py-1 rounded-md text-xs font-medium bg-black/50 text-white/90 backdrop-blur-sm z-10">
+                                                                {genTime}
+                                                            </span>
+                                                        )}
+                                                        {isNew && (
+                                                            <span className="absolute top-2 left-2 px-2 py-1 rounded-md text-xs font-semibold bg-[#e11d48] text-white z-10">
+                                                                NEW
+                                                            </span>
+                                                        )}
                                                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                        <img src={url.startsWith('/') ? `${API_BASE}${url}` : url} alt={`线稿 ${idx + 1}`} className="w-full h-full object-cover" />
+                                                        <img src={url} alt={`生成图 ${idx + 1}`} className="w-full h-full object-cover" />
                                                     </div>
                                                     {/* 操作按钮区 */}
                                                     <div className="flex items-center gap-2">
                                                         <button
-                                                            onClick={() => onSelectOutline?.(shot, index, url)}
-                                                            className={`flex-1 flex items-center justify-center gap-2 text-sm font-medium ${BTN_RADIUS} px-4 py-2.5 transition-all duration-200 active:scale-[0.98] ${isActive
-                                                                ? 'bg-gradient-to-r from-[#6B7280] to-[#5B6370] text-white shadow-md'
-                                                                : 'bg-white/70 border border-slate-200/50 text-slate-600 hover:bg-white hover:border-[#6B7280]/50 hover:text-[#6B7280]'}`}
+                                                            onClick={() => onSelectGeneratedIndex?.(shot, index, originalIdx)}
+                                                            className={`flex-1 lg-btn lg-btn-sm ${isActive
+                                                                ? 'lg-btn-secondary'
+                                                                : 'lg-btn-glass'}`}
                                                         >
-                                                            {isActive ? <><Check size={14} /> 已选择</> : '选择此线稿'}
+                                                            {isActive ? <><Check size={14} /> 已选择</> : '选择此图片'}
                                                         </button>
-                                                        <button
-                                                            onClick={() => onDeleteOutline?.(shot, index, url)}
-                                                            className={`p-2.5 ${BTN_RADIUS} bg-white/70 border border-slate-200/50 text-slate-400 hover:bg-red-50 hover:border-red-300 hover:text-red-500 transition-all duration-200`}
-                                                            title="删除线稿"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
+                                                        <span className={`text-xs font-medium text-slate-400 px-2.5 py-2 bg-slate-100/80 ${BTN_RADIUS} border border-slate-200/30`}>
+                                                            #{getImageIndex(url)}
+                                                        </span>
+                                                        {/* 查看 Prompt 按钮 */}
+                                                        {workspacePath && (
+                                                            <PromptViewer
+                                                                workspacePath={workspacePath}
+                                                                shotId={shotId}
+                                                                generatedDir={generatedDir}
+                                                                imageFilename={url.split('/').pop()}
+                                                                imageUrl={url}
+                                                                compact
+                                                            />
+                                                        )}
                                                     </div>
                                                 </div>
                                             );
-                                        })}
-                                        {/* 线稿流：空状态 */}
-                                        {!isGeneratingOutline && outlineUrls.length === 0 && (
-                                            <div className={`w-full min-w-[360px] flex flex-col items-center justify-center gap-4 lg-card-inset ${CARD_RADIUS} p-10`}>
-                                                <Pencil size={36} className="text-[var(--lg-text-tertiary)]" />
-                                                <span className="text-[var(--lg-text-tertiary)]">暂无线稿图</span>
-                                                <button
-                                                    onClick={() => onGenerateOutline?.(shot, index)}
-                                                    className="lg-btn lg-btn-xs lg-btn-secondary"
-                                                >
-                                                    <Wand2 size={14} />
-                                                    提取线稿
-                                                </button>
-                                            </div>
-                                        )}
-                                    </>
-                                ) : sortedImages.length > 0 ? (
-                                    sortedImages.map((url, idx) => {
-                                        const originalIdx = generatedImageUrls.indexOf(url);
-                                        const isActive = activeImage === url;
-                                        const isNew = newImages.includes(url);
-                                        const genTime = getGenerationInfo(url);
-                                        return (
-                                            <div
-                                                key={`${url}-${idx}`}
-                                                className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} lg-card-compact transition-all duration-300 ${isActive ? 'ring-2 ring-[var(--lg-blue)]/30' : ''} ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
-                                            >
-                                                <div className={mediaTitleClass}>{genTime || ' '}</div>
-                                                <div
-                                                    className={`${mediaBaseClass} border border-white/10 shadow-inner cursor-pointer`}
-                                                    onClick={() => setLightboxIndex(idx)}
-                                                >
-                                                    {/* 右上角：生成时间 */}
-                                                    {genTime && (
-                                                        <span className="absolute top-2 right-2 px-2 py-1 rounded-md text-xs font-medium bg-black/50 text-white/90 backdrop-blur-sm z-10">
-                                                            {genTime}
-                                                        </span>
-                                                    )}
-                                                    {isNew && (
-                                                        <span className="absolute top-2 left-2 px-2 py-1 rounded-md text-xs font-semibold bg-[#e11d48] text-white z-10">
-                                                            NEW
-                                                        </span>
-                                                    )}
-                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                    <img src={url} alt={`生成图 ${idx + 1}`} className="w-full h-full object-cover" />
-                                                </div>
-                                                {/* 操作按钮区 */}
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={() => onSelectGeneratedIndex?.(shot, index, originalIdx)}
-                                                        className={`flex-1 lg-btn lg-btn-sm ${isActive
-                                                            ? 'lg-btn-secondary'
-                                                            : 'lg-btn-glass'}`}
-                                                    >
-                                                        {isActive ? <><Check size={14} /> 已选择</> : '选择此图片'}
-                                                    </button>
-                                                    <span className={`text-xs font-medium text-slate-400 px-2.5 py-2 bg-slate-100/80 ${BTN_RADIUS} border border-slate-200/30`}>
-                                                        #{getImageIndex(url)}
-                                                    </span>
-                                                    {/* 查看 Prompt 按钮 */}
-                                                    {workspacePath && (
-                                                        <PromptViewer
-                                                            workspacePath={workspacePath}
-                                                            shotId={shotId}
-                                                            generatedDir={generatedDir}
-                                                            imageFilename={url.split('/').pop()}
-                                                            imageUrl={url}
-                                                            compact
-                                                        />
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })
-                                ) : (
-                                    <div className={`w-full min-w-[360px] flex items-center justify-center text-sm text-slate-400 bg-white/30 ${CARD_RADIUS} border border-dashed border-slate-300/50 p-10 backdrop-blur-sm`}>
-                                        暂无生成图片，点击左侧「生成」开始
-                                    </div>
-                                )}
+                                        })
+                                    ) : (
+                                        <div className={`w-full min-w-[360px] flex items-center justify-center text-sm text-slate-400 bg-white/30 ${CARD_RADIUS} border border-dashed border-slate-300/50 p-10 backdrop-blur-sm`}>
+                                            暂无生成图片，点击左侧「生成」开始
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
