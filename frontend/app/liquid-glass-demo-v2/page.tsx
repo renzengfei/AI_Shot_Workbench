@@ -272,21 +272,6 @@ export default function LiquidGlassDesignSystem() {
                         rgba(255,255,255,0.6) 85%, 
                         transparent 100%);
                 }
-                /* 玻璃底部微光 */
-                .glass-card::after {
-                    content: '';
-                    position: absolute;
-                    bottom: 0;
-                    left: 48px;
-                    right: 48px;
-                    height: 1px;
-                    background: linear-gradient(90deg, 
-                        transparent 0%, 
-                        rgba(255,255,255,0.3) 30%, 
-                        rgba(255,255,255,0.4) 50%, 
-                        rgba(255,255,255,0.3) 70%, 
-                        transparent 100%);
-                }
 
                 /* 章节标题 */
                 .section-title {
