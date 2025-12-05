@@ -799,7 +799,7 @@ export const ShotCard = ({
 
     // Media container: 9:16 aspect with premium styling
     const mediaBaseClass = `relative aspect-[9/16] ${CARD_RADIUS} overflow-hidden bg-[var(--theme-bg-page)] border border-[var(--theme-border)]`;
-    const mediaCardBase = `flex-shrink-0 ${MEDIA_WIDTH} ${CARD_RADIUS} lg-card ${CARD_PADDING} flex flex-col ${CARD_GAP} transition-all duration-300`;
+    const mediaCardBase = `flex-shrink-0 ${MEDIA_WIDTH} ${CARD_RADIUS} lg-card-compact ${CARD_PADDING} flex flex-col ${CARD_GAP}`;
     // Title styling: fixed height for alignment
     const mediaTitleClass = 'h-5 text-xs font-semibold text-[var(--theme-text-sub)] text-center tracking-wide uppercase';
 
@@ -879,7 +879,7 @@ export const ShotCard = ({
         <>
             <div
                 id={`shot-${index}`}
-                className={`relative group p-6 lg-card ${borderColor}`}
+                className={`relative group p-6 lg-card-static ${borderColor}`}
             >
                 {/* Discarded Overlay */}
                 {isDiscarded && (
@@ -1078,7 +1078,7 @@ export const ShotCard = ({
                                                 }, 50);
                                             }}
                                             disabled={isGenerating}
-                                            className={`flex-1 lg-btn ${isGenerating
+                                            className={`flex-1 lg-btn lg-btn-sm ${isGenerating
                                                 ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
                                                 : 'lg-btn-primary'
                                                 }`}
@@ -1135,7 +1135,7 @@ export const ShotCard = ({
                             )}
 
                             {/* 4. 首帧/视频描述 */}
-                            <div className={`flex-shrink-0 ${DESC_WIDTH} ${CARD_HEIGHT} lg-card ${CARD_PADDING} flex flex-col ${CARD_GAP} overflow-y-auto`}>
+                            <div className={`flex-shrink-0 ${DESC_WIDTH} ${CARD_HEIGHT} lg-card-compact ${CARD_PADDING} flex flex-col ${CARD_GAP} overflow-y-auto`}>
                                 {/* 线稿提示词输入框 - 仅在线稿模式下显示，默认折叠 */}
                                 {effectiveOutlineMode && (
                                     <div className="flex flex-col gap-2 flex-shrink-0 mb-2">
@@ -1305,7 +1305,7 @@ export const ShotCard = ({
 
                             {/* 5. 流切换器 (Apple Glass 竖向Tab) */}
                             {showGeneration && (
-                                <div className={`flex-shrink-0 w-[72px] ${CARD_HEIGHT} flex flex-col items-center gap-2 p-2 lg-card`}>
+                                <div className={`flex-shrink-0 w-[72px] ${CARD_HEIGHT} flex flex-col items-center gap-2 p-2 lg-card-compact`}>
                                     {/* 线稿 Tab */}
                                     <button
                                         onClick={() => setActiveStream('outline')}

@@ -115,6 +115,55 @@
         var(--lg-glass-bg-strong);
 }
 
+/* 无悬浮效果 - 适合容器级卡片 */
+.lg-card-static {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--lg-radius-2xl);
+    background: 
+        linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.3) 100%),
+        rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(var(--lg-glass-blur)) saturate(var(--lg-glass-saturate));
+    -webkit-backdrop-filter: blur(var(--lg-glass-blur)) saturate(var(--lg-glass-saturate));
+    border: 1px solid var(--lg-glass-border);
+    box-shadow: 
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.9),
+        inset 0 -1px 0 0 rgba(255, 255, 255, 0.3),
+        var(--lg-shadow-md);
+    transition: box-shadow var(--lg-transition-normal) var(--lg-easing-default);
+}
+.lg-card-static:hover {
+    box-shadow: 
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.9),
+        inset 0 -1px 0 0 rgba(255, 255, 255, 0.3),
+        var(--lg-shadow-lg);
+}
+
+/* 紧凑型卡片 - 小圆角、无高光条、无悬浮 */
+.lg-card-compact {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--lg-radius-lg);
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: var(--lg-shadow-sm);
+    transition: all var(--lg-transition-normal) var(--lg-easing-default);
+}
+.lg-card-compact:hover {
+    box-shadow: var(--lg-shadow-md);
+}
+
+/* 内嵌卡片 - 更小圆角、半透明、用于嵌套 */
+.lg-card-inset {
+    border-radius: var(--lg-radius-md);
+    background: rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
 /* ==================== 按钮 ==================== */
 .lg-btn {
     padding: 12px 24px;
@@ -160,6 +209,25 @@
 .lg-btn-danger {
     background: var(--lg-red);
     color: #fff;
+}
+
+/* 按钮尺寸变体 */
+.lg-btn-xs {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: var(--lg-radius-sm);
+    gap: 4px;
+}
+.lg-btn-sm {
+    padding: 8px 16px;
+    font-size: 13px;
+    border-radius: var(--lg-radius-sm);
+    gap: 6px;
+}
+.lg-btn-lg {
+    padding: 16px 32px;
+    font-size: 17px;
+    border-radius: var(--lg-radius-lg);
 }
 
 /* ==================== 输入框 ==================== */
