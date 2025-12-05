@@ -1025,6 +1025,39 @@ export default function Step3_DeconstructionReview({
         setShotProviders((prev) => ({ ...prev, [shotId]: providerId }));
     };
 
+    // 保存视频选择到后端（传入最新的索引数组，避免闭包问题）
+    const saveVideoSelectionsToBackend = (shotId: number, latestIndexes: number[]) => {
+        if (!currentWorkspace?.path || !generatedDir) return;
+        if (!savedVideoIndexesLoaded) {
+            console.warn('视频选择数据尚未加载完成，跳过保存以避免数据丢失');
+            return;
+        }
+
+        const videos = generatedVideos[shotId] || [];
+
+        // 转换索引为文件名数组
+        const filenames = latestIndexes
+            .filter(i => i >= 0 && i < videos.length)
+            .map(i => videos[i].split('/').pop() || '');
+
+        // 获取已保存的文件名映射
+        const savedFilenames = (window as unknown as Record<string, unknown>).__savedVideoFilenames as Record<string, string[]> || {};
+
+        // 合并：保留原有选择 + 添加/更新当前选择
+        const allSelections: Record<string, string[]> = { ...savedFilenames };
+        const shotKey = Number.isInteger(shotId) ? shotId.toFixed(1) : String(shotId);
+        allSelections[shotKey] = filenames;
+
+        // 同步更新 window 临时变量
+        (window as unknown as Record<string, unknown>).__savedVideoFilenames = allSelections;
+
+        fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-videos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ generated_dir: generatedDir, indexes: allSelections }),
+        }).catch(() => { /* ignore */ });
+    };
+
     // 选择/取消选择视频（点击视频缩略图时调用，toggle 逻辑），保存文件名数组到后端
     const handleSelectVideoIndex = (shotId: number, idx: number) => {
         setSelectedVideoIndexes(prev => {
@@ -1033,57 +1066,25 @@ export default function Step3_DeconstructionReview({
             const next = isSelected
                 ? current.filter(i => i !== idx)  // 移除
                 : [...current, idx];               // 添加
+
+            // 在回调中直接获取最新值并保存
+            saveVideoSelectionsToBackend(shotId, next);
+
             return { ...prev, [shotId]: next };
         });
-
-        // 保存到后端（使用文件名数组）
-        saveVideoSelectionsToBackend(shotId);
     };
 
     // 移除指定视频（从选中列表中移除）
     const handleRemoveVideoIndex = (shotId: number, idx: number) => {
         setSelectedVideoIndexes(prev => {
             const current = prev[shotId] || [];
-            return { ...prev, [shotId]: current.filter(i => i !== idx) };
+            const next = current.filter(i => i !== idx);
+
+            // 在回调中直接获取最新值并保存
+            saveVideoSelectionsToBackend(shotId, next);
+
+            return { ...prev, [shotId]: next };
         });
-        saveVideoSelectionsToBackend(shotId);
-    };
-
-    // 保存视频选择到后端
-    const saveVideoSelectionsToBackend = (shotId: number) => {
-        if (!currentWorkspace?.path || !generatedDir) return;
-        if (!savedVideoIndexesLoaded) {
-            console.warn('视频选择数据尚未加载完成，跳过保存以避免数据丢失');
-            return;
-        }
-
-        // 延迟执行以获取最新状态
-        setTimeout(() => {
-            const videos = generatedVideos[shotId] || [];
-            const currentIndexes = selectedVideoIndexes[shotId] || [];
-
-            // 转换索引为文件名数组
-            const filenames = currentIndexes
-                .filter(i => i >= 0 && i < videos.length)
-                .map(i => videos[i].split('/').pop() || '');
-
-            // 获取已保存的文件名映射
-            const savedFilenames = (window as unknown as Record<string, unknown>).__savedVideoFilenames as Record<string, string[]> || {};
-
-            // 合并：保留原有选择 + 添加/更新当前选择
-            const allSelections: Record<string, string[]> = { ...savedFilenames };
-            const shotKey = Number.isInteger(shotId) ? shotId.toFixed(1) : String(shotId);
-            allSelections[shotKey] = filenames;
-
-            // 同步更新 window 临时变量
-            (window as unknown as Record<string, unknown>).__savedVideoFilenames = allSelections;
-
-            fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-videos`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ generated_dir: generatedDir, indexes: allSelections }),
-            }).catch(() => { /* ignore */ });
-        }, 50);
     };
 
     // 选择图片（点击「选择此图」按钮时调用），保存文件名到后端

@@ -43,6 +43,23 @@ export const PreviewVideoPlayer = ({
         }
     }, [volume, muted]);
 
+    // 当 src 变化时，重置播放器状态
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        // 暂停当前播放
+        video.pause();
+        setPlaying(false);
+        setCurrentTime(0);
+        setDuration(0);
+
+        // 重新加载视频
+        if (shouldLoad && src) {
+            video.load();
+        }
+    }, [src, shouldLoad]);
+
     useEffect(() => {
         if (!lazy || shouldLoad) return;
         const el = containerRef.current;
