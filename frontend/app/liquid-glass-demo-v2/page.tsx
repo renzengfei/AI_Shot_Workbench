@@ -574,15 +574,16 @@ export default function LiquidGlassDesignSystem() {
                 overflow: 'hidden',
                 transition: 'background 0.3s, color 0.3s',
             }}>
-                {/* 背景 - 纯多层渐变，无浮动光晕 */}
+                {/* 背景 - 增强渐变，凸显玻璃透视效果 */}
                 <div style={{ 
                     position: 'fixed', 
                     inset: 0, 
                     background: `
-                        radial-gradient(ellipse 120% 60% at 50% -10%, rgba(180,195,230,0.25) 0%, transparent 50%),
-                        radial-gradient(ellipse 100% 50% at 0% 50%, rgba(200,215,235,0.15) 0%, transparent 40%),
-                        radial-gradient(ellipse 80% 60% at 100% 80%, rgba(235,210,195,0.18) 0%, transparent 45%),
-                        linear-gradient(180deg, #FAFBFD 0%, #F5F5F7 50%, #F8F7F5 100%)
+                        radial-gradient(ellipse 140% 70% at 50% -5%, rgba(140,170,220,0.5) 0%, rgba(160,185,230,0.2) 35%, transparent 55%),
+                        radial-gradient(ellipse 120% 60% at -10% 40%, rgba(170,195,235,0.4) 0%, transparent 45%),
+                        radial-gradient(ellipse 100% 70% at 110% 70%, rgba(240,200,175,0.45) 0%, rgba(235,195,170,0.2) 35%, transparent 50%),
+                        radial-gradient(ellipse 80% 50% at 30% 90%, rgba(200,180,220,0.25) 0%, transparent 40%),
+                        linear-gradient(165deg, #F8FAFF 0%, #F5F5F7 40%, #FBF8F5 100%)
                     `,
                     pointerEvents: 'none',
                     zIndex: -1
