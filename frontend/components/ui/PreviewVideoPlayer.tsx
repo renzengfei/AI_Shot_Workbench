@@ -148,10 +148,10 @@ export const PreviewVideoPlayer = ({
                 />
             </div>
 
-            {/* Controls Area */}
-            <div className="flex flex-col gap-2 px-1 bg-[var(--glass-bg-light)] p-2 rounded-xl border border-[var(--glass-border)]">
+            {/* Controls Area - Liquid Glass Style */}
+            <div className="flex flex-col gap-2 px-2 py-2.5 rounded-xl bg-white/40 backdrop-blur-sm border border-[var(--lg-glass-border)]">
                 {/* Progress Bar */}
-                <div className="flex items-center gap-2 text-xs text-[var(--color-text-tertiary)] font-mono">
+                <div className="flex items-center gap-2 text-xs text-[var(--lg-text-tertiary)] font-mono">
                     <span className="w-10 text-right">{formatTime(currentTime)}</span>
                     <input
                         type="range"
@@ -160,44 +160,45 @@ export const PreviewVideoPlayer = ({
                         step={0.01}
                         value={currentTime}
                         onChange={handleSeek}
-                        className="flex-1 h-1 bg-[var(--color-bg-secondary)] rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-500"
+                        className="flex-1 h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--lg-blue)]"
                     />
                     <span className="w-10">{formatTime(duration)}</span>
                 </div>
 
-                {/* Buttons Row */}
+                {/* Buttons Row - Liquid Glass Style */}
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                        <button onClick={togglePlay} className="p-1.5 hover:bg-[var(--color-bg-secondary)] rounded text-[var(--color-text-primary)]">
+                    <div className="flex items-center gap-0.5">
+                        <button onClick={togglePlay} className="p-1.5 rounded-lg hover:bg-white/60 text-[var(--lg-text-primary)] transition-colors">
                             {playing ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
                         </button>
 
-                        <div className="w-px h-4 bg-[var(--glass-border)] mx-1" />
+                        <div className="w-px h-4 bg-[var(--lg-glass-border)] mx-1" />
 
-                        <button onClick={() => stepFrame(-1)} className="p-1.5 hover:bg-[var(--color-bg-secondary)] rounded text-[var(--color-text-primary)]" title="上一帧">
+                        <button onClick={() => stepFrame(-1)} className="p-1.5 rounded-lg hover:bg-white/60 text-[var(--lg-text-primary)] transition-colors" title="上一帧">
                             <ChevronLeft size={14} />
                         </button>
-                        <button onClick={() => stepFrame(1)} className="p-1.5 hover:bg-[var(--color-bg-secondary)] rounded text-[var(--color-text-primary)]" title="下一帧">
+                        <button onClick={() => stepFrame(1)} className="p-1.5 rounded-lg hover:bg-white/60 text-[var(--lg-text-primary)] transition-colors" title="下一帧">
                             <ChevronRight size={14} />
                         </button>
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <div className="flex bg-[var(--color-bg-secondary)]/50 rounded p-0.5">
+                        {/* Playback Rate Selector - Liquid Glass Pill Style */}
+                        <div className="flex items-center rounded-lg bg-white/50 border border-[var(--lg-glass-border)] p-0.5">
                             {[1, 2, 2.5, 3, 4].map((r) => (
                                 <button
                                     key={r}
                                     onClick={() => changeRate(r)}
-                                    className={`text-xs px-1 py-0.5 rounded transition ${rate === r
-                                        ? 'bg-blue-500 text-white shadow-sm'
-                                        : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                                    className={`text-xs px-1.5 py-0.5 rounded-md font-medium transition-all ${rate === r
+                                        ? 'bg-[var(--lg-blue)] text-white shadow-sm'
+                                        : 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)] hover:bg-white/60'
                                         }`}
                                 >
                                     {r}x
                                 </button>
                             ))}
                         </div>
-                        <button onClick={toggleFullscreen} className="p-1.5 hover:bg-[var(--color-bg-secondary)] rounded text-[var(--color-text-primary)]">
+                        <button onClick={toggleFullscreen} className="p-1.5 rounded-lg hover:bg-white/60 text-[var(--lg-text-primary)] transition-colors">
                             <Maximize size={14} />
                         </button>
                     </div>

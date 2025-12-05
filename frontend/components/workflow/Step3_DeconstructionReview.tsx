@@ -187,8 +187,8 @@ export default function Step3_DeconstructionReview({
     const [videoTaskProgresses, setVideoTaskProgresses] = useState<Record<number, Array<{ taskId: string; progress: number; status: string; startTime: number }>>>({}); // 每个任务的进度
     const [newlyGeneratedVideos, setNewlyGeneratedVideos] = useState<Record<number, string[]>>({});  // 新生成的视频 URL
     const [generatedVideos, setGeneratedVideos] = useState<Record<number, string[]>>({});  // 视频列表
-    const [selectedVideoIndexes, setSelectedVideoIndexes] = useState<Record<number, number>>({});  // 选中的视频索引
-    const [savedVideoIndexes, setSavedVideoIndexes] = useState<Record<number, number>>({});  // 已保存的视频索引
+    const [selectedVideoIndexes, setSelectedVideoIndexes] = useState<Record<number, number[]>>({});  // 选中的视频索引（多选）
+    const [savedVideoIndexes, setSavedVideoIndexes] = useState<Record<number, number[]>>({});  // 已保存的视频索引（多选）
     const [savedVideoIndexesLoaded, setSavedVideoIndexesLoaded] = useState(false);  // 是否已加载保存的视频索引
     const [defaultStream, setDefaultStream] = useState<'image' | 'video' | 'outline'>(() => {
         if (typeof window !== 'undefined') {
@@ -1025,42 +1025,65 @@ export default function Step3_DeconstructionReview({
         setShotProviders((prev) => ({ ...prev, [shotId]: providerId }));
     };
 
-    // 选择视频（点击视频缩略图时调用），保存文件名到后端（与图片一致）
+    // 选择/取消选择视频（点击视频缩略图时调用，toggle 逻辑），保存文件名数组到后端
     const handleSelectVideoIndex = (shotId: number, idx: number) => {
-        setSelectedVideoIndexes(prev => ({ ...prev, [shotId]: idx }));
+        setSelectedVideoIndexes(prev => {
+            const current = prev[shotId] || [];
+            const isSelected = current.includes(idx);
+            const next = isSelected
+                ? current.filter(i => i !== idx)  // 移除
+                : [...current, idx];               // 添加
+            return { ...prev, [shotId]: next };
+        });
 
-        // 保存到后端（使用文件名而不是索引）
-        if (currentWorkspace?.path && generatedDir) {
-            const videos = generatedVideos[shotId] || [];
-            if (idx >= 0 && idx < videos.length) {
-                // 安全检查：确保已保存的视频数据已加载完成，避免覆盖
-                if (!savedVideoIndexesLoaded) {
-                    console.warn('视频选择数据尚未加载完成，跳过保存以避免数据丢失');
-                    return;
-                }
+        // 保存到后端（使用文件名数组）
+        saveVideoSelectionsToBackend(shotId);
+    };
 
-                const videoUrl = videos[idx];
-                const filename = videoUrl.split('/').pop() || '';
+    // 移除指定视频（从选中列表中移除）
+    const handleRemoveVideoIndex = (shotId: number, idx: number) => {
+        setSelectedVideoIndexes(prev => {
+            const current = prev[shotId] || [];
+            return { ...prev, [shotId]: current.filter(i => i !== idx) };
+        });
+        saveVideoSelectionsToBackend(shotId);
+    };
 
-                // 获取已保存的文件名映射
-                const savedFilenames = (window as unknown as Record<string, unknown>).__savedVideoFilenames as Record<string, string> || {};
-
-                // 合并：保留原有选择 + 添加/更新当前选择
-                // 统一使用 x.0 格式的 key（如 "1.0", "2.0"）
-                const allSelections: Record<string, string> = { ...savedFilenames };
-                const shotKey = Number.isInteger(shotId) ? shotId.toFixed(1) : String(shotId);
-                allSelections[shotKey] = filename;
-
-                // 同步更新 window 临时变量
-                (window as unknown as Record<string, unknown>).__savedVideoFilenames = allSelections;
-
-                fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-videos`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ generated_dir: generatedDir, indexes: allSelections }),
-                }).catch(() => { /* ignore */ });
-            }
+    // 保存视频选择到后端
+    const saveVideoSelectionsToBackend = (shotId: number) => {
+        if (!currentWorkspace?.path || !generatedDir) return;
+        if (!savedVideoIndexesLoaded) {
+            console.warn('视频选择数据尚未加载完成，跳过保存以避免数据丢失');
+            return;
         }
+
+        // 延迟执行以获取最新状态
+        setTimeout(() => {
+            const videos = generatedVideos[shotId] || [];
+            const currentIndexes = selectedVideoIndexes[shotId] || [];
+
+            // 转换索引为文件名数组
+            const filenames = currentIndexes
+                .filter(i => i >= 0 && i < videos.length)
+                .map(i => videos[i].split('/').pop() || '');
+
+            // 获取已保存的文件名映射
+            const savedFilenames = (window as unknown as Record<string, unknown>).__savedVideoFilenames as Record<string, string[]> || {};
+
+            // 合并：保留原有选择 + 添加/更新当前选择
+            const allSelections: Record<string, string[]> = { ...savedFilenames };
+            const shotKey = Number.isInteger(shotId) ? shotId.toFixed(1) : String(shotId);
+            allSelections[shotKey] = filenames;
+
+            // 同步更新 window 临时变量
+            (window as unknown as Record<string, unknown>).__savedVideoFilenames = allSelections;
+
+            fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-videos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ generated_dir: generatedDir, indexes: allSelections }),
+            }).catch(() => { /* ignore */ });
+        }, 50);
     };
 
     // 选择图片（点击「选择此图」按钮时调用），保存文件名到后端
@@ -2502,8 +2525,8 @@ export default function Step3_DeconstructionReview({
         savedIndexesRef.current = savedIndexes;
     }, [savedIndexes]);
 
-    // 拉取已保存的选中视频文件名（与图片一致，保存文件名而非索引）
-    const [savedVideoFilenames, setSavedVideoFilenames] = useState<Record<number, string>>({});
+    // 拉取已保存的选中视频文件名（支持多选：文件名数组）
+    const [savedVideoFilenames, setSavedVideoFilenames] = useState<Record<number, string[]>>({});
     useEffect(() => {
         if (!currentWorkspace?.path || !generatedDir) {
             setSavedVideoFilenames({});
@@ -2513,12 +2536,18 @@ export default function Step3_DeconstructionReview({
         }
         fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-videos?generated_dir=${encodeURIComponent(generatedDir)}`)
             .then(resp => resp.ok ? resp.json() : { indexes: {} })
-            .then((data: { indexes?: Record<string, string | number> }) => {
-                const mapped: Record<number, string> = {};
+            .then((data: { indexes?: Record<string, string | string[] | number> }) => {
+                const mapped: Record<number, string[]> = {};
                 if (data.indexes) {
                     Object.entries(data.indexes).forEach(([k, v]) => {
-                        // 兼容旧格式（数字索引）和新格式（文件名）
-                        mapped[Number(k)] = String(v);
+                        // 兼容多种格式：数组、单个字符串、数字索引
+                        if (Array.isArray(v)) {
+                            mapped[Number(k)] = v.map(String);
+                        } else if (typeof v === 'string') {
+                            mapped[Number(k)] = [v];
+                        } else if (typeof v === 'number') {
+                            mapped[Number(k)] = [String(v)];
+                        }
                     });
                 }
                 setSavedVideoFilenames(mapped);
@@ -2533,12 +2562,12 @@ export default function Step3_DeconstructionReview({
             });
     }, [currentWorkspace?.path, generatedDir]);
 
-    // 当保存的视频文件名加载完成后，通过文件名匹配到索引并应用到对应镜头
+    // 当保存的视频文件名加载完成后，通过文件名匹配到索引并应用到对应镜头（多选）
     useEffect(() => {
         if (!savedVideoIndexesLoaded || !Object.keys(generatedVideos).length) return;
 
         // 从 window 获取原始的文件名映射（保留字符串 key 格式如 "1.0"）
-        const rawSavedFilenames = (window as unknown as Record<string, unknown>).__savedVideoFilenames as Record<string, string | number> || {};
+        const rawSavedFilenames = (window as unknown as Record<string, unknown>).__savedVideoFilenames as Record<string, string | string[] | number> || {};
 
         setSelectedVideoIndexes((prev) => {
             let changed = false;
@@ -2550,51 +2579,55 @@ export default function Step3_DeconstructionReview({
 
                 // 尝试多种 key 格式匹配（"1", "1.0", 整数形式）
                 const possibleKeys = [String(id), id.toFixed(1), String(Math.floor(id))];
-                let savedFilename: string | undefined;
+                let savedFilenames: string[] = [];
                 for (const key of possibleKeys) {
                     const val = rawSavedFilenames[key];
-                    if (typeof val === 'string' && val.trim()) {
-                        savedFilename = val;
+                    if (Array.isArray(val)) {
+                        savedFilenames = val.map(String);
+                        break;
+                    } else if (typeof val === 'string' && val.trim()) {
+                        savedFilenames = [val];
                         break;
                     } else if (typeof val === 'number') {
                         // 兼容旧格式：数字索引
-                        savedFilename = String(val);
+                        savedFilenames = [String(val)];
                         break;
                     }
                 }
                 // 也尝试从 savedVideoFilenames（数字 key）获取
-                if (!savedFilename) {
+                if (!savedFilenames.length) {
                     const fromState = savedVideoFilenames[id];
-                    if (fromState && fromState.trim()) savedFilename = fromState;
+                    if (fromState && fromState.length) savedFilenames = fromState;
                 }
 
-                if (savedFilename) {
-                    // 尝试通过文件名匹配（使用宽松匹配）
-                    // 提取纯文件名部分用于匹配
-                    const pureFilename = savedFilename.split('/').pop() || savedFilename;
-                    const matchedIdx = videos.findIndex((url: string) => {
-                        const urlFilename = url.split('/').pop() || url;
-                        return urlFilename === pureFilename || url.endsWith(pureFilename) || url.includes(`/${pureFilename}`);
-                    });
+                if (savedFilenames.length) {
+                    // 将每个文件名匹配到索引
+                    const matchedIndexes: number[] = [];
+                    for (const savedFilename of savedFilenames) {
+                        const pureFilename = savedFilename.split('/').pop() || savedFilename;
+                        const matchedIdx = videos.findIndex((url: string) => {
+                            const urlFilename = url.split('/').pop() || url;
+                            return urlFilename === pureFilename || url.endsWith(pureFilename) || url.includes(`/${pureFilename}`);
+                        });
 
-                    if (matchedIdx >= 0) {
-                        if (next[id] !== matchedIdx) {
-                            next[id] = matchedIdx;
-                            changed = true;
-                            console.log(`[Video Selection] Shot ${id}: restored to index ${matchedIdx} (${pureFilename})`);
-                        }
-                    } else {
-                        // 兼容旧格式：savedFilename 可能是数字字符串（如 "0"）
-                        const numIdx = parseInt(savedFilename, 10);
-                        if (!isNaN(numIdx) && numIdx >= 0 && numIdx < videos.length) {
-                            if (next[id] !== numIdx) {
-                                next[id] = numIdx;
-                                changed = true;
-                            }
+                        if (matchedIdx >= 0 && !matchedIndexes.includes(matchedIdx)) {
+                            matchedIndexes.push(matchedIdx);
                         } else {
-                            console.warn(`[Video Selection] Shot ${id}: saved file "${pureFilename}" not found in video list`);
+                            // 兼容旧格式：savedFilename 可能是数字字符串（如 "0"）
+                            const numIdx = parseInt(savedFilename, 10);
+                            if (!isNaN(numIdx) && numIdx >= 0 && numIdx < videos.length && !matchedIndexes.includes(numIdx)) {
+                                matchedIndexes.push(numIdx);
+                            }
                         }
-                        // 有保存记录但匹配失败，保持当前选择不变（不强制重置为 0）
+                    }
+
+                    if (matchedIndexes.length) {
+                        const prevIndexes = next[id] || [];
+                        if (JSON.stringify(prevIndexes.sort()) !== JSON.stringify(matchedIndexes.sort())) {
+                            next[id] = matchedIndexes;
+                            changed = true;
+                            console.log(`[Video Selection] Shot ${id}: restored to indexes [${matchedIndexes.join(', ')}]`);
+                        }
                     }
                 }
                 // 没有保存记录时不设置默认值，避免 API 还没返回时显示错误的选择
@@ -4459,8 +4492,9 @@ export default function Step3_DeconstructionReview({
                                             videoProgress={videoProgress[shot.id ?? index + 1] ?? 0}
                                             videoTaskProgresses={videoTaskProgresses[shot.id ?? index + 1] || []}
                                             generatedVideoUrls={generatedVideos[shot.id ?? index + 1] || []}
-                                            selectedVideoIndex={selectedVideoIndexes[shot.id ?? index + 1]}
+                                            selectedVideoIndexes={selectedVideoIndexes[shot.id ?? index + 1] || []}
                                             onSelectVideoIndex={(idx: number) => handleSelectVideoIndex(shot.id ?? index + 1, idx)}
+                                            onRemoveVideoIndex={(idx: number) => handleRemoveVideoIndex(shot.id ?? index + 1, idx)}
                                             newVideos={newlyGeneratedVideos[shot.id ?? index + 1] || []}
                                             onVideoSeen={(url: string) => handleVideoSeen(shot.id ?? index + 1, url)}
                                             onStopVideoGeneration={handleStopSingleVideoGeneration}

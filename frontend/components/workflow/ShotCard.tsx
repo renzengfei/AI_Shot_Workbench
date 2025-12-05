@@ -311,8 +311,9 @@ interface ShotCardProps {
     videoProgress?: number; // 视频生成进度 0-100
     videoTaskProgresses?: Array<{ taskId: string; progress: number; status: string; startTime: number }>; // 每个任务的进度
     generatedVideoUrls?: string[];
-    selectedVideoIndex?: number;
-    onSelectVideoIndex?: (index: number) => void;
+    selectedVideoIndexes?: number[];  // 多选
+    onSelectVideoIndex?: (index: number) => void;  // toggle 选择/取消
+    onRemoveVideoIndex?: (index: number) => void;  // 移除指定视频
     newVideos?: string[];  // 新生成的视频 URL
     onVideoSeen?: (url: string) => void;  // 播放视频后的回调
     onStopVideoGeneration?: (shot: Round2Shot, index: number) => void;  // 停止视频生成
@@ -375,8 +376,9 @@ export const ShotCard = ({
     videoProgress = 0,
     videoTaskProgresses = [],
     generatedVideoUrls = [],
-    selectedVideoIndex = 0,
+    selectedVideoIndexes = [],
     onSelectVideoIndex,
+    onRemoveVideoIndex,
     newVideos = [],
     onVideoSeen,
     onStopVideoGeneration,
@@ -406,13 +408,26 @@ export const ShotCard = ({
     const effectiveOutlineMode = outlineMode !== undefined ? outlineMode : globalOutlineMode;
     const effectiveOutlinePrompt = outlinePrompt !== undefined ? outlinePrompt : globalOutlinePrompt;
 
-    // 将相对路径转换为完整 URL（使用选中的视频）
+    // 多选视频：当前查看的索引（在选中列表中的位置）
+    const [viewingIndex, setViewingIndex] = useState(0);
+
+    // 确保 viewingIndex 不越界
+    useEffect(() => {
+        if (viewingIndex >= selectedVideoIndexes.length && selectedVideoIndexes.length > 0) {
+            setViewingIndex(selectedVideoIndexes.length - 1);
+        }
+    }, [selectedVideoIndexes.length, viewingIndex]);
+
+    // 当前查看的视频在 generatedVideoUrls 中的真实索引
+    const currentVideoRealIndex = selectedVideoIndexes[viewingIndex] ?? -1;
+
+    // 将相对路径转换为完整 URL（使用当前查看的视频）
     const videoSrc = useMemo(() => {
-        if (!generatedVideoUrls.length) return null;
-        const url = generatedVideoUrls[Math.min(selectedVideoIndex, generatedVideoUrls.length - 1)];
+        if (!generatedVideoUrls.length || currentVideoRealIndex < 0) return null;
+        const url = generatedVideoUrls[currentVideoRealIndex];
         if (!url) return null;
         return url.startsWith('/') ? `${API_BASE}${url}` : url;
-    }, [generatedVideoUrls, selectedVideoIndex]);
+    }, [generatedVideoUrls, currentVideoRealIndex]);
 
     // Delete confirmation state: { type: 'fg_char' | 'fg_obj' | 'mg_char' | 'mg_obj', index: number } | null
     const [deleteConfirm, setDeleteConfirm] = useState<{ type: string; index: number; label: string } | null>(null);
@@ -1048,34 +1063,17 @@ export const ShotCard = ({
                                             <span className="text-slate-400">点击下方生成</span>
                                         )}
                                     </div>
-                                    {/* 供应商选择器 + 生图按钮 */}
-                                    <div className="mt-2 flex items-center gap-2">
-                                        {providers.length > 0 && (
-                                            <select
-                                                value={selectedProviderId || providers.find(p => p.is_default)?.id || providers[0]?.id || ''}
-                                                onChange={(e) => onProviderChange?.(shot, index, e.target.value)}
-                                                disabled={isGenerating}
-                                                className="lg-input flex-shrink-0 py-2 text-xs font-medium disabled:opacity-50 max-w-[100px]"
-                                                title="选择生图供应商"
-                                            >
-                                                {providers.map(p => (
-                                                    <option key={p.id} value={p.id}>
-                                                        {p.name}{p.is_default ? ' ✓' : ''}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        )}
+                                    {/* 生图按钮 - 使用全局供应商设置 */}
+                                    <div className="mt-2">
                                         <button
                                             onClick={() => {
-                                                // 先 blur 当前输入框，强制同步 debounce 中的数据
                                                 (document.activeElement as HTMLElement)?.blur();
-                                                // 延迟 50ms 确保 React 状态更新完成
                                                 setTimeout(() => {
                                                     onGenerateImage?.(shot, index, selectedProviderId);
                                                 }, 50);
                                             }}
                                             disabled={isGenerating}
-                                            className={`flex-1 lg-btn lg-btn-sm ${isGenerating
+                                            className={`w-full lg-btn lg-btn-sm ${isGenerating
                                                 ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
                                                 : 'lg-btn-primary'
                                                 }`}
@@ -1094,21 +1092,59 @@ export const ShotCard = ({
                                 </div>
                             )}
 
-                            {/* 3. 选中视频 - 展示选中的视频，没有则显示占位（无切换按钮，在素材流中选择） */}
+                            {/* 3. 选中视频 - 展示选中的视频，支持多选切换 */}
                             {showGeneration && (
                                 <div className={`${mediaCardBase} ${shot.finalizedVideo ? 'ring-2 ring-zinc-400/30 !duration-100' : ''}`}>
-                                    <div className="flex items-center justify-between">
+                                    <div className="flex items-center justify-between gap-2">
                                         <div className={mediaTitleClass}>选中视频</div>
-                                        {videoSrc && (
-                                            <FinalizeButton
-                                                isFinalized={!!(shot.finalizedVideo && videoSrc.includes(shot.finalizedVideo))}
-                                                onClick={() => {
-                                                    const filename = videoSrc.split('/').pop() || '';
-                                                    const isFinalized = shot.finalizedVideo === filename;
-                                                    onFinalizeVideo?.(shot, index, isFinalized ? null : filename);
-                                                }}
-                                            />
-                                        )}
+                                        {/* 多选控件：切换、移除、定稿 */}
+                                        <div className="flex items-center gap-1">
+                                            {/* 切换按钮 - 仅多选时显示 */}
+                                            {selectedVideoIndexes.length > 1 && (
+                                                <>
+                                                    <button
+                                                        onClick={() => setViewingIndex(v => Math.max(0, v - 1))}
+                                                        disabled={viewingIndex === 0}
+                                                        className="p-1 rounded-md hover:bg-white/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                                        title="上一个"
+                                                    >
+                                                        <ChevronLeft size={14} className="text-[var(--lg-text-secondary)]" />
+                                                    </button>
+                                                    <span className="text-xs text-[var(--lg-text-tertiary)] min-w-[32px] text-center">
+                                                        {viewingIndex + 1}/{selectedVideoIndexes.length}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => setViewingIndex(v => Math.min(selectedVideoIndexes.length - 1, v + 1))}
+                                                        disabled={viewingIndex >= selectedVideoIndexes.length - 1}
+                                                        className="p-1 rounded-md hover:bg-white/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                                        title="下一个"
+                                                    >
+                                                        <ChevronRight size={14} className="text-[var(--lg-text-secondary)]" />
+                                                    </button>
+                                                </>
+                                            )}
+                                            {/* 移除按钮 - 有选中时显示 */}
+                                            {selectedVideoIndexes.length > 0 && currentVideoRealIndex >= 0 && (
+                                                <button
+                                                    onClick={() => onRemoveVideoIndex?.(currentVideoRealIndex)}
+                                                    className="p-1 rounded-md hover:bg-red-50 hover:text-red-500 transition-all"
+                                                    title="移除此视频"
+                                                >
+                                                    <X size={14} className="text-[var(--lg-text-tertiary)]" />
+                                                </button>
+                                            )}
+                                            {/* 定稿按钮 */}
+                                            {videoSrc && (
+                                                <FinalizeButton
+                                                    isFinalized={!!(shot.finalizedVideo && videoSrc.includes(shot.finalizedVideo))}
+                                                    onClick={() => {
+                                                        const filename = videoSrc.split('/').pop() || '';
+                                                        const isFinalized = shot.finalizedVideo === filename;
+                                                        onFinalizeVideo?.(shot, index, isFinalized ? null : filename);
+                                                    }}
+                                                />
+                                            )}
+                                        </div>
                                     </div>
                                     {videoSrc ? (
                                         <>
@@ -1191,44 +1227,27 @@ export const ShotCard = ({
                                             <span>首帧描述</span>
                                             {renderAnnotationControl?.(`shot-${shot.id ?? index}-initial`, `Shot #${shot.id ?? index + 1} Initial Frame`)}
                                         </div>
-                                        {/* 生图按钮 */}
+                                        {/* 生图按钮 - 使用全局供应商设置 */}
                                         {showGeneration && (
-                                            <div className="flex items-center gap-2">
-                                                {providers.length > 0 && (
-                                                    <select
-                                                        value={selectedProviderId || providers.find(p => p.is_default)?.id || providers[0]?.id || ''}
-                                                        onChange={(e) => onProviderChange?.(shot, index, e.target.value)}
-                                                        disabled={isGenerating}
-                                                        className="lg-input lg-input-sm text-xs"
-                                                        title="选择生图供应商"
-                                                    >
-                                                        {providers.map(p => (
-                                                            <option key={p.id} value={p.id}>
-                                                                {p.name}{p.is_default ? ' ✓' : ''}
-                                                            </option>
-                                                        ))}
-                                                    </select>
+                                            <button
+                                                onClick={() => {
+                                                    (document.activeElement as HTMLElement)?.blur();
+                                                    setTimeout(() => {
+                                                        onGenerateImage?.(shot, index, selectedProviderId);
+                                                    }, 50);
+                                                }}
+                                                disabled={isGenerating}
+                                                className={`lg-btn lg-btn-sm ${isGenerating
+                                                    ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
+                                                    : 'lg-btn-primary'
+                                                    }`}
+                                            >
+                                                {isGenerating ? (
+                                                    <><Loader2 size={14} className="animate-spin" />生成中</>
+                                                ) : (
+                                                    <><Wand2 size={14} />生成图片</>
                                                 )}
-                                                <button
-                                                    onClick={() => {
-                                                        (document.activeElement as HTMLElement)?.blur();
-                                                        setTimeout(() => {
-                                                            onGenerateImage?.(shot, index, selectedProviderId);
-                                                        }, 50);
-                                                    }}
-                                                    disabled={isGenerating}
-                                                    className={`lg-btn lg-btn-sm ${isGenerating
-                                                        ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
-                                                        : 'lg-btn-primary'
-                                                        }`}
-                                                >
-                                                    {isGenerating ? (
-                                                        <><Loader2 size={14} className="animate-spin" />生成中</>
-                                                    ) : (
-                                                        <><Wand2 size={14} />生成图片</>
-                                                    )}
-                                                </button>
-                                            </div>
+                                            </button>
                                         )}
                                     </div>
                                     <div className="flex-1 min-h-0 overflow-y-auto">
@@ -1379,22 +1398,28 @@ export const ShotCard = ({
                                                 </div>
                                             </div>
                                         ))}
-                                        {/* 已有视频 */}
+                                        {/* 已有视频（多选模式） */}
                                         {generatedVideoUrls.map((url, idx) => {
-                                            const isSelected = idx === selectedVideoIndex;
+                                            const isSelected = selectedVideoIndexes.includes(idx);
                                             const fullUrl = url.startsWith('/') ? `${API_BASE}${url}` : url;
                                             const isNew = newVideos.includes(url);
                                             const genInfo = getGenerationInfo(url);
                                             return (
                                                 <div
                                                     key={`video-${url}-${idx}`}
-                                                    className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} lg-card-compact transition-all duration-300 ${isSelected ? 'ring-2 ring-[var(--lg-blue)]/30' : ''} ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
+                                                    className={`${MEDIA_WIDTH} flex-shrink-0 ${CARD_RADIUS} lg-card-compact transition-all duration-300 ${isSelected ? 'ring-2 ring-green-500/40' : ''} ${CARD_PADDING} flex flex-col ${CARD_GAP}`}
                                                 >
                                                     <div className={mediaTitleClass}>{genInfo || ' '}</div>
                                                     <div className={`${mediaBaseClass} border border-white/10 shadow-inner cursor-pointer relative`}>
-                                                        {/* 左上角：NEW 标识 */}
+                                                        {/* 左上角：选中勾选标识 */}
+                                                        {isSelected && (
+                                                            <span className="absolute top-2 left-2 w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center z-10 shadow-md">
+                                                                <Check size={14} />
+                                                            </span>
+                                                        )}
+                                                        {/* 右上角：NEW 标识 */}
                                                         {isNew && (
-                                                            <span className="absolute top-2 left-2 px-2 py-1 rounded-md text-xs font-semibold bg-[#e11d48] text-white z-10">
+                                                            <span className="absolute top-2 right-2 px-2 py-1 rounded-md text-xs font-semibold bg-[#e11d48] text-white z-10">
                                                                 NEW
                                                             </span>
                                                         )}
@@ -1414,10 +1439,10 @@ export const ShotCard = ({
                                                         <button
                                                             onClick={() => onSelectVideoIndex?.(idx)}
                                                             className={`flex-1 lg-btn lg-btn-sm ${isSelected
-                                                                ? 'lg-btn-secondary'
+                                                                ? 'lg-btn-primary'
                                                                 : 'lg-btn-glass'}`}
                                                         >
-                                                            {isSelected ? <><Check size={14} /> 已选择</> : '选择此视频'}
+                                                            {isSelected ? <><Check size={14} /> 已选中</> : '选择'}
                                                         </button>
                                                     </div>
                                                 </div>
