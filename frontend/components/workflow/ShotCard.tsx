@@ -1012,7 +1012,7 @@ export const ShotCard = ({
                                             {isGeneratingOutline ? (
                                                 <><Loader2 size={16} className="animate-spin" />生成中...</>
                                             ) : (
-                                                <><Pencil size={16} />生成线稿</>
+                                                <><Pencil size={16} />提取线稿</>
                                             )}
                                         </button>
                                     </div>
@@ -1159,15 +1159,15 @@ export const ShotCard = ({
                                                 <button
                                                     onClick={() => onGenerateOutline?.(shot, index)}
                                                     disabled={isGeneratingOutline}
-                                                    className={`lg-btn lg-btn-xs ${isGeneratingOutline
+                                                    className={`lg-btn lg-btn-sm ${isGeneratingOutline
                                                         ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
-                                                        : 'lg-btn-secondary'
+                                                        : 'lg-btn-glass'
                                                         }`}
                                                 >
                                                     {isGeneratingOutline ? (
                                                         <><Loader2 size={14} className="animate-spin" />生成中</>
                                                     ) : (
-                                                        <><Pencil size={14} />线稿</>
+                                                        <><Pencil size={14} />提取线稿</>
                                                     )}
                                                 </button>
                                             </div>
@@ -1199,7 +1199,7 @@ export const ShotCard = ({
                                                         value={selectedProviderId || providers.find(p => p.is_default)?.id || providers[0]?.id || ''}
                                                         onChange={(e) => onProviderChange?.(shot, index, e.target.value)}
                                                         disabled={isGenerating}
-                                                        className="lg-input text-xs py-1.5 h-[34px]"
+                                                        className="lg-input lg-input-sm text-xs"
                                                         title="选择生图供应商"
                                                     >
                                                         {providers.map(p => (
@@ -1217,7 +1217,7 @@ export const ShotCard = ({
                                                         }, 50);
                                                     }}
                                                     disabled={isGenerating}
-                                                    className={`lg-btn lg-btn-xs ${isGenerating
+                                                    className={`lg-btn lg-btn-sm ${isGenerating
                                                         ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
                                                         : 'lg-btn-primary'
                                                         }`}
@@ -1225,7 +1225,7 @@ export const ShotCard = ({
                                                     {isGenerating ? (
                                                         <><Loader2 size={14} className="animate-spin" />生成中</>
                                                     ) : (
-                                                        <><Wand2 size={14} />生图</>
+                                                        <><Wand2 size={14} />生成图片</>
                                                     )}
                                                 </button>
                                             </div>
@@ -1267,7 +1267,7 @@ export const ShotCard = ({
                                                 onClick={() => isGeneratingVideo ? onStopVideoGeneration?.(shot, index) : onGenerateVideo(shot, index)}
                                                 disabled={!isGeneratingVideo && !hasGeneratedImages}
                                                 title={isGeneratingVideo ? '停止生成视频' : !hasGeneratedImages ? '请先生成图片' : '使用当前图片生成视频'}
-                                                className={`lg-btn lg-btn-xs ${isGeneratingVideo
+                                                className={`lg-btn lg-btn-sm ${isGeneratingVideo
                                                     ? 'lg-btn-danger'
                                                     : !hasGeneratedImages
                                                         ? 'lg-btn-secondary opacity-50 cursor-not-allowed'
@@ -1277,7 +1277,7 @@ export const ShotCard = ({
                                                 {isGeneratingVideo ? (
                                                     <><Square size={14} fill="currentColor" />停止</>
                                                 ) : (
-                                                    <><Video size={14} />视频</>
+                                                    <><Video size={14} />生成视频</>
                                                 )}
                                             </button>
                                         )}
@@ -1515,7 +1515,7 @@ export const ShotCard = ({
                                                     className="lg-btn lg-btn-xs lg-btn-secondary"
                                                 >
                                                     <Wand2 size={14} />
-                                                    生成线稿
+                                                    提取线稿
                                                 </button>
                                             </div>
                                         )}
@@ -2213,7 +2213,7 @@ export const ShotCard = ({
                         )}
                     </div>
                 </div>
-            </div>
+            </div >
             {/* Delete Confirmation Modal */}
             {
                 deleteConfirm && (

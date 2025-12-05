@@ -31,9 +31,10 @@ export default function StepNavigation() {
                             key={step.id}
                             onClick={() => navigateToStep(step.id)}
                             className={`
-                                relative px-4 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all duration-200
+                                relative px-4 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap
+                                transition-[background-color,color,box-shadow] duration-200
                                 ${isActive
-                                    ? 'bg-white/80 text-[var(--lg-text-primary)] shadow-sm border border-[var(--lg-glass-border)]'
+                                    ? 'bg-white/90 text-[var(--lg-text-primary)] shadow-sm'
                                     : isCompleted
                                         ? 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)] hover:bg-white/40'
                                         : 'text-[var(--lg-text-tertiary)] hover:text-[var(--lg-text-secondary)] hover:bg-white/20'

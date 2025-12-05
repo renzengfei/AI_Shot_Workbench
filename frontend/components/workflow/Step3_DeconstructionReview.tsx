@@ -1,7 +1,7 @@
 'use client';
 
 import '@/styles/liquid-glass.css';
-import { RefreshCw, Volume2, VolumeX, AlertCircle, Trash2, X, Zap, Users, Box, Layout, Film, ArrowRight, Check, Copy, MessageSquare, ClipboardPaste, GitBranch, Anchor, Pencil, ChevronLeft, ChevronRight, ArrowLeftRight, AlertTriangle, Ruler, Palette } from 'lucide-react';
+import { RefreshCw, Volume2, VolumeX, AlertCircle, Trash2, X, Zap, Users, Box, Layout, Film, ArrowRight, Check, Copy, MessageSquare, ClipboardPaste, GitBranch, Anchor, Pencil, ChevronLeft, ChevronRight, ArrowLeftRight, AlertTriangle, Ruler, Palette, Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useWorkflowStore } from '@/lib/stores/workflowStore';
 import { useWorkspace } from '@/components/WorkspaceContext';
@@ -79,11 +79,7 @@ export default function Step3_DeconstructionReview({
     } = useWorkspace();
     const { nextStep } = useStepNavigator();
     const [mode, setMode] = useState<ReviewMode>('review');
-    // Theme Management
-    const [currentTheme, setCurrentTheme] = useState<'glacier' | 'midnight' | 'obsidian'>('glacier');
-    useEffect(() => {
-        document.documentElement.dataset.theme = currentTheme;
-    }, [currentTheme]);
+
 
     const [assets, setAssets] = useState<AssetItem[]>([]);
     const [round1Data, setRound1Data] = useState<Round1Data | string | null>(null);
@@ -155,6 +151,7 @@ export default function Step3_DeconstructionReview({
     const [categoryPromptSaving, setCategoryPromptSaving] = useState(false);
     const [newCharacterName, setNewCharacterName] = useState('');
     const [newCharacterDesc, setNewCharacterDesc] = useState('');
+    const [showAddCharacterModal, setShowAddCharacterModal] = useState(false);
     // Image preset library
     const [imagePresets, setImagePresets] = useState<ImagePreset[]>([]);
     const [imagePresetLoading, setImagePresetLoading] = useState(false);
@@ -3526,25 +3523,14 @@ export default function Step3_DeconstructionReview({
                                 </div>
                             </button>
                         ))}
-                        <div className="flex-1" />
-                        <button
-                            onClick={handleCopyPrompt}
-                            disabled={promptCopyStatus === 'loading'}
-                            className={`lg-btn lg-btn-sm ${promptCopyStatus === 'copied'
-                                    ? 'lg-badge-green'
-                                    : promptCopyStatus === 'error'
-                                        ? 'lg-badge-red'
-                                        : 'lg-btn-glass'}`}
-                        >
-                            {promptCopyStatus === 'copied' ? <Check size={14} /> : <Copy size={14} />}
-                            <span>{promptCopyStatus === 'loading' ? '加载中...' : promptCopyStatus === 'copied' ? '已复制' : '复制提示词'}</span>
-                        </button>
-                        <div className="flex items-center gap-2 text-sm text-[var(--lg-text-secondary)]">
-                            <span className="hidden md:inline">剧本文件</span>
+
+                        {/* 左侧：剧本文件选择 + 复制按钮 */}
+                        <div className="flex items-center gap-2">
                             <select
                                 value={selectedDeconstructionFile || 'deconstruction.json'}
                                 onChange={(e) => void switchDeconstructionFile(e.target.value)}
-                                className="lg-input py-2"
+                                className="lg-input text-sm h-9 px-3 py-0"
+                                style={{ minWidth: '200px' }}
                             >
                                 {deconstructionFiles.length === 0 && (
                                     <option value="deconstruction.json">deconstruction.json</option>
@@ -3553,56 +3539,75 @@ export default function Step3_DeconstructionReview({
                                     <option key={f} value={f}>{f}</option>
                                 ))}
                             </select>
-                        </div>
-                        <button
-                            onClick={() => setShowPresetModal(true)}
-                            className="lg-btn lg-btn-sm lg-btn-primary"
-                            type="button"
-                        >
-                            生图设定
-                        </button>
-                        <button
-                            onClick={() => setShowProviderModal(true)}
-                            className="lg-btn lg-btn-sm lg-btn-secondary"
-                            type="button"
-                        >
-                            <Settings size={14} />
-                            供应商
-                        </button>
-                        <button
-                            onClick={() => setShowVideoConfigModal(true)}
-                            className="lg-btn lg-btn-sm lg-btn-glass"
-                            style={{ borderColor: 'var(--lg-purple)', color: 'var(--lg-purple)' }}
-                            type="button"
-                        >
-                            <Video size={14} />
-                            视频
-                        </button>
-                        {!hideAnnotations && (
                             <button
-                                onClick={copyAllAnnotations}
-                                className={`lg-btn lg-btn-sm ${copyStatus === 'copied'
+                                onClick={handleCopyPrompt}
+                                disabled={promptCopyStatus === 'loading'}
+                                className={`lg-btn lg-btn-sm ${promptCopyStatus === 'copied'
+                                    ? 'lg-badge-green'
+                                    : promptCopyStatus === 'error'
+                                        ? 'lg-badge-red'
+                                        : 'lg-btn-glass'}`}
+                            >
+                                {promptCopyStatus === 'copied' ? <Check size={14} /> : <Copy size={14} />}
+                                <span>{promptCopyStatus === 'loading' ? '...' : promptCopyStatus === 'copied' ? '已复制' : '复制改写提示词'}</span>
+                            </button>
+                            {!hideAnnotations && (
+                                <button
+                                    onClick={copyAllAnnotations}
+                                    className={`lg-btn lg-btn-sm ${copyStatus === 'copied'
                                         ? 'lg-badge-green'
                                         : copyStatus === 'empty'
                                             ? 'lg-badge-orange'
                                             : copyStatus === 'error'
                                                 ? 'lg-badge-red'
-                                                : 'lg-badge-purple'}`}
-                            >
-                                {copyStatus === 'copied' ? <Check size={14} /> : <MessageSquare size={14} />}
-                                <span>{copyStatus === 'copied' ? '已复制' : copyStatus === 'empty' ? '无批注' : copyStatus === 'error' ? '失败' : '批注'}</span>
-                            </button>
-                        )}
-                        {/* Compare JSON Button - Only in review mode */}
-                        {mode === 'review' && !hideCompare && (
+                                                : 'lg-btn-glass'}`}
+                                >
+                                    <MessageSquare size={14} />
+                                    <span>{copyStatus === 'copied' ? '已复制' : '批注'}</span>
+                                </button>
+                            )}
+                            {/* Compare JSON Button - Only in review mode */}
+                            {mode === 'review' && !hideCompare && (
+                                <button
+                                    onClick={() => setShowComparePanel(!showComparePanel)}
+                                    className={`lg-btn lg-btn-sm ${compareData ? 'lg-badge-orange' : 'lg-btn-glass'}`}
+                                >
+                                    <ClipboardPaste size={14} />
+                                    <span>{compareData ? `对比(${diffMap.size})` : '对比'}</span>
+                                </button>
+                            )}
+                        </div>
+
+                        {/* 弹性空间 - 推动右侧配置组到右边 */}
+                        <div className="flex-1" />
+
+                        {/* 右侧配置组 - 统一样式 */}
+                        <div className="flex items-center gap-2">
                             <button
-                                onClick={() => setShowComparePanel(!showComparePanel)}
-                                className={`lg-btn lg-btn-sm ${compareData ? 'lg-badge-orange' : 'lg-btn-glass'}`}
+                                onClick={() => setShowPresetModal(true)}
+                                className="lg-btn lg-btn-sm lg-btn-glass"
+                                type="button"
                             >
-                                <ClipboardPaste size={14} />
-                                <span>{compareData ? `对比 (${diffMap.size})` : '对比'}</span>
+                                <Settings size={14} />
+                                生图设定
                             </button>
-                        )}
+                            <button
+                                onClick={() => setShowProviderModal(true)}
+                                className="lg-btn lg-btn-sm lg-btn-glass"
+                                type="button"
+                            >
+                                <Settings size={14} />
+                                生图供应商
+                            </button>
+                            <button
+                                onClick={() => setShowVideoConfigModal(true)}
+                                className="lg-btn lg-btn-sm lg-btn-glass"
+                                type="button"
+                            >
+                                <Video size={14} />
+                                视频供应商
+                            </button>
+                        </div>
                     </div>
 
                     {/* Compare Panel - Only visible when showComparePanel is true */}
@@ -3718,24 +3723,7 @@ export default function Step3_DeconstructionReview({
                             {Math.round((isGlobalMuted ? 0 : globalVolume) * 100)}%
                         </span>
                     </div>
-                    {/* Theme Switcher */}
-                    <div className="flex items-center gap-3 p-3 lg-card-inset">
-                        <span className="text-xs font-semibold text-[var(--lg-text-tertiary)] uppercase tracking-wider">Theme</span>
-                        <div className="flex bg-[var(--lg-bg-tertiary)] p-0.5 rounded-lg">
-                            {(['glacier', 'midnight', 'obsidian'] as const).map(theme => (
-                                <button
-                                    key={theme}
-                                    onClick={() => setCurrentTheme(theme)}
-                                    className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${currentTheme === theme
-                                        ? 'bg-[var(--lg-bg-elevated)] text-[var(--lg-text-primary)] shadow-sm'
-                                        : 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)]'
-                                        }`}
-                                >
-                                    {theme.charAt(0).toUpperCase() + theme.slice(1)}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+
                 </div>
 
                 <div className="mx-auto px-8 py-6 space-y-8 relative">
@@ -4122,43 +4110,6 @@ export default function Step3_DeconstructionReview({
                                 </div>
                                 <div className="h-px bg-slate-200 mx-2" />
 
-                                {/* Add Character */}
-                                {canEdit && (
-                                    <div className="lg-card-compact p-5 border border-dashed border-slate-300/50">
-                                        <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
-                                            <div className="flex-1 flex flex-col gap-3 w-full">
-                                                <div className="flex flex-col gap-1.5">
-                                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">角色名称</label>
-                                                    <input
-                                                        value={newCharacterName}
-                                                        onChange={(e) => setNewCharacterName(e.target.value)}
-                                                        placeholder="如：格子衬衫男主"
-                                                        className="apple-input bg-white text-sm"
-                                                    />
-                                                </div>
-                                                <div className="flex flex-col gap-1.5">
-                                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">角色描述</label>
-                                                    <AutoTextArea
-                                                        value={newCharacterDesc}
-                                                        onChange={(e) => setNewCharacterDesc(e.target.value)}
-                                                        minRows={2}
-                                                        maxRows={6}
-                                                        placeholder="外观、妆造、性格、标志物..."
-                                                        className="w-full px-4 py-3 rounded-lg border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none transition-all"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <button
-                                                onClick={handleAddCharacter}
-                                                className="whitespace-nowrap px-6 py-3 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                                                disabled={!newCharacterName.trim()}
-                                            >
-                                                添加角色
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-
                                 {/* Enhanced Character Grid */}
                                 {round2Data?.characters && Object.keys(round2Data.characters).length > 0 ? (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -4291,10 +4242,34 @@ export default function Step3_DeconstructionReview({
                                                 </div>
                                             );
                                         })}
+
+                                        {/* 添加角色卡片 */}
+                                        {canEdit && (
+                                            <button
+                                                onClick={() => setShowAddCharacterModal(true)}
+                                                className="group relative overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-white/30 backdrop-blur-sm transition-all duration-300 hover:border-[var(--lg-blue)] hover:bg-white/50 hover:shadow-lg min-h-[200px] flex items-center justify-center"
+                                            >
+                                                <div className="flex flex-col items-center gap-3 text-slate-400 group-hover:text-[var(--lg-blue)] transition-colors">
+                                                    <div className="w-12 h-12 rounded-full bg-slate-100 group-hover:bg-[var(--lg-blue)]/10 flex items-center justify-center transition-colors">
+                                                        <Plus size={24} />
+                                                    </div>
+                                                    <span className="text-sm font-medium">添加角色</span>
+                                                </div>
+                                            </button>
+                                        )}
                                     </div>
                                 ) : (
-                                    <div className="lg-card-inset p-5 border border-dashed border-slate-200/50 text-sm text-slate-500">
-                                        暂无角色，请添加角色信息。
+                                    <div className="lg-card-inset p-5 border border-dashed border-slate-200/50 text-sm text-slate-500 flex flex-col items-center gap-4">
+                                        <span>暂无角色，请添加角色信息。</span>
+                                        {canEdit && (
+                                            <button
+                                                onClick={() => setShowAddCharacterModal(true)}
+                                                className="lg-btn lg-btn-sm lg-btn-primary"
+                                            >
+                                                <Plus size={14} />
+                                                添加角色
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -4303,14 +4278,14 @@ export default function Step3_DeconstructionReview({
                         {/* Shot List - Apple Glass Style */}
                         {/* 全局素材流切换按钮 + 导出按钮 */}
                         {typeof round2Data !== 'string' && round2Data?.shots && round2Data.shots.length > 0 && (
-                            <div className="flex items-center justify-end gap-3 mb-4">
-                                {/* 三选一切换按钮组：线稿/图片/视频 */}
-                                <div className="flex items-center gap-1 p-1 rounded-xl bg-white/70 border border-slate-200/50">
+                            <div className="flex items-center justify-end gap-4 mb-4">
+                                {/* 素材流切换 - 使用统一的玻璃容器 + 蓝色选中态 */}
+                                <div className="flex items-center gap-1 p-1 lg-card-inset">
                                     <button
                                         onClick={() => setDefaultStream('outline')}
                                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${defaultStream === 'outline'
-                                            ? 'bg-[#6B7280] text-white shadow-sm'
-                                            : 'text-slate-500 hover:text-[#6B7280] hover:bg-[#6B7280]/10'
+                                            ? 'bg-[var(--lg-blue)] text-white shadow-sm'
+                                            : 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)] hover:bg-white/50'
                                             }`}
                                     >
                                         <Pencil size={14} />
@@ -4319,8 +4294,8 @@ export default function Step3_DeconstructionReview({
                                     <button
                                         onClick={() => setDefaultStream('image')}
                                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${defaultStream === 'image'
-                                            ? 'bg-[#6366F1] text-white shadow-sm'
-                                            : 'text-slate-500 hover:text-[#6366F1] hover:bg-[#6366F1]/10'
+                                            ? 'bg-[var(--lg-blue)] text-white shadow-sm'
+                                            : 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)] hover:bg-white/50'
                                             }`}
                                     >
                                         <ImageIcon size={14} />
@@ -4329,42 +4304,48 @@ export default function Step3_DeconstructionReview({
                                     <button
                                         onClick={() => setDefaultStream('video')}
                                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${defaultStream === 'video'
-                                            ? 'bg-[#EC4899] text-white shadow-sm'
-                                            : 'text-slate-500 hover:text-[#EC4899] hover:bg-[#EC4899]/10'
+                                            ? 'bg-[var(--lg-blue)] text-white shadow-sm'
+                                            : 'text-[var(--lg-text-secondary)] hover:text-[var(--lg-text-primary)] hover:bg-white/50'
                                             }`}
                                     >
                                         <Video size={14} />
                                         视频
                                     </button>
                                 </div>
-                                {/* 批量生成线稿按钮 */}
+
+                                {/* 分隔线 */}
+                                <div className="w-px h-6 bg-[var(--lg-glass-border)]" />
+
+                                {/* 批量操作组 - 使用玻璃样式 */}
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={handleBatchGenerateOutlines}
                                         disabled={batchGeneratingOutlines}
-                                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 active:scale-95 bg-gradient-to-r from-[#6B7280] to-[#5B6370] text-white shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="lg-btn lg-btn-sm lg-btn-glass disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        {batchGeneratingOutlines ? <Loader2 size={16} className="animate-spin" /> : <Pencil size={16} />}
+                                        {batchGeneratingOutlines ? <Loader2 size={14} className="animate-spin" /> : <Pencil size={14} />}
                                         {batchGeneratingOutlines ? '生成中...' : '批量生成线稿'}
                                     </button>
                                     {(batchGeneratingOutlines || outlineProgress.total > 0) && (
-                                        <span className="text-sm text-slate-500">
+                                        <span className="lg-caption text-[var(--lg-text-tertiary)]">
                                             {outlineProgress.completed}/{outlineProgress.total}
                                             {outlineProgress.completed === outlineProgress.total && outlineProgress.total > 0 && ' ✓'}
                                         </span>
                                     )}
                                 </div>
+
+                                {/* 导出按钮 - 主操作用蓝色 */}
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={handleExportVideos}
                                         disabled={exporting || Object.keys(savedVideoFilenames).length === 0}
-                                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 active:scale-95 bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="lg-btn lg-btn-sm lg-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        {exporting ? <Loader2 size={16} className="animate-spin" /> : <FolderOutput size={16} />}
+                                        {exporting ? <Loader2 size={14} className="animate-spin" /> : <FolderOutput size={14} />}
                                         {exporting ? '导出中...' : '导出选中视频'}
                                     </button>
-                                    <span className="text-sm text-slate-500">
-                                        已选中 <span className="font-semibold text-emerald-600">{Object.keys(savedVideoFilenames).length}</span>
+                                    <span className="lg-caption text-[var(--lg-text-tertiary)]">
+                                        已选中 <span className="font-semibold text-[var(--lg-blue)]">{Object.keys(savedVideoFilenames).length}</span>
                                         /{round2Data.shots.filter(s => !s.discarded).length}
                                     </span>
                                 </div>
@@ -4952,10 +4933,80 @@ export default function Step3_DeconstructionReview({
                     </div>
                 </div>
             )}
+
+            {/* 添加角色弹窗 */}
+            {showAddCharacterModal && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-black/40 backdrop-blur-md">
+                    <div className="w-full max-w-lg lg-card lg-card-strong rounded-3xl shadow-2xl overflow-hidden lg-animate-scale-in">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--lg-glass-border)]">
+                            <div>
+                                <h3 className="lg-title-3 text-[var(--lg-text-primary)]">添加新角色</h3>
+                                <p className="lg-footnote text-[var(--lg-text-secondary)]">创建一个新的角色描述</p>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setShowAddCharacterModal(false);
+                                    setNewCharacterName('');
+                                    setNewCharacterDesc('');
+                                }}
+                                className="lg-btn lg-btn-glass p-2 rounded-full"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-semibold text-[var(--lg-text-primary)]">角色名称</label>
+                                <input
+                                    value={newCharacterName}
+                                    onChange={(e) => setNewCharacterName(e.target.value)}
+                                    placeholder="如：格子衬衫男主"
+                                    className="lg-input"
+                                    autoFocus
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-semibold text-[var(--lg-text-primary)]">角色描述</label>
+                                <AutoTextArea
+                                    value={newCharacterDesc}
+                                    onChange={(e) => setNewCharacterDesc(e.target.value)}
+                                    minRows={3}
+                                    maxRows={8}
+                                    placeholder="外观、妆造、性格、标志物..."
+                                    className="lg-input resize-none"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 px-6 py-4 border-t border-[var(--lg-glass-border)]">
+                            <button
+                                onClick={() => {
+                                    setShowAddCharacterModal(false);
+                                    setNewCharacterName('');
+                                    setNewCharacterDesc('');
+                                }}
+                                className="lg-btn lg-btn-sm lg-btn-glass"
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={() => {
+                                    handleAddCharacter();
+                                    setShowAddCharacterModal(false);
+                                }}
+                                disabled={!newCharacterName.trim()}
+                                className="lg-btn lg-btn-sm lg-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <Plus size={14} />
+                                添加角色
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {showPresetModal && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-black/40 backdrop-blur-md">
-                    <div className="w-full max-w-5xl lg-card lg-card-strong rounded-3xl shadow-2xl overflow-hidden lg-animate-scale-in">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--lg-glass-border)]">
+                    <div className="w-full max-w-5xl lg-card lg-card-strong rounded-3xl shadow-2xl overflow-hidden lg-animate-scale-in flex flex-col" style={{ maxHeight: 'calc(100vh - 48px)' }}>
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--lg-glass-border)] flex-shrink-0">
                             <div>
                                 <h3 className="lg-title-3 text-[var(--lg-text-primary)]">生图设定库（全局复用）</h3>
                                 <p className="lg-footnote text-[var(--lg-text-secondary)]">选择一条设定即可应用，或新增设定</p>
@@ -4970,7 +5021,7 @@ export default function Step3_DeconstructionReview({
                                 </button>
                             </div>
                         </div>
-                        <div className="p-6 space-y-4">
+                        <div className="p-6 space-y-4 overflow-y-auto flex-1">
                             {imagePresetError && (
                                 <div className="text-xs text-amber-500 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                                     {imagePresetError}
