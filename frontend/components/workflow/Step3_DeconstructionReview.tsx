@@ -4,6 +4,7 @@ import '@/styles/liquid-glass.css';
 import { RefreshCw, Volume2, VolumeX, AlertCircle, Trash2, X, Zap, Users, Box, Layout, Film, ArrowRight, Check, Copy, MessageSquare, ClipboardPaste, GitBranch, Anchor, Pencil, ChevronLeft, ChevronRight, ArrowLeftRight, AlertTriangle, Ruler, Palette, Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useWorkflowStore } from '@/lib/stores/workflowStore';
+import { useSelectionStore } from '@/lib/stores/selectionStore';
 import { useWorkspace } from '@/components/WorkspaceContext';
 import { parseRound1, parseRound2, parseStoredDeconstruction } from '@/lib/services/deconstruction';
 import { useStepNavigator } from '@/lib/hooks/useStepNavigator';
@@ -78,6 +79,10 @@ export default function Step3_DeconstructionReview({
         switchDeconstructionFile,
     } = useWorkspace();
     const { nextStep } = useStepNavigator();
+    
+    // Selection store (Zustand with localStorage persistence)
+    const selectionStore = useSelectionStore();
+    
     const [mode, setMode] = useState<ReviewMode>('review');
 
 
@@ -1087,13 +1092,9 @@ export default function Step3_DeconstructionReview({
         setShotProviders((prev) => ({ ...prev, [shotId]: providerId }));
     };
 
-    // 保存视频选择到后端（传入最新的索引数组，避免闭包问题）
+    // 保存视频选择到后端（使用 Zustand store）
     const saveVideoSelectionsToBackend = (shotId: number, latestIndexes: number[]) => {
         if (!currentWorkspace?.path || !generatedDir) return;
-        if (!savedVideoIndexesLoaded) {
-            console.warn('视频选择数据尚未加载完成，跳过保存以避免数据丢失');
-            return;
-        }
 
         const videos = generatedVideos[shotId] || [];
 
@@ -1102,22 +1103,12 @@ export default function Step3_DeconstructionReview({
             .filter(i => i >= 0 && i < videos.length)
             .map(i => videos[i].split('/').pop() || '');
 
-        // 获取已保存的文件名映射
-        const savedFilenames = (window as unknown as Record<string, unknown>).__savedVideoFilenames as Record<string, string[]> || {};
-
-        // 合并：保留原有选择 + 添加/更新当前选择
-        const allSelections: Record<string, string[]> = { ...savedFilenames };
-        const shotKey = Number.isInteger(shotId) ? shotId.toFixed(1) : String(shotId);
-        allSelections[shotKey] = filenames;
-
-        // 同步更新 window 临时变量
+        // 使用 Zustand store 保存（自动同步到 localStorage 和后端）
+        selectionStore.setVideoSelection(currentWorkspace.path, generatedDir, shotId, filenames);
+        
+        // 同时更新 window 变量（向后兼容）
+        const allSelections = selectionStore.getVideoSelections(currentWorkspace.path, generatedDir);
         (window as unknown as Record<string, unknown>).__savedVideoFilenames = allSelections;
-
-        fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-videos`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ generated_dir: generatedDir, indexes: allSelections }),
-        }).catch(() => { /* ignore */ });
     };
 
     // 选择/取消选择视频（点击视频缩略图时调用，toggle 逻辑），保存文件名数组到后端
@@ -1149,7 +1140,7 @@ export default function Step3_DeconstructionReview({
         });
     };
 
-    // 选择图片（点击「选择此图」按钮时调用），保存文件名到后端
+    // 选择图片（点击「选择此图」按钮时调用），使用 Zustand store 保存
     const handleSelectImageIndex = (shot: Round2Shot, idx: number, targetIndex: number) => {
         const shotId = shot.id ?? idx + 1;
         let list = generatedImages[shotId] || [];
@@ -1161,36 +1152,19 @@ export default function Step3_DeconstructionReview({
         const bounded = Math.min(Math.max(0, targetIndex), list.length - 1);
         setGeneratedIndexes((prev) => ({ ...prev, [shotId]: bounded }));
 
-        // 提取文件名并保存到后端（使用文件名更稳定）
+        // 提取文件名并保存（使用 Zustand store）
         const imageUrl = list[bounded];
         const filename = imageUrl?.split('/').pop() || '';
         if (filename && currentWorkspace?.path && generatedDir) {
-            // 安全检查：确保已保存的图片数据已加载完成，避免覆盖
-            if (!savedIndexesLoaded) {
-                console.warn('图片选择数据尚未加载完成，跳过保存以避免数据丢失');
-                return;
-            }
+            // 更新本地状态
+            setSavedIndexes((prev) => ({ ...prev, [shotId]: bounded }));
 
-            setSavedIndexes((prev) => ({ ...prev, [shotId]: bounded })); // 同时更新本地状态
-
-            // 【关键修复】直接从 window 临时变量获取已保存的文件名，避免数据丢失
-            // 不再从 savedIndexesRef 重新构建，因为那样在数据未加载完时会导致覆盖
-            const savedFilenames = (window as unknown as Record<string, unknown>).__savedImageFilenames as Record<string, string> || {};
-
-            // 合并：保留原有选择 + 添加/更新当前选择
-            // 统一使用 x.0 格式的 key（如 "1.0", "2.0"）
-            const allSelections: Record<string, string> = { ...savedFilenames };
-            const shotKey = Number.isInteger(shotId) ? shotId.toFixed(1) : String(shotId);
-            allSelections[shotKey] = filename;
-
-            // 同步更新 window 临时变量
+            // 使用 Zustand store 保存（自动同步到 localStorage 和后端）
+            selectionStore.setImageSelection(currentWorkspace.path, generatedDir, shotId, filename);
+            
+            // 同时更新 window 变量（向后兼容）
+            const allSelections = selectionStore.getImageSelections(currentWorkspace.path, generatedDir);
             (window as unknown as Record<string, unknown>).__savedImageFilenames = allSelections;
-
-            fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-images`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ generated_dir: generatedDir, indexes: allSelections }),
-            }).catch(() => { /* ignore */ });
         }
     };
 
@@ -2656,53 +2630,55 @@ export default function Step3_DeconstructionReview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pendingVideoKey]);
 
-    // 拉取已保存的选中图片（支持新格式文件名和旧格式索引）
+    // 拉取已保存的选中图片（使用 Zustand store）
     useEffect(() => {
         if (!currentWorkspace?.path || !generatedDir) {
             setSavedIndexes({});
-            setSavedIndexesLoaded(true); // 无需加载，直接标记完成
+            setSavedIndexesLoaded(true);
             return;
         }
-        fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-images?generated_dir=${encodeURIComponent(generatedDir)}`)
-            .then(resp => resp.ok ? resp.json() : { indexes: {} })
-            .then((data: { indexes?: Record<string, string | number> }) => {
-                const mapped: Record<number, number> = {};
-                if (data.indexes) {
-                    Object.entries(data.indexes).forEach(([k, v]) => {
-                        const shotId = Number(k);
-                        if (typeof v === 'number') {
-                            // 旧格式：直接是索引
-                            mapped[shotId] = v;
-                        } else if (typeof v === 'string') {
-                            // 新格式：文件名，需要等 generatedImages 加载后再匹配
-                            // 这里先存 -1 表示需要通过文件名匹配
-                            // 实际匹配在下面的 useEffect 中进行
-                            mapped[shotId] = -1;
-                        }
-                    });
+        
+        // 1. 立即从 localStorage 缓存恢复（通过 store）
+        const cachedSelections = selectionStore.getImageSelections(currentWorkspace.path, generatedDir);
+        if (Object.keys(cachedSelections).length > 0) {
+            const mapped: Record<number, number> = {};
+            Object.entries(cachedSelections).forEach(([k, v]) => {
+                const shotId = Number(k);
+                if (typeof v === 'string') {
+                    mapped[shotId] = -1; // 文件名，需要后续匹配
                 }
-                setSavedIndexes(mapped);
-                // 【关键】将文件名映射存储到 React 状态（可靠）
-                const filenames = data.indexes || {};
-                setSavedImageFilenames(filenames);
-                // 同时更新 window 变量（向后兼容 appendNewImages 等）
-                (window as unknown as Record<string, unknown>).__savedImageFilenames = filenames;
-                setSavedIndexesLoaded(true); // 标记加载完成
-            })
-            .catch(() => {
-                setSavedIndexes({});
-                // 【重要】网络失败时不设置 savedIndexesLoaded，阻止保存操作
-                // 这样可以避免覆盖服务器上的数据
-                console.error('加载图片选择数据失败，保存功能已禁用');
             });
-    }, [currentWorkspace?.path, generatedDir]);
+            setSavedIndexes(mapped);
+            setSavedImageFilenames(cachedSelections as Record<string, string | number>);
+            (window as unknown as Record<string, unknown>).__savedImageFilenames = cachedSelections;
+            setSavedIndexesLoaded(true);
+        }
+        
+        // 2. 从后端加载最新数据
+        selectionStore.loadFromBackend(currentWorkspace.path, generatedDir, 'images')
+            .then(() => {
+                // 后端数据已合并到 store，同步到本地状态
+                const selections = selectionStore.getImageSelections(currentWorkspace.path, generatedDir);
+                const mapped: Record<number, number> = {};
+                Object.entries(selections).forEach(([k, v]) => {
+                    const shotId = Number(k);
+                    if (typeof v === 'string') {
+                        mapped[shotId] = -1;
+                    }
+                });
+                setSavedIndexes(mapped);
+                setSavedImageFilenames(selections as Record<string, string | number>);
+                (window as unknown as Record<string, unknown>).__savedImageFilenames = selections;
+                setSavedIndexesLoaded(true);
+            });
+    }, [currentWorkspace?.path, generatedDir, selectionStore]);
 
     // 保持 ref 最新
     useEffect(() => {
         savedIndexesRef.current = savedIndexes;
     }, [savedIndexes]);
 
-    // 拉取已保存的选中视频文件名（支持多选：文件名数组）
+    // 拉取已保存的选中视频文件名（使用 Zustand store）
     const [savedVideoFilenames, setSavedVideoFilenames] = useState<Record<number, string[]>>({});
     useEffect(() => {
         if (!currentWorkspace?.path || !generatedDir) {
@@ -2711,35 +2687,33 @@ export default function Step3_DeconstructionReview({
             setSavedVideoIndexesLoaded(true);
             return;
         }
-        fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(currentWorkspace.path)}/selected-videos?generated_dir=${encodeURIComponent(generatedDir)}`)
-            .then(resp => resp.ok ? resp.json() : { indexes: {} })
-            .then((data: { indexes?: Record<string, string | string[] | number> }) => {
-                const mapped: Record<number, string[]> = {};
-                if (data.indexes) {
-                    Object.entries(data.indexes).forEach(([k, v]) => {
-                        // 兼容多种格式：数组、单个字符串、数字索引
-                        if (Array.isArray(v)) {
-                            mapped[Number(k)] = v.map(String);
-                        } else if (typeof v === 'string') {
-                            mapped[Number(k)] = [v];
-                        } else if (typeof v === 'number') {
-                            mapped[Number(k)] = [String(v)];
-                        }
-                    });
-                }
-                setSavedVideoFilenames(mapped);
-                // 同步到 window 临时变量
-                (window as unknown as Record<string, unknown>).__savedVideoFilenames = data.indexes || {};
-                setSavedVideoIndexesLoaded(true);
-            })
-            .catch(() => {
-                setSavedVideoFilenames({});
-                setSavedVideoIndexes({});
-                // 【重要】网络失败时不设置 savedVideoIndexesLoaded，阻止保存操作
-                // 这样可以避免覆盖服务器上的数据
-                console.error('加载视频选择数据失败，保存功能已禁用');
+        
+        // 1. 立即从 localStorage 缓存恢复（通过 store）
+        const cachedSelections = selectionStore.getVideoSelections(currentWorkspace.path, generatedDir);
+        if (Object.keys(cachedSelections).length > 0) {
+            const mapped: Record<number, string[]> = {};
+            Object.entries(cachedSelections).forEach(([k, v]) => {
+                mapped[Number(k)] = Array.isArray(v) ? v : [v];
             });
-    }, [currentWorkspace?.path, generatedDir]);
+            setSavedVideoFilenames(mapped);
+            (window as unknown as Record<string, unknown>).__savedVideoFilenames = cachedSelections;
+            setSavedVideoIndexesLoaded(true);
+        }
+        
+        // 2. 从后端加载最新数据
+        selectionStore.loadFromBackend(currentWorkspace.path, generatedDir, 'videos')
+            .then(() => {
+                // 后端数据已合并到 store，同步到本地状态
+                const selections = selectionStore.getVideoSelections(currentWorkspace.path, generatedDir);
+                const mapped: Record<number, string[]> = {};
+                Object.entries(selections).forEach(([k, v]) => {
+                    mapped[Number(k)] = Array.isArray(v) ? v : [v];
+                });
+                setSavedVideoFilenames(mapped);
+                (window as unknown as Record<string, unknown>).__savedVideoFilenames = selections;
+                setSavedVideoIndexesLoaded(true);
+            });
+    }, [currentWorkspace?.path, generatedDir, selectionStore]);
 
     // 当保存的视频文件名加载完成后，通过文件名匹配到索引并应用到对应镜头（多选）
     useEffect(() => {
