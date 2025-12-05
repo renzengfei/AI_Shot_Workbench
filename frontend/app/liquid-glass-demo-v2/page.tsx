@@ -566,28 +566,27 @@ export default function LiquidGlassDesignSystem() {
                 .page-btn.active { background: #007AFF; color: #fff; }
             `}</style>
 
+            {/* 背景层 - 独立于主容器，不会被遮挡 */}
+            <div style={{ 
+                position: 'fixed', 
+                inset: 0, 
+                background: `
+                    radial-gradient(ellipse 140% 70% at 50% -5%, rgba(140,170,220,0.5) 0%, rgba(160,185,230,0.2) 35%, transparent 55%),
+                    radial-gradient(ellipse 120% 60% at -10% 40%, rgba(170,195,235,0.4) 0%, transparent 45%),
+                    radial-gradient(ellipse 100% 70% at 110% 70%, rgba(240,200,175,0.45) 0%, rgba(235,195,170,0.2) 35%, transparent 50%),
+                    radial-gradient(ellipse 80% 50% at 30% 90%, rgba(200,180,220,0.25) 0%, transparent 40%),
+                    linear-gradient(165deg, #F8FAFF 0%, #F5F5F7 40%, #FBF8F5 100%)
+                `,
+                pointerEvents: 'none',
+                zIndex: 0
+            }} />
+
             <div style={{
                 minHeight: '100vh',
-                background: 'var(--bg-primary)',
                 color: 'var(--text-primary)',
                 position: 'relative',
-                overflow: 'hidden',
-                transition: 'background 0.3s, color 0.3s',
+                zIndex: 1,
             }}>
-                {/* 背景 - 增强渐变，凸显玻璃透视效果 */}
-                <div style={{ 
-                    position: 'fixed', 
-                    inset: 0, 
-                    background: `
-                        radial-gradient(ellipse 140% 70% at 50% -5%, rgba(140,170,220,0.5) 0%, rgba(160,185,230,0.2) 35%, transparent 55%),
-                        radial-gradient(ellipse 120% 60% at -10% 40%, rgba(170,195,235,0.4) 0%, transparent 45%),
-                        radial-gradient(ellipse 100% 70% at 110% 70%, rgba(240,200,175,0.45) 0%, rgba(235,195,170,0.2) 35%, transparent 50%),
-                        radial-gradient(ellipse 80% 50% at 30% 90%, rgba(200,180,220,0.25) 0%, transparent 40%),
-                        linear-gradient(165deg, #F8FAFF 0%, #F5F5F7 40%, #FBF8F5 100%)
-                    `,
-                    pointerEvents: 'none',
-                    zIndex: -1
-                }} />
 
                 {/* 顶部导航 */}
                 <nav className="glass-card" style={{ 
