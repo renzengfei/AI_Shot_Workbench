@@ -174,11 +174,11 @@ export const useSelectionStore = create<SelectionState>()(
         try {
           let endpoint = '';
           if (type === 'images') {
-            endpoint = `/api/workspaces/${encodeURIComponent(workspacePath)}/selected-images?generated_dir=${encodeURIComponent(generatedDir)}`;
+            endpoint = `/workspaces/${encodeURIComponent(workspacePath)}/selected-images?generated_dir=${encodeURIComponent(generatedDir)}`;
           } else if (type === 'videos') {
-            endpoint = `/api/workspaces/${encodeURIComponent(workspacePath)}/selected-videos?generated_dir=${encodeURIComponent(generatedDir)}`;
+            endpoint = `/workspaces/${encodeURIComponent(workspacePath)}/selected-videos?generated_dir=${encodeURIComponent(generatedDir)}`;
           } else if (type === 'outlines') {
-            endpoint = `/api/workspaces/${encodeURIComponent(workspacePath)}/selected-outlines?generated_dir=${encodeURIComponent(generatedDir)}`;
+            endpoint = `/workspaces/${encodeURIComponent(workspacePath)}/selected-outlines?generated_dir=${encodeURIComponent(generatedDir)}`;
           }
           
           const resp = await fetch(`${API_BASE}${endpoint}`);
@@ -247,13 +247,13 @@ export const useSelectionStore = create<SelectionState>()(
           let body: Record<string, unknown> = { generated_dir: generatedDir };
           
           if (type === 'images') {
-            endpoint = `/api/workspaces/${encodeURIComponent(workspacePath)}/selected-images`;
+            endpoint = `/workspaces/${encodeURIComponent(workspacePath)}/selected-images`;
             body.indexes = get().imageSelections[key] || {};
           } else if (type === 'videos') {
-            endpoint = `/api/workspaces/${encodeURIComponent(workspacePath)}/selected-videos`;
+            endpoint = `/workspaces/${encodeURIComponent(workspacePath)}/selected-videos`;
             body.indexes = get().videoSelections[key] || {};
           } else if (type === 'outlines') {
-            endpoint = `/api/workspaces/${encodeURIComponent(workspacePath)}/selected-outlines`;
+            endpoint = `/workspaces/${encodeURIComponent(workspacePath)}/selected-outlines`;
             body.urls = get().outlineSelections[key] || {};
           }
           
