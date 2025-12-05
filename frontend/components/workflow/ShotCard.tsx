@@ -976,8 +976,8 @@ export const ShotCard = ({
                         <div className="flex-1 min-w-0 overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
                             <div className="flex flex-nowrap items-start gap-6 pb-4" style={{ minWidth: 'max-content' }}>
 
-                                {/* 1.5 选中线稿图 - 仅在线稿模式下显示 */}
-                                {showGeneration && effectiveOutlineMode && (
+                                {/* 1.5 选中线稿图 - 始终显示 */}
+                                {showGeneration && (
                                     <div className={`${mediaCardBase} ${shot.finalizedOutline ? 'ring-2 ring-zinc-400/30 !duration-100' : ''}`}>
                                         <div className={mediaTitleClass}>选中线稿图</div>
                                         <div className={`${mediaBaseClass} border border-[#6B7280]/30 shadow-sm flex items-center justify-center`}>
