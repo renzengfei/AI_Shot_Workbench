@@ -2691,6 +2691,8 @@ export default function Step3_DeconstructionReview({
             })
             .catch(() => {
                 setSavedIndexes({});
+                // 初始化 window 变量为空对象，避免后续保存时读取到 undefined
+                (window as unknown as Record<string, unknown>).__savedImageFilenames = {};
                 setSavedIndexesLoaded(true); // 即使失败也标记完成
             });
     }, [currentWorkspace?.path, generatedDir]);
