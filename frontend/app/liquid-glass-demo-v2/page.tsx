@@ -206,9 +206,10 @@ export default function LiquidGlassDesignSystem() {
                 .glass-card:hover {
                     transform: translateY(-2px);
                     box-shadow: 
-                        inset 1px 1px 0 0 var(--glass-shadow-inset),
-                        inset -1px -1px 0 0 rgba(255, 255, 255, 0.1),
-                        0 8px 40px rgba(0, 0, 0, 0.12);
+                        inset 0 1px 1px 0 rgba(255, 255, 255, 0.9),
+                        inset 0 -1px 1px 0 rgba(0, 0, 0, 0.05),
+                        0 8px 40px rgba(0, 0, 0, 0.1),
+                        0 2px 8px rgba(0, 0, 0, 0.06);
                 }
                 
                 /* 渐变文字 - 柔和的双色渐变 */
@@ -234,19 +235,43 @@ export default function LiquidGlassDesignSystem() {
                     -webkit-text-fill-color: transparent; 
                 }
 
-                /* Liquid Glass 容器 */
+                /* Liquid Glass 容器 - 增强材质质感 */
                 .glass-card {
                     position: relative;
                     overflow: hidden;
-                    border-radius: 20px;
-                    background: rgba(255, 255, 255, 0.25);
-                    backdrop-filter: blur(20px) saturate(180%);
-                    -webkit-backdrop-filter: blur(20px) saturate(180%);
-                    border: 1px solid rgba(255, 255, 255, 0.3);
+                    border-radius: 24px;
+                    /* 多层渐变背景模拟玻璃内部光线折射 */
+                    background: 
+                        linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.1) 100%),
+                        rgba(255, 255, 255, 0.2);
+                    backdrop-filter: blur(40px) saturate(200%);
+                    -webkit-backdrop-filter: blur(40px) saturate(200%);
+                    /* 双层边框模拟玻璃厚度 */
+                    border: 1px solid rgba(255, 255, 255, 0.5);
+                    /* 多层阴影创造深度和立体感 */
                     box-shadow: 
-                        inset 1px 1px 0 0 rgba(255, 255, 255, 0.5),
-                        inset -1px -1px 0 0 rgba(255, 255, 255, 0.15),
-                        0 4px 24px rgba(0, 0, 0, 0.08);
+                        /* 内部顶部高光 */
+                        inset 0 1px 1px 0 rgba(255, 255, 255, 0.8),
+                        /* 内部底部暗边 */
+                        inset 0 -1px 1px 0 rgba(0, 0, 0, 0.05),
+                        /* 外部投影 */
+                        0 4px 32px rgba(0, 0, 0, 0.06),
+                        0 1px 4px rgba(0, 0, 0, 0.04);
+                }
+                /* 玻璃顶部高光条 */
+                .glass-card::before {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    left: 20px;
+                    right: 20px;
+                    height: 1px;
+                    background: linear-gradient(90deg, 
+                        transparent 0%, 
+                        rgba(255,255,255,0.8) 20%, 
+                        rgba(255,255,255,0.9) 50%, 
+                        rgba(255,255,255,0.8) 80%, 
+                        transparent 100%);
                 }
 
                 /* 章节标题 */
@@ -587,10 +612,14 @@ export default function LiquidGlassDesignSystem() {
                 overflow: 'hidden',
                 transition: 'background 0.3s, color 0.3s',
             }}>
-                {/* 底层模糊图案 - 柔和但有色彩，体现液态玻璃透明感 */}
-                <div className="blur-orb" style={{ position: 'fixed', top: '-200px', right: '-100px', width: '700px', height: '700px', borderRadius: '50%', background: 'linear-gradient(135deg, #C7A4FF, #A8C5FF)', filter: 'blur(100px)', opacity: 0.35, pointerEvents: 'none' }} />
-                <div className="blur-orb" style={{ position: 'fixed', bottom: '-200px', left: '-100px', width: '600px', height: '600px', borderRadius: '50%', background: 'linear-gradient(135deg, #A8E6CF, #88D8C0)', filter: 'blur(100px)', opacity: 0.3, pointerEvents: 'none' }} />
-                <div className="blur-orb" style={{ position: 'fixed', top: '50%', left: '30%', width: '500px', height: '500px', borderRadius: '50%', background: 'linear-gradient(135deg, #FFB8C6, #FFC8A8)', filter: 'blur(100px)', opacity: 0.25, pointerEvents: 'none' }} />
+                {/* 底层微妙渐变 - 不依赖色球，用整体渐变提供层次 */}
+                <div style={{ 
+                    position: 'fixed', 
+                    inset: 0, 
+                    background: 'linear-gradient(135deg, rgba(245,245,247,1) 0%, rgba(250,250,252,1) 50%, rgba(245,245,247,1) 100%)',
+                    pointerEvents: 'none',
+                    zIndex: -1
+                }} />
 
                 {/* 顶部导航 */}
                 <nav className="glass-card" style={{ 
